@@ -1,0 +1,33 @@
+{
+  "primitives": {
+    "io.copy": {
+      "description": "Copie un flux de données.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin de destination."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["binary", "text"],
+            "default": "binary",
+            "description": "Mode de copie: text ou binary."
+          },
+          "conflict": {
+            "type": "string",
+            "enum": ["overwrite", "skip", "newer"],
+            "default": "overwrite",
+            "description": "Mode de résolution si le fichier de destination existe."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    }
+  }
+}

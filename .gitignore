@@ -1,0 +1,10 @@
+# Ignorer les fichiers d'environnement locaux et les secrets
+.env
+.env.test
+etl_vault.png
+etl_vault.json
+/rust_muscle/target/
+__pycache__/
+*.exe
+*.log
+*.txt

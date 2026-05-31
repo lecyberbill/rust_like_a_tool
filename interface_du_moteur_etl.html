@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>WFGY Workbench</title>
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --panel: rgba(17, 24, 39, 0.7);
+            --accent: #4a90e2;
+            --accent-glow: rgba(74, 144, 226, 0.4);
+            --text: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: rgba(255, 255, 255, 0.08);
+            
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.3);
+            --error: #ef4444;
+            --error-glow: rgba(239, 68, 68, 0.3);
+            --running: #f59e0b;
+            --running-glow: rgba(245, 158, 11, 0.3);
+            --pending: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* Header (Zone A: Intent Bar) */
+        #intent-bar {
+            padding: 16px 24px;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .logo-title {
+            font-weight: 800;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #intent-input {
+            flex: 1;
+            max-width: 700px;
+            margin-left: 40px;
+            padding: 12px 20px;
+            border-radius: 30px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        #intent-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow), inset 0 2px 4px rgba(0, 0, 0, 0.6);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        /* Layout Container */
+        #main-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Canvas Area (Zone B) */
+        #canvas-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+        }
+
+        /* SVG Overlay for Connections */
+        #connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: var(--text-muted);
+            stroke-width: 2;
+            stroke-dasharray: 4 4;
+            animation: dash 20s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+
+        /* Workflow Node Component */
+        .node {
+            position: absolute;
+            padding: 20px;
+            background: rgba(30, 41, 59, 0.85);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            min-width: 200px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            z-index: 2;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+
+        .node:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+        }
+
+        .node-header {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .node-primitive {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Dynamic Statuses */
+        .node.pending {
+            border-color: var(--pending);
+        }
+        .node.running {
+            border-color: var(--running);
+            box-shadow: 0 0 15px var(--running-glow);
+        }
+        .node.success {
+            border-color: var(--success);
+            box-shadow: 0 0 15px var(--success-glow);
+        }
+        .node.error {
+            border-color: var(--error);
+            box-shadow: 0 0 15px var(--error-glow);
+        }
+
+        .status-badge {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .pending .status-badge { background-color: var(--pending); }
+        .running .status-badge { background-color: var(--running); animation: pulse 1.5s infinite; }
+        .success .status-badge { background-color: var(--success); }
+        .error .status-badge { background-color: var(--error); }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.5; }
+        }
+
+        /* Side Logs Panel (Zone C) */
+        #log-panel {
+            width: 350px;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+
+        #log-panel.collapsed {
+            width: 0;
+            overflow: hidden;
+            border-left: none;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .toggle-logs-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 4px;
+        }
+
+        #logs {
+            flex: 1;
+            padding: 20px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.8rem;
+            overflow-y: auto;
+            color: #d1d5db;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            padding-bottom: 8px;
+        }
+        .log-time { color: var(--text-muted); margin-right: 8px; }
+        .log-info { color: var(--accent); }
+        .log-success { color: var(--success); }
+        .log-error { color: var(--error); }
+
+        /* Panels layout */
+        #log-panel, #env-panel {
+            width: 350px;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+
+        #log-panel.collapsed, #env-panel.collapsed {
+            width: 0;
+            overflow: hidden;
+            border-left: none;
+        }
+
+        /* Env Panel form styling */
+        .env-var-row {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .env-var-row label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #60a5fa;
+            word-break: break-all;
+        }
+
+        .env-var-input {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .env-var-input:focus {
+            border-color: var(--accent);
+        }
+
+        .panel-desc {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .no-vars-msg {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        /* Modal Style (Conflict Resolution) */
+        #conflict-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #conflict-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid var(--accent);
+            box-shadow: 0 0 25px var(--accent-glow);
+            border-radius: 16px;
+            width: 450px;
+            padding: 30px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #conflict-modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #60a5fa;
+        }
+
+        .modal-message {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+
+        .modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .modal-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .modal-btn.btn-overwrite:hover {
+            background: var(--error);
+            border-color: var(--error);
+            box-shadow: 0 0 10px var(--error-glow);
+        }
+
+        .modal-btn.btn-skip:hover {
+            background: var(--pending);
+            border-color: var(--pending);
+            box-shadow: 0 0 10px rgba(107, 114, 128, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <header id="intent-bar">
+        <div class="logo-title">WFGY Core v3</div>
+        <input type="text" id="intent-input" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...">
+        <button class="toggle-logs-btn" onclick="triggerUpload()" style="margin-left: 20px;">📂 Charger</button>
+        <button class="toggle-logs-btn" onclick="downloadRecipe()" style="margin-left: 10px;">💾 Sauvegarder</button>
+        <button class="toggle-logs-btn" onclick="clearRecipe()" style="margin-left: 10px;">🗑️ Effacer</button>
+        <button class="toggle-logs-btn" onclick="toggleEnv()" style="margin-left: 10px;">🔧 Variables</button>
+        <button class="toggle-logs-btn" onclick="toggleLogs()" style="margin-left: 10px;">📜 Logs</button>
+        <select id="env-selector" onchange="changeActiveEnv()" style="margin-left: 20px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: #60a5fa; font-weight: 600; font-family: inherit; outline: none; cursor: pointer; height: 36px; vertical-align: middle;">
+            <option value="dev">🛠️ DEV</option>
+            <option value="test">🧪 TEST</option>
+            <option value="prod">🚀 PROD</option>
+        </select>
+        <button class="toggle-logs-btn" onclick="runRecipe()" style="margin-left: 10px; background: var(--success); color: white; border-color: var(--success); box-shadow: 0 0 10px var(--success-glow); height: 36px; vertical-align: middle;">▶ Exécuter</button>
+        <input type="file" id="recipe-upload" onchange="uploadRecipe(event)" style="display: none;" accept=".json">
+    </header>
+
+    <div id="main-container">
+        <div id="canvas-wrapper">
+            <svg id="connections-svg"></svg>
+            <div id="canvas">
+                <!-- Workflow Nodes will be injected here -->
+            </div>
+        </div>
+
+        <!-- Panneau des Variables d'Environnement locales au flux -->
+        <aside id="env-panel" class="collapsed">
+            <div class="panel-header">
+                <h3 id="env-panel-title">Secrets (DEV)</h3>
+                <button class="toggle-logs-btn" onclick="toggleEnv()">✖</button>
+            </div>
+            <div class="panel-desc">
+                Ces variables sont locales à ce workflow et spécifiques à l'environnement sélectionné.
+            </div>
+            <div id="env-vars-container" style="flex: 1; padding: 20px; overflow-y: auto;">
+                <div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>
+            </div>
+        </aside>
+        
+        <aside id="log-panel">
+            <div class="panel-header">
+                <h3>Console Moteur</h3>
+                <button class="toggle-logs-btn" onclick="toggleLogs()">✖</button>
+            </div>
+            <div id="logs">
+                <div class="log-entry"><span class="log-time">[System]</span><span class="log-info">Prêt. Entrez une intention pour commencer.</span></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Boîte de dialogue interactive pour la résolution des conflits -->
+    <div id="conflict-modal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ Résolution de Conflit</div>
+            <div id="conflict-message" class="modal-message">Le fichier existe déjà. Que souhaitez-vous faire ?</div>
+            <div id="conflict-actions" class="modal-actions">
+                <!-- Les boutons d'action seront injectés dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let activeNodes = {};
+        let currentRecipe = null;
+        let activeEnv = 'dev';
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${type}">${message}</span>`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function toggleLogs() {
+            const panel = document.getElementById('log-panel');
+            panel.classList.toggle('collapsed');
+        }
+
+        function toggleEnv() {
+            const panel = document.getElementById('env-panel');
+            panel.classList.toggle('collapsed');
+        }
+
+        function changeActiveEnv() {
+            activeEnv = document.getElementById('env-selector').value;
+            document.getElementById('env-panel-title').innerText = `Secrets (${activeEnv.toUpperCase()})`;
+            addLog(`Environnement actif basculé sur : ${activeEnv.toUpperCase()}`, 'info');
+            detectAndRenderEnvVars();
+        }
+
+        class WorkflowNode extends HTMLElement {
+            connectedCallback() {
+                const label = this.getAttribute('label');
+                const primitive = this.getAttribute('primitive');
+                const step = this.getAttribute('step');
+                
+                this.className = 'node pending';
+                this.id = `node-step-${step}`;
+                this.style.left = this.getAttribute('x') + 'px';
+                this.style.top = this.getAttribute('y') + 'px';
+                
+                this.innerHTML = `
+                    <div class="node-header">
+                        <span>${label}</span>
+                        <span class="status-badge"></span>
+                    </div>
+                    <div class="node-primitive">${primitive}</div>
+                `;
+            }
+        }
+        customElements.define('workflow-node', WorkflowNode);
+
+        function initWebSocket() {
+            ws = new WebSocket('ws://localhost:8765');
+            
+            ws.onopen = () => {
+                addLog('Connecté au serveur d\'orchestration Python.', 'success');
+            };
+
+            ws.onclose = () => {
+                addLog('Connexion perdue avec le serveur. Tentative de reconnexion...', 'error');
+                document.getElementById('conflict-modal').classList.remove('active');
+                setTimeout(initWebSocket, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error(err);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'LOG') {
+                    addLog(data.message, 'info');
+                }
+                else if (data.type === 'VAULT_SECRETS') {
+                    addLog("Coffre-fort d'images Chromatix déverrouillé et chargé en mémoire.", 'success');
+                    if (!currentRecipe) {
+                        currentRecipe = { env: data.env };
+                    } else {
+                        currentRecipe.env = data.env;
+                    }
+                    detectAndRenderEnvVars();
+                }
+                else if (data.type === 'PLAN_RECEIVED') {
+                    addLog(`Nouveau plan reçu : ${data.intent_analysis}`, 'info');
+                    currentRecipe = {
+                        plan_id: data.plan_id,
+                        intent_analysis: data.intent_analysis,
+                        steps: data.steps,
+                        env: data.env || (currentRecipe ? currentRecipe.env : {}) || {}
+                    };
+                    renderNodes(data.steps);
+                    detectAndRenderEnvVars();
+                }
+                else if (data.type === 'STEP_STATUS') {
+                    addLog(`Step ${data.step}: [${data.status}] - ${data.log}`, data.status === 'success' ? 'success' : (data.status === 'error' ? 'error' : 'info'));
+                    updateNodeStatus(data.step, data.status);
+                }
+                else if (data.type === 'USER_CONFIRMATION_REQUIRED') {
+                    addLog(`[CONFLIT] Demande de choix reçue pour l'étape ${data.step}`, 'info');
+                    showConflictModal(data.step, data.message, data.options);
+                }
+                else if (data.type === 'PLAN_FINISHED') {
+                    addLog(data.success ? 'Exécution du plan terminée avec SUCCÈS.' : 'Exécution du plan échouée.', data.success ? 'success' : 'error');
+                }
+            };
+        }
+
+        function detectAndRenderEnvVars() {
+            const container = document.getElementById('env-vars-container');
+            container.innerHTML = '';
+            
+            if (!currentRecipe || !currentRecipe.steps) {
+                container.innerHTML = '<div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>';
+                return;
+            }
+
+            // Set to hold unique placeholders detected
+            const placeholders = new Set();
+            
+            // Regex to find placeholders like ${SECRET_NAME}
+            const regex = /\${([^}]+)}/g;
+
+            currentRecipe.steps.forEach(step => {
+                if (step.args) {
+                    Object.values(step.args).forEach(val => {
+                        if (typeof val === 'string') {
+                            let match;
+                            // Reset regex lastIndex
+                            regex.lastIndex = 0;
+                            while ((match = regex.exec(val)) !== null) {
+                                placeholders.add(match[1]);
+                            }
+                        }
+                    });
+                }
+            });
+
+            if (placeholders.size === 0) {
+                container.innerHTML = '<div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>';
+                return;
+            }
+
+            // Ensure hierarchical environment structure
+            if (!currentRecipe.env) currentRecipe.env = {};
+            if (!currentRecipe.env.dev) currentRecipe.env.dev = {};
+            if (!currentRecipe.env.test) currentRecipe.env.test = {};
+            if (!currentRecipe.env.prod) currentRecipe.env.prod = {};
+
+            placeholders.forEach(varName => {
+                const row = document.createElement('div');
+                row.className = 'env-var-row';
+
+                const label = document.createElement('label');
+                label.innerText = varName;
+                
+                const input = document.createElement('input');
+                input.className = 'env-var-input';
+                
+                // Hide values visually if it is sensitive
+                const isSensitive = varName.toLowerCase().includes('secret') || 
+                                    varName.toLowerCase().includes('pass') || 
+                                    varName.toLowerCase().includes('key') || 
+                                    varName.toLowerCase().includes('token');
+                
+                input.type = isSensitive ? 'password' : 'text';
+                input.placeholder = isSensitive ? `Saisir secret pour ${activeEnv.toUpperCase()}...` : `Saisir valeur pour ${activeEnv.toUpperCase()}...`;
+                
+                // Get value from current active environment sub-object
+                input.value = currentRecipe.env[activeEnv][varName] || '';
+                
+                input.oninput = (e) => {
+                    currentRecipe.env[activeEnv][varName] = e.target.value;
+                };
+
+                row.appendChild(label);
+                row.appendChild(input);
+                container.appendChild(row);
+            });
+        }
+
+        function showConflictModal(step, message, options) {
+            const modal = document.getElementById('conflict-modal');
+            const messageEl = document.getElementById('conflict-message');
+            const actionsEl = document.getElementById('conflict-actions');
+            
+            messageEl.innerText = message;
+            actionsEl.innerHTML = '';
+            
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = `modal-btn btn-${opt.value}`;
+                btn.innerText = opt.label;
+                btn.onclick = () => {
+                    modal.classList.remove('active');
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'USER_CONFIRMATION_RESPONSE',
+                            step: step,
+                            choice: opt.value
+                        }));
+                        addLog(`Choix envoyé pour l'étape ${step} : ${opt.label}`, 'success');
+                    }
+                };
+                actionsEl.appendChild(btn);
+            });
+            
+            modal.classList.add('active');
+        }
+
+        function renderNodes(steps) {
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = ''; // Clear canvas
+            activeNodes = {};
+
+            steps.forEach(step => {
+                const node = document.createElement('workflow-node');
+                node.setAttribute('step', step.step);
+                node.setAttribute('label', step.ui.label);
+                node.setAttribute('primitive', step.primitive);
+                node.setAttribute('x', step.ui.position.x);
+                node.setAttribute('y', step.ui.position.y);
+                canvas.appendChild(node);
+                activeNodes[step.step] = node;
+            });
+        }
+
+        function updateNodeStatus(step, status) {
+            const node = document.getElementById(`node-step-${step}`);
+            if (node) {
+                node.className = `node ${status}`;
+            }
+        }
+
+        function triggerUpload() {
+            document.getElementById('recipe-upload').click();
+        }
+
+        function uploadRecipe(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const recipe = JSON.parse(e.target.result);
+                    currentRecipe = recipe;
+                    renderNodes(recipe.steps);
+                    detectAndRenderEnvVars();
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'LOAD_RECIPE',
+                            recipe: recipe
+                        }));
+                    } else {
+                        addLog('Recette chargée localement mais déconnecté du serveur.', 'error');
+                    }
+                } catch (err) {
+                    addLog('Erreur lors de la lecture du fichier JSON : ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadRecipe() {
+            if (!currentRecipe) {
+                addLog('Aucune recette active à sauvegarder.', 'error');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentRecipe, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `${currentRecipe.plan_id || 'workflow'}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            addLog('Recette exportée avec succès.', 'success');
+        }
+
+        function clearRecipe() {
+            currentRecipe = null;
+            document.getElementById('canvas').innerHTML = '';
+            document.getElementById('connections-svg').innerHTML = '';
+            document.getElementById('env-vars-container').innerHTML = '<div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>';
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'CLEAR_RECIPE'
+                }));
+            }
+            addLog('Workflow courant effacé.', 'info');
+        }
+
+        function runRecipe() {
+            if (!currentRecipe || !currentRecipe.steps || currentRecipe.steps.length === 0) {
+                addLog('Erreur : aucun workflow à exécuter.', 'error');
+                return;
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addLog(`Lancement de l'exécution sur l'environnement : ${activeEnv.toUpperCase()}...`, 'info');
+                currentRecipe.steps.forEach(s => updateNodeStatus(s.step, 'pending'));
+                
+                ws.send(JSON.stringify({
+                    type: 'RUN_RECIPE',
+                    recipe: currentRecipe,
+                    target_env: activeEnv
+                }));
+            } else {
+                addLog('Erreur : déconnecté du serveur d\'orchestration.', 'error');
+            }
+        }
+
+        // Send user intent on Enter keypress
+        document.getElementById('intent-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const intent = this.value.trim();
+                if (intent && ws && ws.readyState === WebSocket.OPEN) {
+                    addLog(`Soumission de l'intention : "${intent}"`, 'info');
+                    ws.send(JSON.stringify({
+                        type: 'SUBMIT_INTENT',
+                        intent: intent
+                    }));
+                    this.value = '';
+                } else {
+                    addLog('Erreur : impossible d\'envoyer l\'intention (déconnecté ou vide).', 'error');
+                }
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initWebSocket();
+        });
+    </script>
+</body>
+</html>
