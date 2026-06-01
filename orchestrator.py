@@ -133,7 +133,16 @@ class WorkerBridge:
             cmd = ["cargo", "run", "--manifest-path", str(cargo_toml), "--", primitive_name]
 
         for key, value in args.items():
-            cmd.extend([f"--{key}", str(value)])
+            # Standardize parameters from snake_case to kebab-case
+            kebab_key = key.replace("_", "-")
+            
+            # Format booleans as lowercase string for Rust parser compatibility (True -> "true")
+            if isinstance(value, bool):
+                val_str = str(value).lower()
+            else:
+                val_str = str(value)
+                
+            cmd.extend([f"--{kebab_key}", val_str])
 
         print(f"[ORCHESTRATOR] Executing: {' '.join(cmd)}")
         proc = await asyncio.create_subprocess_exec(
@@ -186,6 +195,17 @@ class SchemaValidator:
                     return False, f"Parameter '{key}' has invalid value '{val}'. Must be one of {enum_vals}"
 
             return True, ""
+
+# International Error Translation Mapping for Rust exit codes
+ERROR_TRANSLATIONS = {
+    1: "Erreur système générique ou argument invalide.",
+    2: "Le fichier ou dossier source spécifié est introuvable.",
+    3: "Permission refusée : accès interdit en lecture ou en écriture.",
+    4: "Impossible de créer le répertoire cible de destination.",
+    5: "Échec du déplacement physique inter-disques (le secours par copie a échoué).",
+    6: "Impossible de déplacer l'élément dans la corbeille locale.",
+    7: "Erreur réseau (téléchargement ou téléversement impossible)."
+}
 
 class Orchestrator:
     """
@@ -281,7 +301,9 @@ class Orchestrator:
             if code != 0:
                 print(f"[ERROR] Step {step_num} failed with return code {code}.")
                 if status_callback:
-                    status_callback(step_num, "error", f"Execution error: {stderr.strip()}")
+                    # Translate standard error code to human readable local language
+                    translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
+                    status_callback(step_num, "error", f"{translated_error} | Détails système: {stderr.strip()}")
                 return False
 
             if status_callback:

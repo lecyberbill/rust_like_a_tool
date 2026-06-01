@@ -27,11 +27,34 @@ This system is an intent-based ETL orchestrator:
 - Invariant 5 [LLM Interoperability]: SUCCESS (LLM clients written for both OpenAI-compatible and Gemini endpoints, integrated with planner)
 - Invariant 6 [Secrets Vault Injection]: SUCCESS (Credentials placeholders resolved at runtime via .env / env variables)
 
+
+## Exit Codes & Standard Error Resolution
+To preserve internationalization and separate concerns, the Rust Muscle binary returns strict numeric exit codes. The Python Orchestrator intercepts these codes and translates them to the target local language via `ERROR_TRANSLATIONS`.
+
+| Exit Code | Error Tag | Description | Local Translation |
+| :--- | :--- | :--- | :--- |
+| **0** | `SUCCESS` | L'opération s'est déroulée avec succès. | Succès |
+| **1** | `ERR_GENERIC` | Erreur système générique ou argument manquant. | Erreur système générique ou argument invalide. |
+| **2** | `ERR_SOURCE_NOT_FOUND` | Fichier/dossier source introuvable. | Le fichier ou dossier source spécifié est introuvable. |
+| **3** | `ERR_PERMISSION_DENIED` | Erreur d'accès ou droits insuffisants (lecture/écriture). | Permission refusée : accès interdit en lecture ou en écriture. |
+| **4** | `ERR_DEST_DIR_CREATION` | Échec de la création du dossier cible de destination. | Impossible de créer le répertoire cible de destination. |
+| **5** | `ERR_CROSS_VOLUME_FAIL` | Échec du déplacement physique inter-disques. | Échec du déplacement physique inter-disques. |
+| **6** | `ERR_TRASH_CREATION` | Échec d'écriture dans la corbeille locale `.trash/`. | Impossible de déplacer l'élément dans la corbeille locale. |
+| **7** | `ERR_NETWORK_ERROR` | Échec de la requête réseau ou HTTP. | Erreur réseau (téléchargement ou téléversement impossible). |
+
 ## Changelog
 - **2026-05-31:** Initial ingestion of the modular ETL agent architecture (v2).
 - **2026-05-31:** Transitioned to V3. Added front-end workbench architectural specification and WebSocket real-time state streaming.
 - **2026-05-31:** Implemented LLM integration architecture (llm_client, planner) supporting local LM Studio and Gemini API.
 - **2026-05-31:** Added recipe saving/loading (persistence), progressive incremental workflow modification, and secure vault credentials resolution.
 - **2026-05-31:** Implemented interactive conflict resolution for `io.copy` using WebSockets, supporting a 120s timeout fallback to 'skip', connection-drop cleanup, and a sleek HTML/CSS glassmorphism modal on the Workbench.
+- **2026-06-01:** Established modules roadmap ([ROADMAP_MODULES.md](file:///d:/image_to_text/RUST_LIKE_A_TOOL/ROADMAP_MODULES.md)) categorizing core, intermediate, and specialized components.
+- **2026-06-01:** Added recursive and fallback folder management capabilities (`io.move` cross-disk fallback, `io.delete` secure retention, `io.metadata` retrieval, and base `net.download`).
+- **2026-06-01:** Implemented `net.upload` primitive in Rust Muscle utilizing `reqwest` for HTTP POST/PUT file uploads, added JSON custom headers parsing, updated registry configuration, and documented exit code 7.
+- **2026-06-01:** Implemented `data.filter` primitive in Rust Muscle incorporating field-based evaluations (contains, equals, starts_with, ends_with, greater_than, less_than) and regular expressions (via `regex` crate).
+- **2026-06-01:** Integrated format converter primitives `data.csv_to_json` (row-based struct parser) and `data.xml_to_json` (hierarchical DOM tree parser using the fast `quick-xml` crate) into Rust Muscle and schema registry.
+- **2026-06-01:** Implemented `net.http_request` primitive in Rust Muscle replacing the ad-hoc image downloader, providing global header, payload support, and relative regex link extraction, fully integrated in test scripts.
+
+
 
 

@@ -1,0 +1,24 @@
+{
+  "plan_id": "WIKI_IMG_EXTRACT_001",
+  "intent_analysis": "Récupération de la page Wikipedia et extraction des URLs d'images via regex vers un fichier JSON.",
+  "steps": [
+    {
+      "step": 1,
+      "primitive": "net.http_request",
+      "ui": {
+        "label": "Extraction liens images Wikipedia",
+        "color": "#4A90E2",
+        "position": {
+          "x": 150,
+          "y": 200
+        }
+      },
+      "args": {
+        "url": "https://www.wikipedia.org/",
+        "method": "GET",
+        "extract_regex": "(?i)<img[^>]+src=\"([^\"]+)\"",
+        "extract_destination": "extracted_links.json"
+      }
+    }
+  ]
+}

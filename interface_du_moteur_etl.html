@@ -67,18 +67,21 @@
 
         #intent-input {
             flex: 1;
-            max-width: 700px;
-            margin-left: 40px;
-            padding: 12px 20px;
-            border-radius: 30px;
+            margin-left: 20px;
+            padding: 12px 18px;
+            border-radius: 12px;
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, 0.03);
             color: var(--text);
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 0.95rem;
             outline: none;
             transition: all 0.3s ease;
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+            resize: vertical;
+            min-height: 80px;
+            height: 80px;
+            line-height: 1.4;
         }
 
         #intent-input:focus {
@@ -123,10 +126,12 @@
 
         .connection-line {
             fill: none;
-            stroke: var(--text-muted);
-            stroke-width: 2;
-            stroke-dasharray: 4 4;
-            animation: dash 20s linear infinite;
+            stroke: var(--accent);
+            stroke-width: 3;
+            stroke-dasharray: 8 6;
+            animation: dash 35s linear infinite;
+            filter: drop-shadow(0 0 4px var(--accent-glow));
+            transition: d 0.3s ease;
         }
 
         @keyframes dash {
@@ -427,7 +432,8 @@
 
     <header id="intent-bar">
         <div class="logo-title">WFGY Core v3</div>
-        <input type="text" id="intent-input" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...">
+        <textarea id="intent-input" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
+Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></textarea>
         <button class="toggle-logs-btn" onclick="triggerUpload()" style="margin-left: 20px;">📂 Charger</button>
         <button class="toggle-logs-btn" onclick="downloadRecipe()" style="margin-left: 10px;">💾 Sauvegarder</button>
         <button class="toggle-logs-btn" onclick="clearRecipe()" style="margin-left: 10px;">🗑️ Effacer</button>
@@ -700,22 +706,72 @@
             modal.classList.add('active');
         }
 
+        function drawConnections() {
+            const svg = document.getElementById('connections-svg');
+            svg.innerHTML = '';
+            
+            const keys = Object.keys(activeNodes).map(Number).sort((a, b) => a - b);
+            for (let i = 0; i < keys.length - 1; i++) {
+                const nodeA = activeNodes[keys[i]];
+                const nodeB = activeNodes[keys[i + 1]];
+                
+                if (nodeA && nodeB) {
+                    const rectA = nodeA.getBoundingClientRect();
+                    const rectB = nodeB.getBoundingClientRect();
+                    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+                    
+                    // Left and Top relative to canvas
+                    const x1 = rectA.left - canvasRect.left + rectA.width;
+                    const y1 = rectA.top - canvasRect.top + rectA.height / 2;
+                    
+                    const x2 = rectB.left - canvasRect.left;
+                    const y2 = rectB.top - canvasRect.top + rectB.height / 2;
+                    
+                    // Curved bezier connection path
+                    const controlX = x1 + (x2 - x1) / 2;
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`);
+                    path.setAttribute('class', 'connection-line');
+                    svg.appendChild(path);
+                }
+            }
+        }
+
         function renderNodes(steps) {
             const canvas = document.getElementById('canvas');
             canvas.innerHTML = ''; // Clear canvas
             activeNodes = {};
 
-            steps.forEach(step => {
+            // Avoid overlaps: space steps horizontally and wraps if too long
+            const startX = 50;
+            const startY = 80;
+            const horizontalSpacing = 360;
+            const verticalSpacing = 200;
+            const maxPerRow = 3;
+
+            steps.forEach((step, idx) => {
+                const row = Math.floor(idx / maxPerRow);
+                const col = idx % maxPerRow;
+                
+                const finalX = startX + col * horizontalSpacing;
+                const finalY = startY + row * verticalSpacing;
+
                 const node = document.createElement('workflow-node');
                 node.setAttribute('step', step.step);
                 node.setAttribute('label', step.ui.label);
                 node.setAttribute('primitive', step.primitive);
-                node.setAttribute('x', step.ui.position.x);
-                node.setAttribute('y', step.ui.position.y);
+                node.setAttribute('x', finalX);
+                node.setAttribute('y', finalY);
                 canvas.appendChild(node);
                 activeNodes[step.step] = node;
             });
+            
+            // Draw connections after DOM rendering
+            setTimeout(drawConnections, 50);
         }
+
+        // Redraw connections on window resize
+        window.addEventListener('resize', drawConnections);
 
         function updateNodeStatus(step, status) {
             const node = document.getElementById(`node-step-${step}`);
@@ -800,12 +856,13 @@
             }
         }
 
-        // Send user intent on Enter keypress
-        document.getElementById('intent-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+        // Send user intent on Enter keydown (prevent default to not insert newline, unless Shift is pressed)
+        document.getElementById('intent-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 const intent = this.value.trim();
                 if (intent && ws && ws.readyState === WebSocket.OPEN) {
-                    addLog(`Soumission de l'intention : "${intent}"`, 'info');
+                    addLog(`Soumission de l'intention : "${intent.substring(0, 60)}..."`, 'info');
                     ws.send(JSON.stringify({
                         type: 'SUBMIT_INTENT',
                         intent: intent

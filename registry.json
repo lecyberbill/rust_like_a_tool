@@ -1,7 +1,7 @@
 {
   "primitives": {
     "io.copy": {
-      "description": "Copie un flux de données.",
+      "description": "Copie un flux de données ou un fichier local.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -27,6 +27,236 @@
           }
         },
         "required": ["source", "destination"]
+      }
+    },
+    "io.move": {
+      "description": "Déplace ou renomme un fichier local.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier à déplacer ou renommer."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin cible de destination."
+          },
+          "conflict": {
+            "type": "string",
+            "enum": ["overwrite", "skip", "newer"],
+            "default": "overwrite",
+            "description": "Mode de résolution si le fichier de destination existe."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "io.delete": {
+      "description": "Supprime un fichier ou un dossier local, avec option de mise à la corbeille.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Le chemin du fichier ou dossier à supprimer."
+          },
+          "secure": {
+            "type": "string",
+            "enum": ["trash", "permanent"],
+            "default": "trash",
+            "description": "Mode de suppression: trash (corbeille locale .trash) ou permanent (définitive)."
+          },
+          "retention_days": {
+            "type": "integer",
+            "description": "Si secure est trash, nettoie automatiquement les fichiers de la corbeille datant de plus de N jours."
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    "io.metadata": {
+      "description": "Lit les métadonnées de base d'un fichier ou d'un dossier.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier ou dossier."
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    "net.download": {
+      "description": "Télécharge un fichier depuis une URL HTTP/HTTPS.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "L'URL HTTP ou HTTPS du fichier à télécharger."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin local où enregistrer le fichier téléchargé."
+          }
+        },
+        "required": ["url", "destination"]
+      }
+    },
+    "net.upload": {
+      "description": "Téléverse un fichier local vers un serveur distant (HTTP/HTTPS).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Le chemin du fichier local à téléverser."
+          },
+          "url": {
+            "type": "string",
+            "description": "L'URL HTTP ou HTTPS de destination."
+          },
+          "method": {
+            "type": "string",
+            "enum": ["POST", "PUT"],
+            "default": "POST",
+            "description": "Méthode HTTP à utiliser."
+          },
+          "headers": {
+            "type": "string",
+            "description": "En-têtes additionnels au format JSON (ex: pour l'authentification)."
+          }
+        },
+        "required": ["file_path", "url"]
+      }
+    },
+    "data.filter": {
+      "description": "Filtre les lignes d'un fichier texte structuré (CSV) selon une règle logique sur une colonne.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de destination filtré."
+          },
+          "delimiter": {
+            "type": "string",
+            "default": ",",
+            "description": "Délimiteur de champs (ex: , ou ;)."
+          },
+          "column_index": {
+            "type": "integer",
+            "description": "Index 0-based de la colonne à filtrer (utilisé si pas d'en-tête)."
+          },
+          "column_name": {
+            "type": "string",
+            "description": "Nom de la colonne à filtrer (nécessite has_headers=true)."
+          },
+          "operator": {
+            "type": "string",
+            "enum": ["equals", "contains", "starts_with", "ends_with", "regex", "greater_than", "less_than"],
+            "description": "Opérateur de comparaison logique."
+          },
+          "value": {
+            "type": "string",
+            "description": "La valeur cible de comparaison."
+          },
+          "has_headers": {
+            "type": "boolean",
+            "default": false,
+            "description": "Indique si la première ligne du fichier contient les en-têtes."
+          }
+        },
+        "required": ["source", "destination", "operator", "value"]
+      }
+    },
+    "data.csv_to_json": {
+      "description": "Convertit un fichier délimité (CSV) en un fichier structuré JSON (tableau d'objets).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier CSV source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier JSON de destination."
+          },
+          "delimiter": {
+            "type": "string",
+            "default": ",",
+            "description": "Délimiteur de champs (ex: , ou ;)."
+          },
+          "has_headers": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indique si la première ligne contient les clés du dictionnaire JSON."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.xml_to_json": {
+      "description": "Convertit un fichier XML hiérarchique en fichier JSON standard.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier XML source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier JSON de destination."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "net.http_request": {
+      "description": "Exécute une requête HTTP (GET, POST, etc.) avec support d'en-têtes, écriture optionnelle vers un fichier de destination, ou extraction regex du corps de la réponse.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "L'URL de la requête."
+          },
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "DELETE"],
+            "default": "GET",
+            "description": "Méthode HTTP à utiliser."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Chemin de fichier local optionnel pour enregistrer la réponse brute."
+          },
+          "headers": {
+            "type": "string",
+            "description": "En-têtes HTTP au format JSON."
+          },
+          "body": {
+            "type": "string",
+            "description": "Corps optionnel de la requête."
+          },
+          "extract_regex": {
+            "type": "string",
+            "description": "Regex optionnelle pour extraire des éléments du corps (ex: liens d'images)."
+          },
+          "extract_destination": {
+            "type": "string",
+            "description": "Fichier JSON optionnel pour sauvegarder les correspondances de la regex (tableau)."
+          }
+        },
+        "required": ["url"]
       }
     }
   }
