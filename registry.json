@@ -258,6 +258,71 @@
         },
         "required": ["url"]
       }
+    },
+    "data.groupby": {
+      "description": "Groupe les lignes d'un jeu de données (CSV, JSON, Parquet) et calcule des agrégations (somme, moyenne, min, max, count).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Fichier source (CSV, JSON ou Parquet)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Fichier de destination pour stocker le résultat de l'agrégation."
+          },
+          "groupby_columns": {
+            "type": "string",
+            "description": "Noms des colonnes de regroupement séparés par des virgules (ex: status,country)."
+          },
+          "aggregate_column": {
+            "type": "string",
+            "description": "Nom de la colonne numérique sur laquelle calculer l'agrégat."
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["sum", "mean", "min", "max", "count"],
+            "description": "Opération d'agrégation à réaliser."
+          }
+        },
+        "required": ["source", "destination", "groupby_columns", "aggregate_column", "operation"]
+      }
+    },
+    "data.join": {
+      "description": "Réalise une jointure relationnelle entre deux fichiers de données (CSV, JSON, Parquet) et écrit le résultat dans un fichier cible.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "left_source": {
+            "type": "string",
+            "description": "Fichier de données de gauche (CSV, JSON ou Parquet)."
+          },
+          "right_source": {
+            "type": "string",
+            "description": "Fichier de données de droite (CSV, JSON ou Parquet)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Fichier cible pour écrire le résultat de la jointure."
+          },
+          "left_on": {
+            "type": "string",
+            "description": "Colonne clé dans le fichier de gauche."
+          },
+          "right_on": {
+            "type": "string",
+            "description": "Colonne clé dans le fichier de droite."
+          },
+          "how": {
+            "type": "string",
+            "enum": ["inner", "left", "outer"],
+            "default": "inner",
+            "description": "Type de jointure relationnelle."
+          }
+        },
+        "required": ["left_source", "right_source", "destination", "left_on", "right_on"]
+      }
     }
   }
 }

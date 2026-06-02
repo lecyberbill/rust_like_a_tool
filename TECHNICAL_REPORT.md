@@ -54,6 +54,7 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-01:** Implemented `data.filter` primitive in Rust Muscle incorporating field-based evaluations (contains, equals, starts_with, ends_with, greater_than, less_than) and regular expressions (via `regex` crate).
 - **2026-06-01:** Integrated format converter primitives `data.csv_to_json` (row-based struct parser) and `data.xml_to_json` (hierarchical DOM tree parser using the fast `quick-xml` crate) into Rust Muscle and schema registry.
 - **2026-06-01:** Implemented `net.http_request` primitive in Rust Muscle replacing the ad-hoc image downloader, providing global header, payload support, and relative regex link extraction, fully integrated in test scripts.
+- **2026-06-02:** Restructured the Rust tool into a Cargo Workspace by isolating library logic under `libs/analytical_engine` and adding multi-format (CSV, JSON, Parquet) support using Polars for relation join and groupby aggregations.
 
 
 

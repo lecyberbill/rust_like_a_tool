@@ -64,9 +64,7 @@ graph TD
 
 *Objectif : Traiter d'importants volumes de données de manière hautement performante et intégrer de l'intelligence dans les flux.*
 
-| Module / Composant | Description | Primitives Cibles | Priorité |
-| :--- | :--- | :--- | :--- |
-| **Moteur Analytique (Rust Polars)** | Opérations de DataFrame hautes performances (jointures, agrégations, groupby) en Rust. | `data.groupby`, `data.join`, `data.aggregate` | **Haute** |
+| **Moteur Analytique (Rust Polars)** | Opérations de DataFrame hautes performances (jointures, agrégations, groupby) en Rust. | `data.groupby`, `data.join`, `data.aggregate` | **Opérationnel** |
 | **Intégration Stockage & Database** | Lecture et écriture directes depuis/vers des bases de données SQL ou du stockage objet. | `db.query`, `db.sqlite`, `db.s3_sync` | **Moyenne** |
 | **Transformateur XML Avancé** | Transformations structurales complexes XML via feuilles de style XSLT. | `data.xml_transform` | **Basse** |
 | **Inférence IA / NLP** | Intégration de tâches d'extraction d'entités ou de résumé de texte dans le DAG de données. | `ai.summarize`, `ai.extract` | **Basse** |
