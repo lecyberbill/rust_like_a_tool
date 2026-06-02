@@ -215,6 +215,7 @@ class Orchestrator:
         self.root_dir = Path(__file__).parent
         self.validator = SchemaValidator(self.root_dir / "registry.json")
         self.bridge = WorkerBridge()
+        self.execution_context = {}
 
     def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev") -> dict:
         resolved = {}
@@ -228,16 +229,32 @@ class Orchestrator:
             env_vars = local_env[target_env]
 
         for k, v in args.items():
-            if isinstance(v, str) and v.startswith("${") and v.endswith("}"):
-                var_name = v[2:-1]
-                # Priority: 1. local_env[target_env], 2. ENV_CONFIG (.env file), 3. OS environment
-                val = env_vars.get(var_name)
-                if val is None:
-                    # Fallback lookup in case the dictionary is flat (legacy fallback)
-                    val = local_env.get(var_name)
-                if val is None:
-                    val = ENV_CONFIG.get(var_name, os.environ.get(var_name, v))
-                resolved[k] = val
+            if isinstance(v, str):
+                # Remplacement de tous les placeholders comme ${VAR} par leur valeur
+                import re
+                placeholders = re.findall(r"\$\{([^}]+)\}", v)
+                resolved_val = v
+                for var_name in placeholders:
+                    # Priorité: 1. local execution_context, 2. local_env[target_env], 3. ENV_CONFIG, 4. OS env
+                    val = self.execution_context.get(var_name)
+                    if val is None:
+                        val = env_vars.get(var_name)
+                    if val is None:
+                        val = local_env.get(var_name)
+                    if val is None:
+                        val = ENV_CONFIG.get(var_name, os.environ.get(var_name, f"${{{var_name}}}"))
+                    
+                    resolved_val = resolved_val.replace(f"${{{var_name}}}", str(val))
+                resolved[k] = resolved_val
+            elif isinstance(v, list):
+                # Recursively resolve variables inside nested arrays (like then_steps / else_steps)
+                resolved_list = []
+                for item in v:
+                    if isinstance(item, dict):
+                        resolved_list.append(self.resolve_secrets(item, local_env, target_env))
+                    else:
+                        resolved_list.append(item)
+                resolved[k] = resolved_list
             else:
                 resolved[k] = v
         return resolved
@@ -257,10 +274,61 @@ class Orchestrator:
             primitive = step.get("primitive")
             args = step.get("args", {})
 
+            # 1. Gestion spécifique de core.condition (Orchestration logique récursive)
+            if primitive == "core.condition":
+                if status_callback:
+                    status_callback(step_num, "running", f"Évaluation de la condition logique...")
+
+                resolved_args = self.resolve_secrets(args, local_env, target_env)
+                expr = resolved_args.get("expression", "false")
+                
+                # Évaluation rudimentaire de l'expression conditionnelle (ex: "true == true" ou "500 > 100")
+                # Remplacer les valeurs courantes
+                eval_expr = expr.strip()
+                
+                print(f"[ORCHESTRATOR] Évaluation de l'expression : '{eval_expr}'")
+                
+                # Évaluation sécurisée rudimentaire pour éviter eval() arbitraire sur chaînes hostiles
+                condition_met = False
+                try:
+                    # Remplacement des tokens simples pour évaluation propre en Python
+                    eval_expr_py = eval_expr.replace("true", "True").replace("false", "False")
+                    # Autoriser uniquement les chiffres, espaces, opérateurs, parenthèses et booléens
+                    allowed_chars = "0123456789. ><=!&|()TrueFalse\"' "
+                    if all(char in allowed_chars for char in eval_expr_py):
+                        condition_met = bool(eval(eval_expr_py))
+                    else:
+                        # Si l'expression contient encore des variables non résolues comme ${...}
+                        print(f"[ORCHESTRATOR WARNING] Expression conditionnelle non resolue ou suspecte : {eval_expr}")
+                except Exception as e:
+                    print(f"[ORCHESTRATOR ERROR] Échec de l'évaluation de la condition '{eval_expr}': {e}")
+
+                print(f"[ORCHESTRATOR] Résultat condition : {condition_met}")
+                
+                if status_callback:
+                    status_callback(step_num, "success", f"Condition évaluée à : {condition_met}")
+
+                target_branch = "then_steps" if condition_met else "else_steps"
+                branch_steps = args.get(target_branch, [])
+                
+                if branch_steps:
+                    print(f"[ORCHESTRATOR] Exécution de la branche '{target_branch}'...")
+                    # Construire une sous-recette temporaire
+                    sub_recipe = {
+                        "plan_id": f"{plan_id}_branch",
+                        "intent_analysis": f"Sous-branche conditionnelle : {target_branch}",
+                        "steps": branch_steps,
+                        "env": local_env
+                    }
+                    success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                    if not success:
+                        return False
+                continue
+
             if status_callback:
                 status_callback(step_num, "running", f"Exécuting step in Rust ({target_env.upper()})...")
 
-            # 1. Validate recipe step against Schema
+            # 2. Validate recipe step against Schema
             is_valid, err_msg = self.validator.validate_step(primitive, args)
             if not is_valid:
                 print(f"[ERROR] Validation failed for Step {step_num}: {err_msg}")
@@ -288,7 +356,7 @@ class Orchestrator:
                             choice = await ask_user_callback(step_num, str(resolved_dest))
                             args["conflict"] = choice
 
-            # 2. Resolve secrets and invoke Rust binary
+            # 3. Resolve secrets and invoke Rust binary
             resolved_args = self.resolve_secrets(args, local_env, target_env)
             code, stdout, stderr = await self.bridge.execute(primitive, resolved_args)
 
@@ -305,6 +373,19 @@ class Orchestrator:
                     translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
                     status_callback(step_num, "error", f"{translated_error} | Détails système: {stderr.strip()}")
                 return False
+
+            # 4. Propagation dynamique du contexte à partir de io.metadata
+            if primitive == "io.metadata" and code == 0:
+                try:
+                    # La primitive io.metadata renvoie du JSON sur stdout :
+                    # {"exists": true, "is_dir": false, "size_bytes": 1119, "modified_epoch": ...}
+                    meta = json.loads(stdout.strip())
+                    self.execution_context["FILE_EXISTS"] = str(meta.get("exists", False)).lower()
+                    self.execution_context["FILE_SIZE"] = meta.get("size_bytes", 0)
+                    self.execution_context["IS_DIR"] = str(meta.get("is_dir", False)).lower()
+                    print(f"[ORCHESTRATOR] Propagation contexte : FILE_EXISTS={self.execution_context['FILE_EXISTS']}, FILE_SIZE={self.execution_context['FILE_SIZE']}")
+                except Exception as e:
+                    print(f"[ORCHESTRATOR WARNING] Échec du parsing de la sortie metadata pour propagation : {e}")
 
             if status_callback:
                 status_callback(step_num, "success", stdout.strip())

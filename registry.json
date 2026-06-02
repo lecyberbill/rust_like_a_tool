@@ -323,6 +323,65 @@
         },
         "required": ["left_source", "right_source", "destination", "left_on", "right_on"]
       }
+    },
+    "core.condition": {
+      "description": "Primitive d'orchestration logique. Évalue une expression conditionnelle et exécute les branches de manière conditionnelle.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "description": "L'expression logique à évaluer (ex: ${FILE_EXISTS} == true ou ${FILE_SIZE} > 1000)."
+          },
+          "then_steps": {
+            "type": "array",
+            "description": "Liste d'étapes à exécuter si la condition est vraie."
+          },
+          "else_steps": {
+            "type": "array",
+            "description": "Liste d'étapes facultatives à exécuter si la condition est fausse."
+          }
+        },
+        "required": ["expression", "then_steps"]
+      }
+    },
+    "data.split": {
+      "description": "Divise un jeu de données (CSV, JSON, Parquet) en plusieurs fichiers selon les valeurs uniques d'une colonne cible.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination_prefix": {
+            "type": "string",
+            "description": "Le préfixe des fichiers créés (ex: outputs/user_split)."
+          },
+          "by_column": {
+            "type": "string",
+            "description": "Le nom de la colonne sur laquelle effectuer la division."
+          }
+        },
+        "required": ["source", "destination_prefix", "by_column"]
+      }
+    },
+    "data.merge": {
+      "description": "Fusionne verticalement plusieurs fichiers de données (CSV, JSON, Parquet) de structure identique en un unique fichier cible.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sources": {
+            "type": "string",
+            "description": "Liste des chemins de fichiers sources séparés par des virgules (ex: file1.csv,file2.csv)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination consolidé."
+          }
+        },
+        "required": ["sources", "destination"]
+      }
     }
   }
 }

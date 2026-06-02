@@ -1,0 +1,71 @@
+{
+  "plan_id": "WFGY-PLAN-2023-001",
+  "intent_analysis": "Analyse les métadonnées d'un fichier CSV, le divise par statut si présent, puis fusionne les résultats.",
+  "steps": [
+    {
+      "step": 1,
+      "primitive": "io.metadata",
+      "ui": {
+        "label": "Lecture métadonnées",
+        "color": "#4A90E2",
+        "position": {
+          "x": 100,
+          "y": 100
+        }
+      },
+      "args": {
+        "path": "users_source.csv"
+      }
+    },
+    {
+      "step": 2,
+      "primitive": "core.condition",
+      "ui": {
+        "label": "Condition existence fichier",
+        "color": "#E67E22",
+        "position": {
+          "x": 100,
+          "y": 200
+        }
+      },
+      "args": {
+        "expression": "${FILE_EXISTS} == true",
+        "then_steps": [
+          {
+            "step": 3,
+            "primitive": "data.split",
+            "ui": {
+              "label": "Division par statut",
+              "color": "#27AE60",
+              "position": {
+                "x": 250,
+                "y": 200
+              }
+            },
+            "args": {
+              "source": "users_source.csv",
+              "destination_prefix": "split_out",
+              "by_column": "status"
+            }
+          },
+          {
+            "step": 4,
+            "primitive": "data.merge",
+            "ui": {
+              "label": "Fusion finale",
+              "color": "#9B59B6",
+              "position": {
+                "x": 400,
+                "y": 200
+              }
+            },
+            "args": {
+              "sources": "split_out_active.csv,split_out_inactive.csv",
+              "destination": "merged_final.csv"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -137,3 +137,76 @@ pub fn join(
     println!("SUCCESS: Joined '{}' and '{}' -> '{}'", left_source, right_source, destination);
     Ok(())
 }
+
+/// Divise (Split) un jeu de donnees en plusieurs fichiers selon les valeurs uniques d'une colonne
+pub fn split(
+    source: &str,
+    destination_prefix: &str,
+    by_column: &str,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+
+    // Recuperer les valeurs uniques de la colonne cible en collectant temporairement
+    let df_temp = lf.clone().select([col(by_column)]).collect()
+        .map_err(|e| format!("Erreur lors de la recuperation de la colonne de split : {}", e))?;
+    
+    let unique_series = df_temp.column(by_column)
+        .map_err(|e| format!("Colonne de split introuvable : {}", e))?
+        .unique()
+        .map_err(|e| format!("Impossible d'extraire les valeurs uniques : {}", e))?;
+
+    // Determiner l'extension du fichier source pour les fichiers de sortie
+    let src_path = Path::new(source);
+    let ext = src_path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("csv");
+
+    println!("[RUST SPLIT] Found {} unique values for column '{}'", unique_series.len(), by_column);
+
+    for i in 0..unique_series.len() {
+        let val_any = unique_series.get(i)
+            .map_err(|e| format!("Erreur de lecture de la valeur unique : {}", e))?;
+        
+        let val_str = val_any.to_string().replace("\"", "");
+
+        // Filtrer la DataFrame pour cette valeur unique
+        let filtered_lf = lf.clone().filter(col(by_column).eq(lit(val_str.clone())));
+        let filtered_df = filtered_lf.collect()
+            .map_err(|e| format!("Erreur lors du filtrage pour la valeur '{}' : {}", val_str, e))?;
+
+        // Construire le fichier de destination : <prefix>_<value>.<ext>
+        let dest_file = format!("{}_{}.{}", destination_prefix, val_str, ext);
+        write_df(filtered_df, &dest_file)?;
+        println!("[RUST SPLIT] Saved split partition to '{}'", dest_file);
+    }
+
+    println!("SUCCESS: Splitted '{}' by column '{}' into prefix '{}'", source, by_column, destination_prefix);
+    Ok(())
+}
+
+/// Fusionne (Merge/Union) verticalement plusieurs fichiers de donnees de meme type
+pub fn merge(
+    sources: Vec<String>,
+    destination: &str,
+) -> Result<(), String> {
+    if sources.is_empty() {
+        return Err("La liste des fichiers sources a fusionner est vide".to_string());
+    }
+
+    let mut lfs = Vec::new();
+    for src in &sources {
+        let lf = read_df(src)?;
+        lfs.push(lf);
+    }
+
+    // Fusionner verticalement via concat
+    let result_lf = concat(lfs, UnionArgs::default())
+        .map_err(|e| format!("Erreur de fusion verticale concat Polars : {}", e))?;
+
+    let result_df = result_lf.collect()
+        .map_err(|e| format!("Erreur lors de la collection de la fusion : {}", e))?;
+
+    write_df(result_df, destination)?;
+    println!("SUCCESS: Merged {} files into '{}'", sources.len(), destination);
+    Ok(())
+}

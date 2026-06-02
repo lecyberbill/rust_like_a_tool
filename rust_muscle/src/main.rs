@@ -64,6 +64,8 @@ fn main() {
         "net.http_request" => handle_net_http_request(&args[2..]),
         "data.groupby" => handle_data_groupby(&args[2..]),
         "data.join" => handle_data_join(&args[2..]),
+        "data.split" => handle_data_split(&args[2..]),
+        "data.merge" => handle_data_merge(&args[2..]),
         _ => Err(MuscleError::Generic(format!("Unknown primitive '{}'", primitive))),
     };
 
@@ -1532,6 +1534,90 @@ fn handle_data_join(args: &[String]) -> Result<(), MuscleError> {
     let right_on = right_on.ok_or_else(|| MuscleError::Generic("Missing argument --right-on".to_string()))?;
 
     analytical_engine::join(left_source, right_source, destination, left_on, right_on, &how)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+fn handle_data_split(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination_prefix = None;
+    let mut by_column = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination-prefix" | "--destination_prefix" => {
+                if i + 1 < args.len() {
+                    destination_prefix = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination-prefix".to_string()));
+                }
+            }
+            "--by-column" | "--by_column" => {
+                if i + 1 < args.len() {
+                    by_column = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --by-column".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let destination_prefix = destination_prefix.ok_or_else(|| MuscleError::Generic("Missing argument --destination-prefix".to_string()))?;
+    let by_column = by_column.ok_or_else(|| MuscleError::Generic("Missing argument --by-column".to_string()))?;
+
+    analytical_engine::split(source, destination_prefix, by_column)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+fn handle_data_merge(args: &[String]) -> Result<(), MuscleError> {
+    let mut sources = None;
+    let mut destination = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--sources" => {
+                if i + 1 < args.len() {
+                    sources = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --sources".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let sources_str = sources.ok_or_else(|| MuscleError::Generic("Missing argument --sources".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+
+    let sources_list: Vec<String> = sources_str.split(',').map(|s| s.trim().to_string()).collect();
+
+    analytical_engine::merge(sources_list, destination)
         .map_err(|e| MuscleError::Generic(e))
 }
 
