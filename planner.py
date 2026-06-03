@@ -227,14 +227,25 @@ Tu dois intégrer cette nouvelle intention dans la recette actuelle. Modifie la 
             recipe = json.loads(clean_response)
             return recipe
         except json.JSONDecodeError as e:
-            print(f"[PLANNER ERROR] Failed to parse JSON from LLM response: {e}")
-            print(f"Raw response was:\n{raw_response}")
-            # Return a fallback recipe structure showing the error
-            return {
-                "plan_id": "error_plan",
-                "intent_analysis": "Erreur de génération du plan par le LLM.",
-                "steps": []
-            }
+            print(f"[PLANNER WARNING] Standard JSON parsing failed: {e}. Attempting auto-repair...")
+            try:
+                # 1. Fix unquoted keys (e.g. {x: 150} or , y: 200)
+                repaired = re.sub(r'(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', clean_response)
+                # 2. Fix trailing commas in arrays/objects
+                repaired = re.sub(r',\s*(\]|\})', r'\1', repaired)
+                
+                recipe = json.loads(repaired)
+                print("[PLANNER] JSON successfully repaired and parsed.")
+                return recipe
+            except Exception as e_inner:
+                print(f"[PLANNER ERROR] Failed to parse JSON even after repair: {e_inner}")
+                print(f"Raw response was:\n{raw_response}")
+                # Return a fallback recipe structure showing the error
+                return {
+                    "plan_id": "error_plan",
+                    "intent_analysis": "Erreur de génération du plan par le LLM.",
+                    "steps": []
+                }
 
 if __name__ == "__main__":
     # Test execution CLI
