@@ -1,0 +1,5 @@
+id,email
+1,valid@example.com
+2,invalid-email
+3,another.valid@domain.org
+4,bad@@email

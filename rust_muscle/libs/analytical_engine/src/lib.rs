@@ -210,3 +210,141 @@ pub fn merge(
     println!("SUCCESS: Merged {} files into '{}'", sources.len(), destination);
     Ok(())
 }
+
+/// Calcule une métrique spécifique sur une colonne d'un jeu de données
+pub fn calculate_metric(
+    source: &str,
+    target_column: &str,
+    metric_type: &str,
+    regex_pattern: Option<&str>,
+    limit_rows: Option<usize>,
+) -> Result<String, String> {
+    let mut lf = read_df(source)?;
+
+    if let Some(limit) = limit_rows {
+        lf = lf.limit(limit as u32);
+    }
+
+    let expr = match metric_type.to_lowercase().as_str() {
+        "sum" => col(target_column).sum(),
+        "mean" => col(target_column).mean(),
+        "min" => col(target_column).min(),
+        "max" => col(target_column).max(),
+        "count" => col(target_column).count(),
+        "null_count" => col(target_column).null_count(),
+        "n_unique" => col(target_column).n_unique(),
+        "match_regex" => {
+            let pattern = regex_pattern.ok_or_else(|| "regex_pattern est requis pour match_regex".to_string())?;
+            col(target_column).str().contains(lit(pattern), false).cast(DataType::Int64).sum()
+        },
+        "non_match_regex" => {
+            let pattern = regex_pattern.ok_or_else(|| "regex_pattern est requis pour non_match_regex".to_string())?;
+            col(target_column).str().contains(lit(pattern), false).not().cast(DataType::Int64).sum()
+        },
+        other => return Err(format!("Type de métrique non supporté : {}", other)),
+    };
+
+    let metric_df = lf.select([expr]).collect()
+        .map_err(|e| format!("Erreur lors de l'exécution de la métrique : {}", e))?;
+
+    if metric_df.height() == 0 {
+        return Ok(r#"{"value":null}"#.to_string());
+    }
+
+    let val_any = metric_df.column(metric_df.get_column_names()[0])
+        .map_err(|e| e.to_string())?
+        .get(0)
+        .map_err(|e| e.to_string())?;
+
+    let json_val = match val_any {
+        AnyValue::Null => serde_json::Value::Null,
+        AnyValue::Boolean(b) => serde_json::Value::Bool(b),
+        AnyValue::Int8(v) => serde_json::Value::Number(v.into()),
+        AnyValue::Int16(v) => serde_json::Value::Number(v.into()),
+        AnyValue::Int32(v) => serde_json::Value::Number(v.into()),
+        AnyValue::Int64(v) => serde_json::Value::Number(v.into()),
+        AnyValue::UInt8(v) => serde_json::Value::Number(v.into()),
+        AnyValue::UInt16(v) => serde_json::Value::Number(v.into()),
+        AnyValue::UInt32(v) => serde_json::Value::Number(v.into()),
+        AnyValue::UInt64(v) => serde_json::Value::Number(v.into()),
+        AnyValue::Float32(v) => serde_json::Number::from_f64(v as f64).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null),
+        AnyValue::Float64(v) => serde_json::Number::from_f64(v).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null),
+        other => {
+            let s = other.to_string();
+            let cleaned = if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                s[1..s.len()-1].to_string()
+            } else {
+                s
+            };
+            if let Ok(parsed_f) = cleaned.parse::<f64>() {
+                serde_json::Number::from_f64(parsed_f).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null)
+            } else if let Ok(parsed_b) = cleaned.parse::<bool>() {
+                serde_json::Value::Bool(parsed_b)
+            } else if cleaned == "null" || cleaned == "None" {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(cleaned)
+            }
+        }
+    };
+
+    let result_obj = serde_json::json!({
+        "value": json_val
+    });
+
+    Ok(result_obj.to_string())
+}
+
+/// Découpe séquentiellement un jeu de données en plusieurs fichiers selon un seuil cumulé
+pub fn chunk_cumulative(
+    source: &str,
+    destination_prefix: &str,
+    target_column: &str,
+    cumulative_threshold: f64,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+    let df = lf.collect().map_err(|e| format!("Erreur lors de la collection du fichier source : {}", e))?;
+
+    let col_series = df.column(target_column)
+        .map_err(|e| format!("Colonne '{}' introuvable : {}", target_column, e))?;
+
+    let col_f64 = col_series.cast(&DataType::Float64)
+        .map_err(|e| format!("Impossible de convertir la colonne '{}' en Float64 : {}", target_column, e))?;
+
+    let col_ca = col_f64.f64().map_err(|e| e.to_string())?;
+
+    // Détecter l'extension du fichier source
+    let src_path = Path::new(source);
+    let ext = src_path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("csv");
+
+    let mut current_sum = 0.0;
+    let mut start_row = 0;
+    let mut part_idx = 1;
+    let total_rows = df.height();
+
+    for row_idx in 0..total_rows {
+        let val = col_ca.get(row_idx).unwrap_or(0.0);
+        current_sum += val;
+
+        if current_sum >= cumulative_threshold {
+            let chunk_df = df.slice(start_row as i64, row_idx - start_row + 1);
+            let dest_file = format!("{}_part_{}.{}", destination_prefix, part_idx, ext);
+            write_df(chunk_df, &dest_file)?;
+            part_idx += 1;
+            start_row = row_idx + 1;
+            current_sum = 0.0;
+        }
+    }
+
+    // Écrire le dernier chunk restant si non vide
+    if start_row < total_rows {
+        let chunk_df = df.slice(start_row as i64, total_rows - start_row);
+        let dest_file = format!("{}_part_{}.{}", destination_prefix, part_idx, ext);
+        write_df(chunk_df, &dest_file)?;
+    }
+
+    println!("SUCCESS: Chunked '{}' by cumulative threshold {} on column '{}'", source, cumulative_threshold, target_column);
+    Ok(())
+}

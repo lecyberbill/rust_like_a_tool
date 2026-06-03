@@ -269,74 +269,119 @@ class Orchestrator:
         print(f"User Intent: {intent}")
         print("==========================================")
 
+        # 1. Détection de cycles dans le graphe de dépendances (DAG)
+        parents = {}
         for step in steps:
             step_num = step.get("step")
-            primitive = step.get("primitive")
-            args = step.get("args", {})
+            dep_val = step.get("depends_on", [])
+            if isinstance(dep_val, list):
+                parents[step_num] = dep_val
+            else:
+                parents[step_num] = [dep_val]
 
-            # 1. Gestion spécifique de core.condition (Orchestration logique récursive)
+        visited = {}
+        def has_cycle(node):
+            if visited.get(node) == 1:  # en cours de visite
+                return True
+            if visited.get(node) == 2:  # déjà visité
+                return False
+            visited[node] = 1
+            for parent in parents.get(node, []):
+                if has_cycle(parent):
+                    return True
+            visited[node] = 2
+            return False
+
+        for step in steps:
+            step_num = step.get("step")
+            if step_num not in visited:
+                if has_cycle(step_num):
+                    err_msg = f"Détection de cycle de dépendances dans la recette (autour de l'étape {step_num})"
+                    print(f"[ORCHESTRATOR ERROR] {err_msg}")
+                    return False
+
+        # 2. Préparation des structures de contrôle asynchrones
+        step_events = {step.get("step"): asyncio.Event() for step in steps}
+        failed_steps = set()
+        completed_steps = set()
+
+        async def run_single_step(step_item):
+            step_num = step_item.get("step")
+            primitive = step_item.get("primitive")
+            args = step_item.get("args", {})
+            dep_list = parents.get(step_num, [])
+
+            # Attente de tous les parents
+            for pid in dep_list:
+                if pid in step_events:
+                    await step_events[pid].wait()
+                    if pid in failed_steps:
+                        failed_steps.add(step_num)
+                        step_events[step_num].set()
+                        return False
+                else:
+                    # Parent non déclaré dans la recette, on continue
+                    pass
+
+            if failed_steps:
+                failed_steps.add(step_num)
+                step_events[step_num].set()
+                return False
+
+            if status_callback:
+                status_callback(step_num, "running", f"Exécution de l'étape ({target_env.upper()})...")
+
+            # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
-                if status_callback:
-                    status_callback(step_num, "running", f"Évaluation de la condition logique...")
-
                 resolved_args = self.resolve_secrets(args, local_env, target_env)
                 expr = resolved_args.get("expression", "false")
-                
-                # Évaluation rudimentaire de l'expression conditionnelle (ex: "true == true" ou "500 > 100")
-                # Remplacer les valeurs courantes
                 eval_expr = expr.strip()
-                
                 print(f"[ORCHESTRATOR] Évaluation de l'expression : '{eval_expr}'")
-                
-                # Évaluation sécurisée rudimentaire pour éviter eval() arbitraire sur chaînes hostiles
                 condition_met = False
                 try:
-                    # Remplacement des tokens simples pour évaluation propre en Python
                     eval_expr_py = eval_expr.replace("true", "True").replace("false", "False")
-                    # Autoriser uniquement les chiffres, espaces, opérateurs, parenthèses et booléens
                     allowed_chars = "0123456789. ><=!&|()TrueFalse\"' "
                     if all(char in allowed_chars for char in eval_expr_py):
                         condition_met = bool(eval(eval_expr_py))
                     else:
-                        # Si l'expression contient encore des variables non résolues comme ${...}
-                        print(f"[ORCHESTRATOR WARNING] Expression conditionnelle non resolue ou suspecte : {eval_expr}")
+                        print(f"[ORCHESTRATOR WARNING] Expression conditionnelle non résolue ou suspecte : {eval_expr}")
                 except Exception as e:
                     print(f"[ORCHESTRATOR ERROR] Échec de l'évaluation de la condition '{eval_expr}': {e}")
 
                 print(f"[ORCHESTRATOR] Résultat condition : {condition_met}")
-                
                 if status_callback:
                     status_callback(step_num, "success", f"Condition évaluée à : {condition_met}")
 
                 target_branch = "then_steps" if condition_met else "else_steps"
                 branch_steps = args.get(target_branch, [])
-                
                 if branch_steps:
                     print(f"[ORCHESTRATOR] Exécution de la branche '{target_branch}'...")
-                    # Construire une sous-recette temporaire
                     sub_recipe = {
                         "plan_id": f"{plan_id}_branch",
                         "intent_analysis": f"Sous-branche conditionnelle : {target_branch}",
                         "steps": branch_steps,
                         "env": local_env
                     }
-                    success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
-                    if not success:
+                    sub_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                    if not sub_success:
+                        failed_steps.add(step_num)
+                        step_events[step_num].set()
                         return False
-                continue
+                completed_steps.add(step_num)
+                step_events[step_num].set()
+                return True
 
-            if status_callback:
-                status_callback(step_num, "running", f"Exécuting step in Rust ({target_env.upper()})...")
-
-            # 2. Validate recipe step against Schema
+            # 3. Validation de l'étape de recette
             is_valid, err_msg = self.validator.validate_step(primitive, args)
             if not is_valid:
                 print(f"[ERROR] Validation failed for Step {step_num}: {err_msg}")
                 if status_callback:
                     status_callback(step_num, "error", f"Validation failed: {err_msg}")
+                failed_steps.add(step_num)
+                step_events[step_num].set()
                 return False
 
-            # Check for conflict in io.copy
+            # Gestion des conflits pour io.copy
             if primitive == "io.copy":
                 resolved_args = self.resolve_secrets(args, local_env, target_env)
                 src = resolved_args.get("source")
@@ -348,7 +393,6 @@ class Orchestrator:
                     is_dir = dest.endswith('/') or dest.endswith('\\') or (dest_path.exists() and dest_path.is_dir())
                     if is_dir and src_path.exists():
                         resolved_dest = dest_path / src_path.name
-                    
                     if resolved_dest.exists() and not args.get("conflict"):
                         if ask_user_callback:
                             if status_callback:
@@ -356,39 +400,88 @@ class Orchestrator:
                             choice = await ask_user_callback(step_num, str(resolved_dest))
                             args["conflict"] = choice
 
-            # 3. Resolve secrets and invoke Rust binary
-            resolved_args = self.resolve_secrets(args, local_env, target_env)
-            code, stdout, stderr = await self.bridge.execute(primitive, resolved_args)
+            # 4. Configuration des tentatives (Retry mechanism)
+            retry_cfg = step_item.get("retry", {})
+            attempts = retry_cfg.get("attempts", 1)
+            delay = retry_cfg.get("delay_seconds", 1.0)
+            if not isinstance(attempts, int) or attempts < 1:
+                attempts = 1
 
-            # Log outputs
+            code = -1
+            stdout = ""
+            stderr = ""
+
+            for attempt in range(1, attempts + 1):
+                resolved_args = self.resolve_secrets(args, local_env, target_env)
+                code, stdout, stderr = await self.bridge.execute(primitive, resolved_args)
+
+                if code == 0:
+                    break
+                else:
+                    print(f"[ORCHESTRATOR] Échec de l'étape {step_num} (tentative {attempt}/{attempts}) : {stderr.strip()}")
+                    if attempt < attempts:
+                        if status_callback:
+                            status_callback(step_num, "retrying", f"Échec (tentative {attempt}/{attempts}). Réessai dans {delay}s...")
+                        await asyncio.sleep(delay)
+
+            # Traitement des sorties
             if stdout.strip():
-                print(f"[RUST STDOUT]:\n{stdout.strip()}")
+                print(f"[RUST STDOUT] (Step {step_num}):\n{stdout.strip()}")
             if stderr.strip():
-                print(f"[RUST STDERR]:\n{stderr.strip()}")
+                print(f"[RUST STDERR] (Step {step_num}):\n{stderr.strip()}")
 
             if code != 0:
-                print(f"[ERROR] Step {step_num} failed with return code {code}.")
+                print(f"[ERROR] Step {step_num} failed after {attempts} attempts. Code: {code}")
                 if status_callback:
-                    # Translate standard error code to human readable local language
                     translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
-                    status_callback(step_num, "error", f"{translated_error} | Détails système: {stderr.strip()}")
+                    status_callback(step_num, "error", f"{translated_error} | Détails: {stderr.strip()}")
+                failed_steps.add(step_num)
+                step_events[step_num].set()
                 return False
 
-            # 4. Propagation dynamique du contexte à partir de io.metadata
+            # Propagation du contexte io.metadata
             if primitive == "io.metadata" and code == 0:
                 try:
-                    # La primitive io.metadata renvoie du JSON sur stdout :
-                    # {"exists": true, "is_dir": false, "size_bytes": 1119, "modified_epoch": ...}
                     meta = json.loads(stdout.strip())
                     self.execution_context["FILE_EXISTS"] = str(meta.get("exists", False)).lower()
                     self.execution_context["FILE_SIZE"] = meta.get("size_bytes", 0)
                     self.execution_context["IS_DIR"] = str(meta.get("is_dir", False)).lower()
-                    print(f"[ORCHESTRATOR] Propagation contexte : FILE_EXISTS={self.execution_context['FILE_EXISTS']}, FILE_SIZE={self.execution_context['FILE_SIZE']}")
+                    print(f"[ORCHESTRATOR] Context updated by metadata: FILE_EXISTS={self.execution_context['FILE_EXISTS']}")
                 except Exception as e:
-                    print(f"[ORCHESTRATOR WARNING] Échec du parsing de la sortie metadata pour propagation : {e}")
+                    print(f"[ORCHESTRATOR WARNING] Failed to parse metadata stdout: {e}")
+
+            # Propagation du contexte data.metrics
+            if primitive == "data.metrics" and code == 0:
+                try:
+                    json_line = None
+                    for line in stdout.strip().split("\n"):
+                        if line.strip().startswith("{") and "value" in line:
+                            json_line = line.strip()
+                            break
+                    if json_line:
+                        res = json.loads(json_line)
+                        val = res.get("value")
+                        dest_var = resolved_args.get("destination_variable")
+                        if dest_var:
+                            self.execution_context[dest_var] = val
+                            print(f"[ORCHESTRATOR] Context updated by metric: {dest_var}={val}")
+                except Exception as e:
+                    print(f"[ORCHESTRATOR WARNING] Failed to parse metrics stdout: {e}")
 
             if status_callback:
                 status_callback(step_num, "success", stdout.strip())
+
+            completed_steps.add(step_num)
+            step_events[step_num].set()
+            return True
+
+        # Lancement de toutes les étapes en tâches concurrentes
+        tasks = [asyncio.create_task(run_single_step(step)) for step in steps]
+        await asyncio.gather(*tasks)
+
+        if failed_steps:
+            print(f"Plan Execution Failed. Failed steps: {failed_steps}")
+            return False
 
         print("Plan Executed Successfully.")
         return True
@@ -440,6 +533,17 @@ async def handler(websocket, path=None):
                 await websocket.send(json.dumps({"type": "LOG", "message": "Workflow courant effacé."}))
                 continue
 
+            if data.get("type") == "SAVE_GLOBAL_SECRETS":
+                global_secrets = data.get("secrets", {})
+                vault.save_secrets(global_secrets)
+                await websocket.send(json.dumps({"type": "LOG", "message": "Secrets enregistrés avec succès dans le coffre-fort."}))
+                # Diffuser la mise à jour des secrets à l'application
+                await websocket.send(json.dumps({
+                    "type": "VAULT_SECRETS",
+                    "env": global_secrets
+                }))
+                continue
+
             if data.get("type") == "LOAD_RECIPE":
                 current_recipe = data.get("recipe", {})
                 steps = current_recipe.get("steps", [])
@@ -460,6 +564,24 @@ async def handler(websocket, path=None):
 
             if data.get("type") == "SUBMIT_INTENT":
                 intent = data.get("intent", "")
+                mode_etude = data.get("study_mode", False)
+                
+                if mode_etude:
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"[ETUDE] Démarrage de l'analyse d'intention en mode étude..."}))
+                    try:
+                        study_res = planner.study(intent)
+                        print(f"[WS SERVER] Study result: {study_res}")
+                        await websocket.send(json.dumps({
+                            "type": "STUDY_QUESTIONS",
+                            "analysis": study_res.get("analysis", ""),
+                            "questions": study_res.get("questions", []),
+                            "original_intent": intent
+                        }))
+                    except Exception as study_err:
+                        print(f"[WS SERVER] Study mode error: {study_err}")
+                        await websocket.send(json.dumps({"type": "LOG", "message": f"Erreur d'analyse d'étude : {study_err}"}))
+                    continue
+                
                 await websocket.send(json.dumps({"type": "LOG", "message": f"Intent received: '{intent}'. Planning..."}))
                 
                 try:
@@ -487,7 +609,55 @@ async def handler(websocket, path=None):
                     await websocket.send(json.dumps({
                         "type": "LOG", 
                         "message": f"Planning Error: {planner_err}"
+                     }))
+                continue
+
+            if data.get("type") == "SUBMIT_STUDY_CHAT":
+                intent = data.get("original_intent", "")
+                chat_history = data.get("chat_history", [])
+                
+                await websocket.send(json.dumps({"type": "LOG", "message": "[ETUDE] Prise en compte de vos réponses par l'IA..."}))
+                try:
+                    # Relancer study avec l'historique pour affiner ou générer de nouvelles questions
+                    study_res = planner.study(intent, chat_history)
+                    print(f"[WS SERVER] Next study phase: {study_res}")
+                    await websocket.send(json.dumps({
+                        "type": "STUDY_QUESTIONS",
+                        "analysis": study_res.get("analysis", ""),
+                        "questions": study_res.get("questions", []),
+                        "original_intent": intent
                     }))
+                except Exception as err:
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"Erreur : {err}"}))
+                continue
+
+            if data.get("type") == "GENERATE_STUDY_RECIPE":
+                intent = data.get("original_intent", "")
+                chat_history = data.get("chat_history", [])
+                
+                await websocket.send(json.dumps({"type": "LOG", "message": "[ETUDE] Alignement validé. Génération de la recette finale..."}))
+                try:
+                    # Concaténer l'intention d'origine avec l'historique des réponses d'alignement pour le planneur final
+                    full_intent = f"Intention : {intent}\n\nAlignement & Clarifications :\n"
+                    for msg in chat_history:
+                        full_intent += f"- {msg.get('role').upper()}: {msg.get('content')}\n"
+                    
+                    recipe = planner.plan(full_intent, current_recipe)
+                    steps = recipe.get("steps", [])
+                    if steps:
+                        current_recipe = recipe
+                        current_recipe["env"] = vault.load_secrets()
+                    
+                    await websocket.send(json.dumps({
+                        "type": "PLAN_RECEIVED",
+                        "steps": steps,
+                        "plan_id": recipe.get("plan_id", "unknown"),
+                        "intent_analysis": recipe.get("intent_analysis", "No plan created"),
+                        "env": current_recipe.get("env", {})
+                    }))
+                    await websocket.send(json.dumps({"type": "LOG", "message": "Recette finale générée et rendue sur le graphe."}))
+                except Exception as planner_err:
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"Erreur de génération : {planner_err}"}))
                 continue
 
             if data.get("type") == "RUN_RECIPE":

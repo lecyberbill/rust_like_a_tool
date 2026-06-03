@@ -1,0 +1,5 @@
+id,name,status
+101,Alice,active
+102,Bob,inactive
+103,Charlie,active
+104,David,pending

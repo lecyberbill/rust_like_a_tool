@@ -1,3 +1,4 @@
+<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Fix missing submitIntent function and clean keydown event handler -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -426,14 +427,301 @@
             border-color: var(--pending);
             box-shadow: 0 0 10px rgba(107, 114, 128, 0.4);
         }
+
+        /* Styles pour l'éditeur de nœud et secrets globaux */
+        #node-editor-panel {
+            width: 380px;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 6;
+        }
+
+        #node-editor-panel.collapsed {
+            width: 0;
+            overflow: hidden;
+            border-left: none;
+        }
+
+        .editor-section {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 20px;
+        }
+
+        .editor-section-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+
+        .editor-input-group {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .editor-input-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .editor-input {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .editor-input:focus {
+            border-color: var(--accent);
+        }
+
+        .editor-checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .editor-checkbox-group input {
+            cursor: pointer;
+        }
+
+        .editor-checkbox-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .node-edit-badge {
+            cursor: pointer;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(74, 144, 226, 0.2);
+            color: var(--accent);
+            border: 1px solid rgba(74, 144, 226, 0.4);
+            transition: all 0.2s;
+        }
+
+        .node-edit-badge:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .save-secrets-btn {
+            background: var(--accent);
+            color: white;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px var(--accent-glow);
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .save-secrets-btn:hover {
+            opacity: 0.9;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        /* --- Zone de Chat pour le Mode Étude --- */
+        #study-chat-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 90;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #study-chat-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .chat-container {
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid var(--border);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            width: 650px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #study-chat-modal.active .chat-container {
+            transform: scale(1);
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: rgba(30, 41, 59, 0.5);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #60a5fa;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 0.92rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .chat-bubble.assistant {
+            align-self: flex-start;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-bubble.user {
+            align-self: flex-end;
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 10px var(--accent-glow);
+        }
+
+        .chat-input-area {
+            padding: 16px 20px;
+            background: rgba(30, 41, 59, 0.3);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input-field {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            font-family: inherit;
+            outline: none;
+        }
+
+        .chat-input-field:focus {
+            border-color: var(--accent);
+        }
+
+        .chat-send-btn {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chat-send-btn:hover {
+            opacity: 0.9;
+        }
+
+        .chat-generate-btn {
+            background: var(--success);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px var(--success-glow);
+        }
+
+        .chat-generate-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Badge d'activation du Mode Étude dans le header */
+        .study-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .study-checkbox {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
     </style>
 </head>
 <body>
 
     <header id="intent-bar">
         <div class="logo-title">WFGY Core v3</div>
-        <textarea id="intent-input" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
-Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></textarea>
+        <div style="flex: 1; display: flex; align-items: center; margin-left: 20px; gap: 10px;">
+            <textarea id="intent-input" style="flex: 1; margin-left: 0;" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
+Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pour un saut de ligne."></textarea>
+            <button class="toggle-logs-btn" onclick="submitIntent()" style="background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); height: 80px; font-weight: 600; width: 100px;">🚀 Soumettre</button>
+        </div>
+        
+        <div class="study-toggle-container">
+            <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
+            <label for="study-mode-checkbox">🧪 Mode Étude</label>
+        </div>
+
         <button class="toggle-logs-btn" onclick="triggerUpload()" style="margin-left: 20px;">📂 Charger</button>
         <button class="toggle-logs-btn" onclick="downloadRecipe()" style="margin-left: 10px;">💾 Sauvegarder</button>
         <button class="toggle-logs-btn" onclick="clearRecipe()" style="margin-left: 10px;">🗑️ Effacer</button>
@@ -468,6 +756,24 @@ Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></text
             <div id="env-vars-container" style="flex: 1; padding: 20px; overflow-y: auto;">
                 <div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>
             </div>
+            <div style="padding: 20px; border-top: 1px solid var(--border);">
+                <button class="save-secrets-btn" onclick="saveGlobalSecrets()">💾 Sauvegarder dans le Coffre</button>
+            </div>
+        </aside>
+
+        <!-- Panneau de modification visuelle de l'étape sélectionnée -->
+        <aside id="node-editor-panel" class="collapsed">
+            <div class="panel-header">
+                <h3 id="node-editor-title">Éditer l'étape</h3>
+                <button class="toggle-logs-btn" onclick="closeNodeEditor()">✖</button>
+            </div>
+            <div class="panel-desc" id="node-editor-desc">
+                Sélectionnez un nœud ou cliquez sur son badge d'édition pour modifier ses paramètres.
+            </div>
+            <div id="node-editor-container" style="flex: 1; padding: 20px; overflow-y: auto;">
+                <!-- Formulaire d'édition injecté dynamiquement -->
+                <div class="no-vars-msg">Aucune étape sélectionnée.</div>
+            </div>
         </aside>
         
         <aside id="log-panel">
@@ -488,6 +794,24 @@ Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></text
             <div id="conflict-message" class="modal-message">Le fichier existe déjà. Que souhaitez-vous faire ?</div>
             <div id="conflict-actions" class="modal-actions">
                 <!-- Les boutons d'action seront injectés dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal du Chat du Mode Étude -->
+    <div id="study-chat-modal">
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>🧪 Mode Étude : Alignement du Flux</h3>
+                <button class="toggle-logs-btn" onclick="closeStudyChat()">✖ Fermer</button>
+            </div>
+            <div id="study-chat-messages" class="chat-messages">
+                <!-- Les messages s'affichent ici -->
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="study-chat-input" class="chat-input-field" placeholder="Répondez aux questions de l'IA pour l'aider à concevoir le flux...">
+                <button class="chat-send-btn" onclick="sendStudyChatReply()">Envoyer</button>
+                <button class="chat-generate-btn" onclick="generateStudyRecipe()">Générer le Flux</button>
             </div>
         </div>
     </div>
@@ -539,10 +863,18 @@ Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></text
                 this.innerHTML = `
                     <div class="node-header">
                         <span>${label}</span>
-                        <span class="status-badge"></span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="node-edit-badge" onclick="event.stopPropagation(); editNode(${step})">✏️</span>
+                            <span class="status-badge"></span>
+                        </div>
                     </div>
                     <div class="node-primitive">${primitive}</div>
                 `;
+                
+                // Clicking the node card itself also opens the editor
+                this.addEventListener('click', () => {
+                    editNode(Number(step));
+                });
             }
         }
         customElements.define('workflow-node', WorkflowNode);
@@ -589,6 +921,10 @@ Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></text
                     };
                     renderNodes(data.steps);
                     detectAndRenderEnvVars();
+                }
+                else if (data.type === 'STUDY_QUESTIONS') {
+                    addLog("Questions de clarification reçues de l'IA (Mode Étude).", 'info');
+                    openStudyChat(data.original_intent, data.analysis, data.questions);
                 }
                 else if (data.type === 'STEP_STATUS') {
                     addLog(`Step ${data.step}: [${data.status}] - ${data.log}`, data.status === 'success' ? 'success' : (data.status === 'error' ? 'error' : 'info'));
@@ -706,35 +1042,197 @@ Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></text
             modal.classList.add('active');
         }
 
+        // --- FONCTIONS D'EDITION VISUELLE DES NOEUDS & SECRETS GLOBAUX ---
+        let selectedStepNum = null;
+
+        function editNode(stepNum) {
+            selectedStepNum = stepNum;
+            const step = currentRecipe.steps.find(s => s.step === stepNum);
+            if (!step) return;
+
+            const panel = document.getElementById('node-editor-panel');
+            const container = document.getElementById('node-editor-container');
+            
+            // Ouvrir l'éditeur de noeud
+            panel.classList.remove('collapsed');
+            
+            // Titre de l'étape
+            document.getElementById('node-editor-title').innerText = `Étape ${stepNum} : ${step.ui.label}`;
+            
+            // Construire le formulaire d'arguments et dépendances
+            let html = `
+                <div class="editor-section">
+                    <div class="editor-section-title">Infos Générales</div>
+                    <div class="editor-input-group">
+                        <label>Nom convivial (Label)</label>
+                        <input type="text" class="editor-input" id="edit-node-label" value="${step.ui.label}" oninput="saveNodeChanges()">
+                    </div>
+                </div>
+            `;
+
+            // Dépendances (Depends On)
+            html += `
+                <div class="editor-section">
+                    <div class="editor-section-title">Dépendances (depends_on)</div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+            `;
+            
+            currentRecipe.steps.forEach(otherStep => {
+                if (otherStep.step !== stepNum) {
+                    const isChecked = (step.depends_on || []).includes(otherStep.step) ? 'checked' : '';
+                    html += `
+                        <div class="editor-checkbox-group">
+                            <input type="checkbox" id="dep-${otherStep.step}" ${isChecked} onchange="saveNodeChanges()">
+                            <label for="dep-${otherStep.step}">Étape ${otherStep.step} : ${otherStep.ui.label}</label>
+                        </div>
+                    `;
+                }
+            });
+            if (currentRecipe.steps.length <= 1) {
+                html += `<div style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">Aucune autre étape disponible pour créer une dépendance.</div>`;
+            }
+            html += `</div></div>`;
+
+            // Arguments de la primitive
+            html += `
+                <div class="editor-section">
+                    <div class="editor-section-title">Arguments (${step.primitive})</div>
+            `;
+
+            const args = step.args || {};
+            for (const [key, val] of Object.entries(args)) {
+                const inputId = `arg-${key}`;
+                if (typeof val === 'boolean') {
+                    const isChecked = val ? 'checked' : '';
+                    html += `
+                        <div class="editor-checkbox-group">
+                            <input type="checkbox" id="${inputId}" ${isChecked} onchange="saveNodeChanges()">
+                            <label for="${inputId}">${key}</label>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="editor-input-group">
+                            <label>${key}</label>
+                            <input type="text" class="editor-input" id="${inputId}" value="${val}" oninput="saveNodeChanges()">
+                        </div>
+                    `;
+                }
+            }
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function closeNodeEditor() {
+            document.getElementById('node-editor-panel').classList.add('collapsed');
+            selectedStepNum = null;
+        }
+
+        function saveNodeChanges() {
+            if (selectedStepNum === null || !currentRecipe) return;
+            const step = currentRecipe.steps.find(s => s.step === selectedStepNum);
+            if (!step) return;
+
+            // 1. Mettre à jour le Label
+            const labelInput = document.getElementById('edit-node-label');
+            if (labelInput) {
+                step.ui.label = labelInput.value;
+                const nodeHeaderLabel = document.querySelector(`#node-step-${selectedStepNum} .node-header span:first-child`);
+                if (nodeHeaderLabel) {
+                    nodeHeaderLabel.innerText = labelInput.value;
+                }
+            }
+
+            // 2. Mettre à jour les dépendances
+            const deps = [];
+            currentRecipe.steps.forEach(otherStep => {
+                if (otherStep.step !== selectedStepNum) {
+                    const chk = document.getElementById(`dep-${otherStep.step}`);
+                    if (chk && chk.checked) {
+                        deps.push(otherStep.step);
+                    }
+                }
+            });
+            step.depends_on = deps;
+
+            // 3. Mettre à jour les arguments
+            const args = step.args || {};
+            for (const key of Object.keys(args)) {
+                const inputId = `arg-${key}`;
+                const el = document.getElementById(inputId);
+                if (el) {
+                    if (el.type === 'checkbox') {
+                        step.args[key] = el.checked;
+                    } else {
+                        // Conserver les nombres ou types corrects si possible
+                        const floatVal = parseFloat(el.value);
+                        if (!isNaN(floatVal) && String(floatVal) === el.value) {
+                            step.args[key] = floatVal;
+                        } else if (el.value === 'true' || el.value === 'false') {
+                            step.args[key] = el.value === 'true';
+                        } else {
+                            step.args[key] = el.value;
+                        }
+                    }
+                }
+            }
+
+            // Redessiner les connexions
+            drawConnections();
+            
+            // Mettre à jour l'affichage des variables s'il y a de nouveaux placeholders
+            detectAndRenderEnvVars();
+        }
+
+        function saveGlobalSecrets() {
+            if (!currentRecipe || !currentRecipe.env) {
+                addLog('Aucun environnement de secrets chargé.', 'error');
+                return;
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'SAVE_GLOBAL_SECRETS',
+                    secrets: currentRecipe.env
+                }));
+                addLog('Envoi de la sauvegarde des secrets globaux au coffre-fort...', 'info');
+            } else {
+                addLog('Déconnecté du serveur, impossible de sauvegarder.', 'error');
+            }
+        }
+
         function drawConnections() {
             const svg = document.getElementById('connections-svg');
             svg.innerHTML = '';
             
-            const keys = Object.keys(activeNodes).map(Number).sort((a, b) => a - b);
-            for (let i = 0; i < keys.length - 1; i++) {
-                const nodeA = activeNodes[keys[i]];
-                const nodeB = activeNodes[keys[i + 1]];
+            if (!currentRecipe || !currentRecipe.steps) return;
+            
+            currentRecipe.steps.forEach(step => {
+                const stepNum = step.step;
+                const nodeB = activeNodes[stepNum];
+                if (!nodeB) return;
                 
-                if (nodeA && nodeB) {
-                    const rectA = nodeA.getBoundingClientRect();
-                    const rectB = nodeB.getBoundingClientRect();
-                    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-                    
-                    // Left and Top relative to canvas
-                    const x1 = rectA.left - canvasRect.left + rectA.width;
-                    const y1 = rectA.top - canvasRect.top + rectA.height / 2;
-                    
-                    const x2 = rectB.left - canvasRect.left;
-                    const y2 = rectB.top - canvasRect.top + rectB.height / 2;
-                    
-                    // Curved bezier connection path
-                    const controlX = x1 + (x2 - x1) / 2;
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`);
-                    path.setAttribute('class', 'connection-line');
-                    svg.appendChild(path);
-                }
-            }
+                const deps = step.depends_on || [];
+                deps.forEach(parentNum => {
+                    const nodeA = activeNodes[parentNum];
+                    if (nodeA) {
+                        const rectA = nodeA.getBoundingClientRect();
+                        const rectB = nodeB.getBoundingClientRect();
+                        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+                        
+                        const x1 = rectA.left - canvasRect.left + rectA.width;
+                        const y1 = rectA.top - canvasRect.top + rectA.height / 2;
+                        
+                        const x2 = rectB.left - canvasRect.left;
+                        const y2 = rectB.top - canvasRect.top + rectB.height / 2;
+                        
+                        const controlX = x1 + (x2 - x1) / 2;
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        path.setAttribute('d', `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`);
+                        path.setAttribute('class', 'connection-line');
+                        svg.appendChild(path);
+                    }
+                });
+            });
         }
 
         function renderNodes(steps) {
@@ -856,21 +1354,107 @@ Appuyez sur Entrée pour planifier, Shift+Entrée pour un saut de ligne."></text
             }
         }
 
+        // --- LOGIQUE CHAT MODE ÉTUDE ---
+        let studyOriginalIntent = '';
+        let studyChatHistory = [];
+
+        function openStudyChat(originalIntent, analysis, questions) {
+            studyOriginalIntent = originalIntent;
+            studyChatHistory = []; // Reset history
+            
+            const modal = document.getElementById('study-chat-modal');
+            const msgArea = document.getElementById('study-chat-messages');
+            
+            msgArea.innerHTML = '';
+            modal.classList.add('active');
+            
+            // Add initial analysis bubble
+            appendChatBubble('assistant', `<strong>Analyse de l'Intention :</strong><br>${analysis}`);
+            
+            // Add assistant questions bubble
+            if (questions && questions.length > 0) {
+                let qText = "<strong>Questions de clarification :</strong><br><ul>";
+                questions.forEach(q => {
+                    qText += `<li>${q}</li>`;
+                });
+                qText += "</ul>";
+                appendChatBubble('assistant', qText);
+                studyChatHistory.push({ role: 'assistant', content: `Analysis: ${analysis}. Questions: ${questions.join(' | ')}` });
+            }
+        }
+
+        function appendChatBubble(sender, text) {
+            const msgArea = document.getElementById('study-chat-messages');
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${sender}`;
+            bubble.innerHTML = text;
+            msgArea.appendChild(bubble);
+            msgArea.scrollTop = msgArea.scrollHeight;
+        }
+
+        function sendStudyChatReply() {
+            const input = document.getElementById('study-chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            appendChatBubble('user', text);
+            studyChatHistory.push({ role: 'user', content: text });
+            input.value = '';
+            
+            // Envoi au serveur pour obtenir de nouvelles clarifications
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'SUBMIT_STUDY_CHAT',
+                    original_intent: studyOriginalIntent,
+                    chat_history: studyChatHistory
+                }));
+            }
+        }
+
+        function generateStudyRecipe() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'GENERATE_STUDY_RECIPE',
+                    original_intent: studyOriginalIntent,
+                    chat_history: studyChatHistory
+                }));
+                closeStudyChat();
+            }
+        }
+
+        function closeStudyChat() {
+            document.getElementById('study-chat-modal').classList.remove('active');
+        }
+
+        function submitIntent() {
+            const input = document.getElementById('intent-input');
+            const intent = input.value.trim();
+            const isStudyMode = document.getElementById('study-mode-checkbox').checked;
+            if (intent && ws && ws.readyState === WebSocket.OPEN) {
+                addLog(`Soumission de l'intention (Mode Étude=${isStudyMode}) : "${intent.substring(0, 60)}..."`, 'info');
+                ws.send(JSON.stringify({
+                    type: 'SUBMIT_INTENT',
+                    intent: intent,
+                    study_mode: isStudyMode
+                }));
+                input.value = '';
+            } else {
+                addLog('Erreur : impossible d\'envoyer l\'intention (déconnecté ou vide).', 'error');
+            }
+        }
+
         // Send user intent on Enter keydown (prevent default to not insert newline, unless Shift is pressed)
         document.getElementById('intent-input').addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                const intent = this.value.trim();
-                if (intent && ws && ws.readyState === WebSocket.OPEN) {
-                    addLog(`Soumission de l'intention : "${intent.substring(0, 60)}..."`, 'info');
-                    ws.send(JSON.stringify({
-                        type: 'SUBMIT_INTENT',
-                        intent: intent
-                    }));
-                    this.value = '';
-                } else {
-                    addLog('Erreur : impossible d\'envoyer l\'intention (déconnecté ou vide).', 'error');
-                }
+                submitIntent();
+            }
+        });
+
+        // Add Enter key listener for study chat input
+        document.getElementById('study-chat-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                sendStudyChatReply();
             }
         });
 

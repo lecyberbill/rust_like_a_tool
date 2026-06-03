@@ -88,6 +88,23 @@
         "required": ["path"]
       }
     },
+    "io.write_file": {
+      "description": "Crée ou écrase un fichier local avec le contenu textuel spécifié.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier à créer/écrire."
+          },
+          "content": {
+            "type": "string",
+            "description": "Le contenu textuel à écrire dans le fichier."
+          }
+        },
+        "required": ["path", "content"]
+      }
+    },
     "net.download": {
       "description": "Télécharge un fichier depuis une URL HTTP/HTTPS.",
       "parameters": {
@@ -203,6 +220,33 @@
         "required": ["source", "destination"]
       }
     },
+    "data.json_to_csv": {
+      "description": "Convertit un fichier structuré JSON (tableau d'objets) en un fichier délimité CSV.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier JSON source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier CSV de destination."
+          },
+          "delimiter": {
+            "type": "string",
+            "default": ",",
+            "description": "Délimiteur de champs (ex: , ou ;)."
+          },
+          "has_headers": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indique s'il faut générer la première ligne du fichier CSV avec les clés comme en-têtes."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
     "data.xml_to_json": {
       "description": "Convertit un fichier XML hiérarchique en fichier JSON standard.",
       "parameters": {
@@ -218,6 +262,27 @@
           }
         },
         "required": ["source", "destination"]
+      }
+    },
+    "data.xml_transform": {
+      "description": "Applique une transformation structurelle XSLT sur un fichier XML source.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier XML source."
+          },
+          "stylesheet": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de feuille de style XSLT (.xsl ou .xslt)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de sortie transformé."
+          }
+        },
+        "required": ["source", "stylesheet", "destination"]
       }
     },
     "net.http_request": {
@@ -381,6 +446,189 @@
           }
         },
         "required": ["sources", "destination"]
+      }
+    },
+    "data.metrics": {
+      "description": "Calcule une métrique statistique ou textuelle (somme, moyenne, min, max, count, null_count, n_unique, match_regex, non_match_regex) sur une colonne.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source (CSV, JSON, Parquet)."
+          },
+          "column_name": {
+            "type": "string",
+            "description": "Le nom de la colonne cible."
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["sum", "mean", "min", "max", "count", "null_count", "n_unique", "match_regex", "non_match_regex"],
+            "description": "Le type de métrique à calculer."
+          },
+          "regex_pattern": {
+            "type": "string",
+            "description": "Expression régulière utilisée si l'opération est match_regex ou non_match_regex."
+          },
+          "limit_rows": {
+            "type": "integer",
+            "description": "Optionnel: limiter les N premières lignes pour le calcul."
+          },
+          "destination_variable": {
+            "type": "string",
+            "description": "Le nom de la variable dans l'orchestrateur pour stocker le résultat."
+          }
+        },
+        "required": ["source", "column_name", "operation", "destination_variable"]
+      }
+    },
+    "data.chunk_cumulative": {
+      "description": "Découpe séquentiellement un jeu de données en plusieurs fichiers (parts) dès qu'un seuil cumulé sur une colonne est franchi.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination_prefix": {
+            "type": "string",
+            "description": "Le préfixe des fichiers créés (ex: outputs/part)."
+          },
+          "accumulate_column": {
+            "type": "string",
+            "description": "Le nom de la colonne numérique sur laquelle faire le cumul."
+          },
+          "threshold": {
+            "type": "number",
+            "description": "Le seuil d'accumulation pour déclencher la sauvegarde d'un fichier partition."
+          }
+        },
+        "required": ["source", "destination_prefix", "accumulate_column", "threshold"]
+      }
+    },
+    "db.query": {
+      "description": "Exécute une requête SQL SELECT sur une base de données (SQLite, Postgres, MySQL, Snowflake, ODBC) et écrit le résultat dans un fichier.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "Chaîne de connexion (ex: sqlite://db.sqlite ou postgresql://user:pass@host:5432/db)."
+          },
+          "query": {
+            "type": "string",
+            "description": "La requête SQL SELECT à exécuter."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de sortie destination (.csv ou .json)."
+          }
+        },
+        "required": ["connection_string", "query", "destination"]
+      }
+    },
+    "db.insert": {
+      "description": "Importe les données d'un fichier (CSV ou JSON) dans une table de base de données (SQLite, Postgres, MySQL, Snowflake, ODBC).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "Chaîne de connexion de la base de données."
+          },
+          "table_name": {
+            "type": "string",
+            "description": "Le nom de la table cible."
+          },
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["insert", "replace"],
+            "default": "insert",
+            "description": "Mode d'insertion : insert (ajout simple) ou replace (remplacement complet)."
+          }
+        },
+        "required": ["connection_string", "table_name", "source"]
+      }
+    },
+    "s3.upload": {
+      "description": "Téléverse un fichier local vers un bucket compatible S3 (AWS, MinIO, etc.).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "description": "Nom du bucket S3."
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Chemin du fichier local à téléverser."
+          },
+          "object_key": {
+            "type": "string",
+            "description": "Clé sous laquelle enregistrer l'objet dans S3."
+          },
+          "aws_access_key_id": {
+            "type": "string",
+            "description": "ID de clé d'accès AWS / MinIO."
+          },
+          "aws_secret_access_key": {
+            "type": "string",
+            "description": "Clé d'accès secrète AWS / MinIO."
+          },
+          "region": {
+            "type": "string",
+            "default": "us-east-1",
+            "description": "Région S3 (ex: us-east-1)."
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint URL personnalisé optionnel (nécessaire pour MinIO local, ex: http://localhost:9000)."
+          }
+        },
+        "required": ["bucket", "file_path", "object_key", "aws_access_key_id", "aws_secret_access_key"]
+      }
+    },
+    "s3.download": {
+      "description": "Télécharge un objet depuis un bucket compatible S3 vers le système de fichiers local.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "description": "Nom du bucket S3."
+          },
+          "object_key": {
+            "type": "string",
+            "description": "Clé de l'objet dans S3."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Chemin local où enregistrer l'objet téléchargé."
+          },
+          "aws_access_key_id": {
+            "type": "string",
+            "description": "ID de clé d'accès AWS / MinIO."
+          },
+          "aws_secret_access_key": {
+            "type": "string",
+            "description": "Clé d'accès secrète AWS / MinIO."
+          },
+          "region": {
+            "type": "string",
+            "default": "us-east-1",
+            "description": "Région S3 (ex: us-east-1)."
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Endpoint URL personnalisé optionnel (nécessaire pour MinIO local, ex: http://localhost:9000)."
+          }
+        },
+        "required": ["bucket", "object_key", "destination", "aws_access_key_id", "aws_secret_access_key"]
       }
     }
   }

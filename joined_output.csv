@@ -1,0 +1,6 @@
+user_id,username,status,tx_id,amount
+1,alice,active,1001,150.0
+2,bob,inactive,1002,42.5
+3,charlie,active,1003,300.0
+1,alice,active,1004,25.0
+4,david,active,1005,99.9

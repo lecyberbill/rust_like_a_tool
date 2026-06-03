@@ -1,12 +1,13 @@
 {
-  "plan_id": "WFGY-JOIN-GROUPBY-001",
-  "intent_analysis": "Jointure de deux fichiers sources suivie d'une agrégation par statut pour générer un résumé financier.",
+  "plan_id": "wfgy-plan-001",
+  "intent_analysis": "Jointure de données utilisateurs et transactions suivie d'une agrégation par statut pour calculer le montant total.",
   "steps": [
     {
       "step": 1,
       "primitive": "data.join",
+      "depends_on": [],
       "ui": {
-        "label": "Jointure des données utilisateurs et transactions",
+        "label": "Jointure Users et Transactions",
         "color": "#4A90E2",
         "position": {
           "x": 100,
@@ -25,12 +26,15 @@
     {
       "step": 2,
       "primitive": "data.groupby",
+      "depends_on": [
+        1
+      ],
       "ui": {
-        "label": "Agrégation des montants par statut",
+        "label": "Agrégation par statut",
         "color": "#50E3C2",
         "position": {
           "x": 100,
-          "y": 250
+          "y": 300
         }
       },
       "args": {

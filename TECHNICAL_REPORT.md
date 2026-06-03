@@ -55,6 +55,21 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-01:** Integrated format converter primitives `data.csv_to_json` (row-based struct parser) and `data.xml_to_json` (hierarchical DOM tree parser using the fast `quick-xml` crate) into Rust Muscle and schema registry.
 - **2026-06-01:** Implemented `net.http_request` primitive in Rust Muscle replacing the ad-hoc image downloader, providing global header, payload support, and relative regex link extraction, fully integrated in test scripts.
 - **2026-06-02:** Restructured the Rust tool into a Cargo Workspace by isolating library logic under `libs/analytical_engine` and adding multi-format (CSV, JSON, Parquet) support using Polars for relation join and groupby aggregations.
+- **2026-06-02:** Implemented `data.metrics` statistical primitive and `data.chunk_cumulative` partition layout primitive in Rust using Polars, and enabled context propagation in Python orchestrator.
+- **2026-06-02:** Implemented Parallel DAG scheduling with dependency resolution and cycle detection, alongside an automatic retry/backoff mechanism in Python orchestrator.
+- **2026-06-02:** Implemented generic database primitives (`db.query`, `db.insert`) in Rust Muscle supporting SQLite, Postgres, MySQL, Snowflake REST and ODBC, fully integrated into registry and validated by tests.
+- **2026-06-02:** Implemented `s3.upload` and `s3.download` object storage primitives in Rust Muscle supporting AWS S3 and MinIO local custom endpoints, fully compiled, schema registered and validated via integration test.
+- **2026-06-02:** Designed a sleek Node Editor sidebar in vanilla JS/CSS for visual workflow modification and dynamic connection path rendering, alongside an environment-specific global secrets manager linked directly to the Chromatix PNG Vault.
+- **2026-06-02:** Introduced interactive "Mode Étude" (Study Mode) featuring a modern modal Chat UI that triggers two-way alignment dialogue with the LLM planner before generating the recipe JSON, resolving ambiguities on complex DAGs.
+- **2026-06-02:** Added the missing `submitIntent` Javascript function in `interface_du_moteur_etl.html` and bound the submit button and keypress events to it, resolving issues with prompt submissions.
+- **2026-06-02:** Implemented `data.json_to_csv` format converter primitive in Rust Muscle using `csv` crate, registered it in schema registry, and verified conversion of heterogeneous JSON objects with a Python verification script.
+- **2026-06-03:** Refactored the monolithic `rust_muscle/src/main.rs` (2300+ lines) by splitting all core primitives into dedicated modules under `src/primitives/` (io, net, data_format, data_transform, analytical, db, s3) and isolating MuscleError inside `error.rs` for clean maintainability.
+
+
+
+
+
+
 
 
 

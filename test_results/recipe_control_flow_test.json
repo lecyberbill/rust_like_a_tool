@@ -1,12 +1,13 @@
 {
-  "plan_id": "WFGY-PLAN-2023-001",
-  "intent_analysis": "Analyse les métadonnées d'un fichier CSV, le divise par statut si présent, puis fusionne les résultats.",
+  "plan_id": "WFGY-SPLIT-MERGE-001",
+  "intent_analysis": "Analyse des métadonnées d'un fichier source, division conditionnelle par statut, puis fusion des résultats.",
   "steps": [
     {
       "step": 1,
       "primitive": "io.metadata",
+      "depends_on": [],
       "ui": {
-        "label": "Lecture métadonnées",
+        "label": "Lecture métadonnées source",
         "color": "#4A90E2",
         "position": {
           "x": 100,
@@ -20,12 +21,15 @@
     {
       "step": 2,
       "primitive": "core.condition",
+      "depends_on": [
+        1
+      ],
       "ui": {
-        "label": "Condition existence fichier",
-        "color": "#E67E22",
+        "label": "Vérification existence et traitement",
+        "color": "#E2904A",
         "position": {
-          "x": 100,
-          "y": 200
+          "x": 300,
+          "y": 100
         }
       },
       "args": {
@@ -34,12 +38,15 @@
           {
             "step": 3,
             "primitive": "data.split",
+            "depends_on": [
+              1
+            ],
             "ui": {
               "label": "Division par statut",
-              "color": "#27AE60",
+              "color": "#4AE290",
               "position": {
-                "x": 250,
-                "y": 200
+                "x": 500,
+                "y": 50
               }
             },
             "args": {
@@ -51,12 +58,15 @@
           {
             "step": 4,
             "primitive": "data.merge",
+            "depends_on": [
+              3
+            ],
             "ui": {
-              "label": "Fusion finale",
-              "color": "#9B59B6",
+              "label": "Fusion des fichiers",
+              "color": "#904AE2",
               "position": {
-                "x": 400,
-                "y": 200
+                "x": 700,
+                "y": 50
               }
             },
             "args": {
