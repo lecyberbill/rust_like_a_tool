@@ -96,7 +96,10 @@ async def trigger_workspace_by_id(workspace_id: str, trigger_context: dict = Non
     if trigger_context:
         orchestrator.execution_context.update(trigger_context)
 
-    vault_key = os.environ.get("SECRET_API_KEY") or ENV_CONFIG.get("SECRET_API_KEY", "wfgy-default-vault-key-12345")
+    vault_key = os.environ.get("SECRET_VAULT_KEY") or ENV_CONFIG.get("SECRET_VAULT_KEY")
+    if not vault_key:
+        print("[CRITICAL SECURITY ERROR] SECRET_VAULT_KEY is not defined in environment variables.")
+        return False
     vault = StealthVault(vault_key)
     recipe["env"] = vault.load_secrets()
 

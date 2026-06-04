@@ -103,7 +103,7 @@ LLM_PROVIDER=openai_compatible  # or 'gemini'
 LLM_MODEL=gemma
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=your_llm_api_key
-SECRET_API_KEY=your_vault_encryption_key
+SECRET_VAULT_KEY=your_vault_encryption_key
 ```
 
 ### 2. Run the Orchestration Server
