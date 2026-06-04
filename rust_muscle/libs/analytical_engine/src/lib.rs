@@ -469,19 +469,15 @@ pub fn clean(
 ) -> Result<(), String> {
     let mut lf = read_df(source)?;
 
-    // 1. Select columns if specified
-    if let Some(cols) = select_columns {
-        let select_exprs: Vec<Expr> = cols.iter().map(|c| col(c)).collect();
-        lf = lf.select(select_exprs);
+    // 1. Derive columns if specified (must happen first so they can use original columns)
+    if let Some(derives) = derive_columns {
+        for (new_col, expr_str) in derives {
+            let compiled_expr = parse_conditional_expr(&expr_str)?;
+            lf = lf.with_column(compiled_expr.alias(&new_col));
+        }
     }
 
-    // 2. Rename columns if specified
-    if let Some(renames) = rename_columns {
-        let (existing, new): (Vec<String>, Vec<String>) = renames.into_iter().unzip();
-        lf = lf.rename(existing, new);
-    }
-
-    // 3. Fill NA if specified
+    // 2. Fill NA if specified
     if let Some(fills) = fill_na {
         for (col_name, fill_value) in fills {
             let expr = if let Ok(val) = fill_value.parse::<i64>() {
@@ -497,17 +493,21 @@ pub fn clean(
         }
     }
 
-    // 4. Drop NA rows if specified
+    // 3. Drop NA rows if specified
     if drop_na {
         lf = lf.drop_nulls(None);
     }
 
-    // 5. Derive columns if specified
-    if let Some(derives) = derive_columns {
-        for (new_col, expr_str) in derives {
-            let compiled_expr = parse_conditional_expr(&expr_str)?;
-            lf = lf.with_column(compiled_expr.alias(&new_col));
-        }
+    // 4. Rename columns if specified
+    if let Some(renames) = rename_columns {
+        let (existing, new): (Vec<String>, Vec<String>) = renames.into_iter().unzip();
+        lf = lf.rename(existing, new);
+    }
+
+    // 5. Select columns if specified (acts as the final projection schema)
+    if let Some(cols) = select_columns {
+        let select_exprs: Vec<Expr> = cols.iter().map(|c| col(c)).collect();
+        lf = lf.select(select_exprs);
     }
 
     // 6. Deduplicate if specified
