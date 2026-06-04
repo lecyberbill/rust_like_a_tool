@@ -1821,7 +1821,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                         const floatVal = parseFloat(el.value);
                         if (!isNaN(floatVal) && String(floatVal) === el.value) {
                             step.args[key] = floatVal;
-                        } else if (el.value === 'true' || el.value === 'false') {
+                        } else if ((el.value === 'true' || el.value === 'false') && typeof step.args[key] === 'boolean') {
                             step.args[key] = el.value === 'true';
                         } else {
                             step.args[key] = el.value;
