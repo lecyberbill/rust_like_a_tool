@@ -1,19 +1,11 @@
 {
-  "plan_id": "WFGY-CORE-V3-CATALOG-USER-PROC",
-  "intent_analysis": "Téléchargement et conversion d'un catalogue XML, suivi du filtrage, sauvegarde et nettoyage d'un fichier CSV d'utilisateurs.",
+  "plan_id": "wfgy_core_v3_step_20231015",
+  "intent_analysis": "Télécharge, analyse et transforme les données XML et CSV selon les spécifications.",
   "steps": [
     {
       "step": 1,
       "primitive": "net.download",
       "depends_on": [],
-      "ui": {
-        "label": "Téléchargement catalogue",
-        "color": "#4A90E2",
-        "position": {
-          "x": 50,
-          "y": 50
-        }
-      },
       "args": {
         "url": "https://www.w3schools.com/xml/simple.xml",
         "destination": "test_downloaded.xml"
@@ -25,52 +17,34 @@
       "depends_on": [
         1
       ],
-      "ui": {
-        "label": "Lecture métadonnées",
-        "color": "#50E3C2",
-        "position": {
-          "x": 250,
-          "y": 50
-        }
-      },
       "args": {
         "path": "test_downloaded.xml"
       }
     },
     {
       "step": 3,
-      "primitive": "data.xml_to_json",
+      "primitive": "data.json_to_csv",
       "depends_on": [
         2
       ],
-      "ui": {
-        "label": "Conversion XML vers JSON",
-        "color": "#F5A623",
-        "position": {
-          "x": 450,
-          "y": 50
-        }
-      },
       "args": {
-        "source": "test_downloaded.xml",
-        "destination": "catalog_results.json"
+        "source": "catalog_results.json",
+        "destination": "catalog_results.csv",
+        "delimiter": ",",
+        "has_headers": true
       }
     },
     {
       "step": 4,
       "primitive": "data.filter",
-      "depends_on": [],
-      "ui": {
-        "label": "Filtrage utilisateurs actifs",
-        "color": "#D0021B",
-        "position": {
-          "x": 50,
-          "y": 250
-        }
-      },
+      "depends_on": [
+        3
+      ],
       "args": {
         "source": "users_to_import.csv",
         "destination": "users_active.csv",
+        "delimiter": ",",
+        "column_index": 2,
         "column_name": "status",
         "operator": "equals",
         "value": "active",
@@ -83,38 +57,37 @@
       "depends_on": [
         4
       ],
-      "ui": {
-        "label": "Sauvegarde CSV",
-        "color": "#7ED321",
-        "position": {
-          "x": 250,
-          "y": 250
-        }
-      },
       "args": {
         "source": "users_active.csv",
         "destination": "backup_users.csv",
-        "mode": "text"
+        "mode": "binary",
+        "conflict": "overwrite"
       }
     },
     {
       "step": 6,
-      "primitive": "io.delete",
+      "primitive": "s3.upload",
       "depends_on": [
         5
       ],
-      "ui": {
-        "label": "Suppression sécurisée",
-        "color": "#9B9B9B",
-        "position": {
-          "x": 450,
-          "y": 250
-        }
-      },
       "args": {
-        "path": "users_active.csv",
-        "secure": "trash",
-        "retention_days": 1
+        "bucket": "${S3_BUCKET}",
+        "file_path": "backup_users.csv",
+        "object_key": "users_backup.csv",
+        "aws_access_key_id": "${AWS_ACCESS_KEY_ID}",
+        "aws_secret_access_key": "${AWS_SECRET_ACCESS_KEY}"
+      }
+    },
+    {
+      "step": 7,
+      "primitive": "io.remove",
+      "depends_on": [
+        6
+      ],
+      "args": {
+        "path": "backup_users.csv",
+        "retention_days": 1,
+        "secure": "trash"
       }
     }
   ]

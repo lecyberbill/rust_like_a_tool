@@ -42,14 +42,16 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     return Err(MuscleError::Generic("Missing value for --delimiter".to_string()));
                 }
             }
-            "--column_index" => {
+            "--column_index" | "--column-index" => {
                 if i + 1 < args.len() {
+                    // Try parsing as usize; if negative or invalid, parse it but handle gracefully or error.
+                    // Note: usize parse fails for negative integers like -1.
                     let parsed = args[i + 1].parse::<usize>()
-                        .map_err(|_| MuscleError::Generic("Invalid integer for --column_index".to_string()))?;
+                        .map_err(|_| MuscleError::Generic("Invalid integer for --column-index".to_string()))?;
                     column_index = Some(parsed);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --column_index".to_string()));
+                    return Err(MuscleError::Generic("Missing value for --column-index".to_string()));
                 }
             }
             "--column_name" | "--column-name" => {
@@ -57,7 +59,7 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     column_name = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --column_name".to_string()));
+                    return Err(MuscleError::Generic("Missing value for --column-name".to_string()));
                 }
             }
             "--operator" => {
@@ -82,7 +84,7 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                         .unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --has_headers".to_string()));
+                    return Err(MuscleError::Generic("Missing value for --has-headers".to_string()));
                 }
             }
             other => {

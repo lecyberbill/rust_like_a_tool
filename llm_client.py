@@ -9,7 +9,7 @@ class LLMClient(ABC):
     Abstract Base Class for LLM API wrappers.
     """
     @abstractmethod
-    def generate_completion(self, system_prompt: str, user_prompt: str) -> str:
+    def generate_completion(self, system_prompt: str, user_prompt: str, schema: dict = None) -> str:
         pass
 
 class OpenAICompatibleClient(LLMClient):
@@ -22,7 +22,7 @@ class OpenAICompatibleClient(LLMClient):
         self.api_key = api_key
         self.disable_json_format = disable_json_format
 
-    def generate_completion(self, system_prompt: str, user_prompt: str) -> str:
+    def generate_completion(self, system_prompt: str, user_prompt: str, schema: dict = None) -> str:
         url = f"{self.base_url}/chat/completions"
         headers = {
             "Content-Type": "application/json",
@@ -40,7 +40,26 @@ class OpenAICompatibleClient(LLMClient):
         }
         
         if not self.disable_json_format:
-            payload["response_format"] = {"type": "json_object"}
+            if schema:
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "schema": schema
+                    }
+                }
+            else:
+                # If no schema is provided, use a generic json schema to stay compatible with LM Studio (which rejects type: json_object)
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "generic_object",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": True
+                        }
+                    }
+                }
 
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -52,9 +71,16 @@ class OpenAICompatibleClient(LLMClient):
                 res_json = json.loads(res_body)
                 return res_json["choices"][0]["message"]["content"]
         except urllib.error.URLError as e:
-            # Fallback retry without JSON format if it returned 400 because LM Studio doesn't support json_object mode on some backends
-            print(f"[LLM] Connection error or JSON mode not supported, retrying without strict json format... Detail: {e}")
-            del payload["response_format"]
+            # Fallback retry without JSON format if server rejected it
+            print(f"[LLM] Connection error or JSON schema not supported, retrying without strict format... Detail: {e}")
+            if isinstance(e, urllib.error.HTTPError):
+                try:
+                    err_body = e.read().decode("utf-8", errors="ignore")
+                    print(f"[LLM ERROR DETAIL] {err_body}")
+                except Exception:
+                    pass
+            if "response_format" in payload:
+                del payload["response_format"]
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(url, data=data, headers=headers, method="POST")
             try:
@@ -75,7 +101,7 @@ class GeminiAPIClient(LLMClient):
         self.api_key = api_key
         self.model = model
 
-    def generate_completion(self, system_prompt: str, user_prompt: str) -> str:
+    def generate_completion(self, system_prompt: str, user_prompt: str, schema: dict = None) -> str:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         headers = {
             "Content-Type": "application/json"
@@ -94,6 +120,9 @@ class GeminiAPIClient(LLMClient):
             }
         }
 
+        if schema:
+            payload["generationConfig"]["responseSchema"] = schema
+
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
@@ -102,7 +131,6 @@ class GeminiAPIClient(LLMClient):
             with urllib.request.urlopen(req, timeout=30) as response:
                 res_body = response.read().decode("utf-8")
                 res_json = json.loads(res_body)
-                # Parse standard Gemini API structure
                 candidate = res_json["candidates"][0]
                 text = candidate["content"]["parts"][0]["text"]
                 return text

@@ -23,51 +23,7 @@ try:
 except ImportError:
     HAS_CHROMATIX = False
     print("[STEALTH VAULT] Chromatix Engine not found. Running in legacy flat-file fallback mode.")
-
-class StealthVault:
-    """
-    Stealth Vault that encrypts and stores flow secrets inside a Chromatix PNG image.
-    """
-    def __init__(self, key: str):
-        self.key = key or "default-stealth-key-99"
-        self.vault_path = Path(__file__).parent / "etl_vault.png"
-        self.fallback_path = Path(__file__).parent / "etl_vault.json"
-
-    def save_secrets(self, env_data: dict) -> bool:
-        try:
-            raw_bytes = json.dumps(env_data, ensure_ascii=False).encode('utf-8')
-            if HAS_CHROMATIX:
-                cps = CPSPacket(self.key)
-                img = cps.encode_raw_bytes(raw_bytes, epoch_id=999)
-                img.save(self.vault_path)
-                print(f"[STEALTH VAULT] Secrets successfully hidden inside '{self.vault_path.name}'.")
-                # Remove fallback json if it exists for extra security
-                if self.fallback_path.exists():
-                    self.fallback_path.unlink()
-                return True
-            else:
-                # Flat-file backup fallback (warning: raw text format)
-                with open(self.fallback_path, "w", encoding="utf-8") as f:
-                    json.dump(env_data, f, indent=2, ensure_ascii=False)
-                print(f"[STEALTH VAULT] Legacy mode: Secrets saved in plaintext to '{self.fallback_path.name}'.")
-                return True
-        except Exception as e:
-            print(f"[STEALTH VAULT ERROR] Failed to save secrets: {e}")
-            return False
-
-    def load_secrets(self) -> dict:
-        try:
-            if HAS_CHROMATIX and self.vault_path.exists():
-                cps = CPSPacket(self.key)
-                img = Image.open(self.vault_path)
-                decoded_bytes = cps.decode_raw_bytes(img, epoch_id=999)
-                return json.loads(decoded_bytes.decode('utf-8'))
-            elif self.fallback_path.exists():
-                with open(self.fallback_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-        except Exception as e:
-            print(f"[STEALTH VAULT ERROR] Failed to load secrets: {e}")
-        return {"dev": {}, "test": {}, "prod": {}}
+from vault import StealthVault
 
 # Try to import jsonschema for advanced validation, fallback to manual if not present
 try:
@@ -99,113 +55,8 @@ def load_env(env_name="dev"):
 # Load environment configuration
 env_mode = os.environ.get("WFGY_ENV", "dev")
 ENV_CONFIG = load_env(env_mode)
-
-class WorkerBridge:
-    """
-    Bridge responsible for executing Rust Muscle primitives.
-    """
-    def __init__(self, binary_path: str = None):
-        root_dir = Path(__file__).parent
-        # Prioritize path from .env configuration
-        env_bin_path = ENV_CONFIG.get("RUST_BIN_PATH")
-        
-        if binary_path:
-            self.binary_path = Path(binary_path)
-        elif env_bin_path:
-            self.binary_path = Path(env_bin_path)
-        else:
-            exe_ext = ".exe" if os.name == "nt" else ""
-            debug_bin = root_dir / "rust_muscle" / "target" / "debug" / f"rust_muscle{exe_ext}"
-            if debug_bin.exists():
-                self.binary_path = debug_bin
-            else:
-                self.binary_path = None
-
-    async def execute(self, primitive_name: str, args: dict) -> tuple[int, str, str]:
-        """
-        Executes a primitive by calling the Rust binary or falling back to cargo run.
-        """
-        if self.binary_path and self.binary_path.exists():
-            cmd = [str(self.binary_path), primitive_name]
-        else:
-            root_dir = Path(__file__).parent
-            cargo_toml = root_dir / "rust_muscle" / "Cargo.toml"
-            cmd = ["cargo", "run", "--manifest-path", str(cargo_toml), "--", primitive_name]
-
-        for key, value in args.items():
-            # Standardize parameters from snake_case to kebab-case
-            kebab_key = key.replace("_", "-")
-            
-            # Format booleans as lowercase string for Rust parser compatibility (True -> "true")
-            if isinstance(value, bool):
-                val_str = str(value).lower()
-            else:
-                val_str = str(value)
-                
-            cmd.extend([f"--{kebab_key}", val_str])
-
-        print(f"[ORCHESTRATOR] Executing: {' '.join(cmd)}")
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await proc.communicate()
-        return proc.returncode, stdout.decode('utf-8', errors='ignore'), stderr.decode('utf-8', errors='ignore')
-
-class SchemaValidator:
-    """
-    Validates recipes against the registry definition.
-    """
-    def __init__(self, registry_path: Path):
-        with open(registry_path, "r", encoding="utf-8") as f:
-            self.registry = json.load(f)
-
-    def validate_step(self, primitive_name: str, args: dict) -> tuple[bool, str]:
-        if primitive_name not in self.registry.get("primitives", {}):
-            return False, f"Primitive '{primitive_name}' not defined in registry."
-
-        spec = self.registry["primitives"][primitive_name]
-        schema = spec.get("parameters", {})
-
-        if HAS_JSONSCHEMA:
-            try:
-                jsonschema.validate(instance=args, schema=schema)
-                return True, ""
-            except jsonschema.ValidationError as e:
-                return False, f"Validation error: {e.message}"
-        else:
-            required = schema.get("required", [])
-            properties = schema.get("properties", {})
-            
-            for req in required:
-                if req not in args:
-                    return False, f"Missing required parameter: '{req}'"
-
-            for key, val in args.items():
-                if key not in properties:
-                    return False, f"Unexpected parameter: '{key}'"
-                
-                expected_type = properties[key].get("type")
-                if expected_type == "string" and not isinstance(val, str):
-                    return False, f"Parameter '{key}' should be a string, got {type(val).__name__}"
-                
-                enum_vals = properties[key].get("enum")
-                if enum_vals and val not in enum_vals:
-                    return False, f"Parameter '{key}' has invalid value '{val}'. Must be one of {enum_vals}"
-
-            return True, ""
-
-# International Error Translation Mapping for Rust exit codes
-ERROR_TRANSLATIONS = {
-    1: "Erreur système générique ou argument invalide.",
-    2: "Le fichier ou dossier source spécifié est introuvable.",
-    3: "Permission refusée : accès interdit en lecture ou en écriture.",
-    4: "Impossible de créer le répertoire cible de destination.",
-    5: "Échec du déplacement physique inter-disques (le secours par copie a échoué).",
-    6: "Impossible de déplacer l'élément dans la corbeille locale.",
-    7: "Erreur réseau (téléchargement ou téléversement impossible)."
-}
+from worker_bridge import WorkerBridge, ERROR_TRANSLATIONS
+from schema_validator import SchemaValidator
 
 class Orchestrator:
     """
@@ -214,7 +65,7 @@ class Orchestrator:
     def __init__(self):
         self.root_dir = Path(__file__).parent
         self.validator = SchemaValidator(self.root_dir / "registry.json")
-        self.bridge = WorkerBridge()
+        self.bridge = WorkerBridge(env_config=ENV_CONFIG)
         self.execution_context = {}
 
     def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev") -> dict:
@@ -478,15 +329,9 @@ class Orchestrator:
         # Lancement de toutes les étapes en tâches concurrentes
         tasks = [asyncio.create_task(run_single_step(step)) for step in steps]
         await asyncio.gather(*tasks)
-
-        if failed_steps:
-            print(f"Plan Execution Failed. Failed steps: {failed_steps}")
-            return False
-
-        print("Plan Executed Successfully.")
-        return True
-
 from planner import RecipePlanner
+from registry import load_workspaces_registry, save_workspaces_registry, broadcast, broadcast_workspaces_list, ACTIVE_CONNECTIONS
+from scheduler import cron_scheduler_loop, directory_watcher_loop, handle_http_request, get_next_cron_execution
 
 # WebSocket Server implementation
 async def handler(websocket, path=None):
@@ -495,20 +340,56 @@ async def handler(websocket, path=None):
     current_recipe = None
     pending_confirmations = {}
     
-    # Instantiate the Stealth Vault using the master key from ENV
     vault_key = ENV_CONFIG.get("SECRET_API_KEY") or os.environ.get("SECRET_API_KEY", "wfgy-default-vault-key-12345")
     vault = StealthVault(vault_key)
-    
-    # Load initially saved secrets
     saved_secrets = vault.load_secrets()
     
-    print(f"[WS SERVER] Client connected. Sending loaded vault secrets...")
+    ACTIVE_CONNECTIONS.add(websocket)
+    print(f"[WS SERVER] Client connected. Sending loaded vault secrets & workspace list...")
     try:
-        # Send initially loaded secrets to UI immediately on connect
         await websocket.send(json.dumps({
             "type": "VAULT_SECRETS",
             "env": saved_secrets
         }))
+
+        # Load active workspace immediately on connection
+        registry = load_workspaces_registry()
+        active_w = registry.get("active_workspace")
+        if active_w and active_w in registry.get("workspaces", {}):
+            w_info = registry["workspaces"][active_w]
+            recipe_path = Path(__file__).parent / w_info.get("recipe_file", "")
+            if recipe_path.exists():
+                try:
+                    with open(recipe_path, "r", encoding="utf-8") as f:
+                        current_recipe = json.load(f)
+                    if "env" not in current_recipe or not current_recipe["env"]:
+                        current_recipe["env"] = saved_secrets
+                except Exception as e:
+                    print(f"[WS SERVER] Failed to read active recipe: {e}")
+
+        # Send workspace list to UI
+        workspaces = registry.get("workspaces", {})
+        for w_id, w_info in workspaces.items():
+            trig = w_info.get("trigger", {})
+            if trig.get("enabled") and trig.get("type") == "cron":
+                w_info["next_run"] = get_next_cron_execution(trig.get("cron_expression", ""))
+            else:
+                w_info["next_run"] = "N/A"
+
+        await websocket.send(json.dumps({
+            "type": "WORKSPACES_LIST",
+            "active_workspace": active_w,
+            "workspaces": workspaces
+        }))
+
+        if current_recipe:
+            await websocket.send(json.dumps({
+                "type": "PLAN_RECEIVED",
+                "steps": current_recipe.get("steps", []),
+                "plan_id": current_recipe.get("plan_id", "unknown"),
+                "intent_analysis": current_recipe.get("intent_analysis", ""),
+                "env": current_recipe.get("env", {})
+            }))
 
         async for message in websocket:
             print(f"[WS SERVER] Received message: {message}")
@@ -528,6 +409,141 @@ async def handler(websocket, path=None):
                         pass
                 continue
 
+            if data.get("type") == "LIST_WORKSPACES":
+                await broadcast_workspaces_list()
+                continue
+
+            if data.get("type") == "CREATE_WORKSPACE":
+                name = data.get("name", "Nouveau Flux")
+                w_id = "".join(c if c.isalnum() or c in ("_", "-") else "_" for c in name.lower()).strip("_")
+                registry = load_workspaces_registry()
+                base_id = w_id or "workflow"
+                counter = 1
+                while w_id in registry.get("workspaces", {}) or not w_id:
+                    w_id = f"{base_id}_{counter}"
+                    counter += 1
+                
+                recipes_dir = Path(__file__).parent / "history_recipes"
+                recipes_dir.mkdir(exist_ok=True)
+                recipe_filename = f"recipe_{w_id}.json"
+                recipe_filepath = recipes_dir / recipe_filename
+                
+                new_recipe = {
+                    "plan_id": w_id,
+                    "intent_analysis": f"Flux de travail: {name}",
+                    "steps": [],
+                    "env": {}
+                }
+                
+                with open(recipe_filepath, "w", encoding="utf-8") as f:
+                    json.dump(new_recipe, f, indent=2, ensure_ascii=False)
+                
+                registry["workspaces"][w_id] = {
+                    "name": name,
+                    "recipe_file": f"history_recipes/{recipe_filename}",
+                    "created_at": datetime.datetime.now().isoformat(),
+                    "last_run": None,
+                    "trigger": {
+                        "enabled": False,
+                        "type": "none"
+                    }
+                }
+                save_workspaces_registry(registry)
+                await websocket.send(json.dumps({"type": "LOG", "message": f"Flux '{name}' créé avec succès."}))
+                await broadcast_workspaces_list()
+                continue
+
+            if data.get("type") == "RENAME_WORKSPACE":
+                w_id = data.get("workspace_id")
+                new_name = data.get("new_name")
+                registry = load_workspaces_registry()
+                if w_id in registry.get("workspaces", {}):
+                    registry["workspaces"][w_id]["name"] = new_name
+                    save_workspaces_registry(registry)
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"Flux renommé en '{new_name}'."}))
+                    await broadcast_workspaces_list()
+                continue
+
+            if data.get("type") == "DELETE_WORKSPACE":
+                w_id = data.get("workspace_id")
+                registry = load_workspaces_registry()
+                if w_id in registry.get("workspaces", {}):
+                    w_info = registry["workspaces"][w_id]
+                    recipe_path = Path(__file__).parent / w_info.get("recipe_file", "")
+                    if recipe_path.exists():
+                        try:
+                            recipe_path.unlink()
+                        except Exception as e:
+                            print(f"[WS SERVER] Failed to delete recipe file: {e}")
+                    del registry["workspaces"][w_id]
+                    if registry.get("active_workspace") == w_id:
+                        keys = list(registry["workspaces"].keys())
+                        registry["active_workspace"] = keys[0] if keys else None
+                    save_workspaces_registry(registry)
+                    await websocket.send(json.dumps({"type": "LOG", "message": "Flux supprimé."}))
+                    await broadcast_workspaces_list()
+                continue
+
+            if data.get("type") == "SELECT_WORKSPACE":
+                w_id = data.get("workspace_id")
+                registry = load_workspaces_registry()
+                if w_id in registry.get("workspaces", {}):
+                    registry["active_workspace"] = w_id
+                    save_workspaces_registry(registry)
+                    w_info = registry["workspaces"][w_id]
+                    recipe_path = Path(__file__).parent / w_info.get("recipe_file", "")
+                    
+                    if recipe_path.exists():
+                        try:
+                            with open(recipe_path, "r", encoding="utf-8") as f:
+                                current_recipe = json.load(f)
+                            if "env" not in current_recipe or not current_recipe["env"]:
+                                current_recipe["env"] = vault.load_secrets()
+                        except Exception as e:
+                            print(f"[WS SERVER] Failed to load recipe: {e}")
+                            current_recipe = {"plan_id": w_id, "intent_analysis": w_info["name"], "steps": [], "env": {}}
+                    else:
+                        current_recipe = {"plan_id": w_id, "intent_analysis": w_info["name"], "steps": [], "env": {}}
+                    
+                    await websocket.send(json.dumps({
+                        "type": "PLAN_RECEIVED",
+                        "steps": current_recipe.get("steps", []),
+                        "plan_id": current_recipe.get("plan_id", "unknown"),
+                        "intent_analysis": current_recipe.get("intent_analysis", ""),
+                        "env": current_recipe.get("env", {})
+                    }))
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"Flux '{w_info['name']}' sélectionné."}))
+                    await broadcast_workspaces_list()
+                continue
+
+            if data.get("type") == "SAVE_WORKSPACE":
+                recipe_data = data.get("recipe")
+                registry = load_workspaces_registry()
+                w_id = registry.get("active_workspace")
+                if w_id and w_id in registry.get("workspaces", {}):
+                    w_info = registry["workspaces"][w_id]
+                    recipe_path = Path(__file__).parent / w_info.get("recipe_file", "")
+                    recipe_data["env"] = vault.load_secrets()
+                    current_recipe = recipe_data
+                    try:
+                        with open(recipe_path, "w", encoding="utf-8") as f:
+                            json.dump(recipe_data, f, indent=2, ensure_ascii=False)
+                        await websocket.send(json.dumps({"type": "LOG", "message": f"Flux '{w_info['name']}' sauvegardé."}))
+                    except Exception as e:
+                        await websocket.send(json.dumps({"type": "LOG", "message": f"Erreur de sauvegarde: {e}"}))
+                continue
+
+            if data.get("type") == "UPDATE_WORKSPACE_TRIGGER":
+                w_id = data.get("workspace_id")
+                trigger_data = data.get("trigger", {})
+                registry = load_workspaces_registry()
+                if w_id in registry.get("workspaces", {}):
+                    registry["workspaces"][w_id]["trigger"] = trigger_data
+                    save_workspaces_registry(registry)
+                    await websocket.send(json.dumps({"type": "LOG", "message": "Déclencheur mis à jour."}))
+                    await broadcast_workspaces_list()
+                continue
+
             if data.get("type") == "CLEAR_RECIPE":
                 current_recipe = None
                 await websocket.send(json.dumps({"type": "LOG", "message": "Workflow courant effacé."}))
@@ -536,8 +552,7 @@ async def handler(websocket, path=None):
             if data.get("type") == "SAVE_GLOBAL_SECRETS":
                 global_secrets = data.get("secrets", {})
                 vault.save_secrets(global_secrets)
-                await websocket.send(json.dumps({"type": "LOG", "message": "Secrets enregistrés avec succès dans le coffre-fort."}))
-                # Diffuser la mise à jour des secrets à l'application
+                await websocket.send(json.dumps({"type": "LOG", "message": "Secrets enregistrés avec succès."}))
                 await websocket.send(json.dumps({
                     "type": "VAULT_SECRETS",
                     "env": global_secrets
@@ -547,11 +562,8 @@ async def handler(websocket, path=None):
             if data.get("type") == "LOAD_RECIPE":
                 current_recipe = data.get("recipe", {})
                 steps = current_recipe.get("steps", [])
-                
-                # Merge local vault secrets into the loaded recipe if not present
                 if "env" not in current_recipe or not current_recipe["env"]:
                     current_recipe["env"] = vault.load_secrets()
-
                 await websocket.send(json.dumps({
                     "type": "PLAN_RECEIVED",
                     "steps": steps,
@@ -559,18 +571,40 @@ async def handler(websocket, path=None):
                     "intent_analysis": f"Recette chargée : {current_recipe.get('intent_analysis', '')}",
                     "env": current_recipe.get("env", {})
                 }))
-                await websocket.send(json.dumps({"type": "LOG", "message": "Recette chargée avec succès."}))
+                await websocket.send(json.dumps({"type": "LOG", "message": "Recette chargée."}))
+                continue
+
+            if data.get("type") == "UPDATE_LLM_SETTINGS":
+                prov = data.get("provider")
+                mdl = data.get("model")
+                url = data.get("base_url")
+                planner.client = None
+                new_cfg = {
+                    "LLM_PROVIDER": prov,
+                    "LLM_MODEL": mdl,
+                    "LLM_BASE_URL": url,
+                    "LLM_API_KEY": ENV_CONFIG.get("LLM_API_KEY")
+                }
+                try:
+                    planner.__init__(new_cfg)
+                    await websocket.send(json.dumps({
+                        "type": "LOG",
+                        "message": f"[IA CONFIG] Modèle basculé avec succès sur '{mdl}' ({prov})."
+                    }))
+                except Exception as config_err:
+                    await websocket.send(json.dumps({
+                        "type": "LOG",
+                        "message": f"[IA CONFIG ERROR] Échec du rechargement IA : {config_err}"
+                    }))
                 continue
 
             if data.get("type") == "SUBMIT_INTENT":
                 intent = data.get("intent", "")
                 mode_etude = data.get("study_mode", False)
-                
                 if mode_etude:
-                    await websocket.send(json.dumps({"type": "LOG", "message": f"[ETUDE] Démarrage de l'analyse d'intention en mode étude..."}))
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"[ETUDE] Démarrage de l'analyse d'intention..."}))
                     try:
                         study_res = planner.study(intent)
-                        print(f"[WS SERVER] Study result: {study_res}")
                         await websocket.send(json.dumps({
                             "type": "STUDY_QUESTIONS",
                             "analysis": study_res.get("analysis", ""),
@@ -578,24 +612,32 @@ async def handler(websocket, path=None):
                             "original_intent": intent
                         }))
                     except Exception as study_err:
-                        print(f"[WS SERVER] Study mode error: {study_err}")
                         await websocket.send(json.dumps({"type": "LOG", "message": f"Erreur d'analyse d'étude : {study_err}"}))
                     continue
                 
-                await websocket.send(json.dumps({"type": "LOG", "message": f"Intent received: '{intent}'. Planning..."}))
-                
+                await websocket.send(json.dumps({"type": "LOG", "message": f"Intent received. Planning..."}))
                 try:
-                    # Dynamic Recipe Planner using LLM
                     recipe = planner.plan(intent, current_recipe)
-                    print(f"[WS SERVER] Recipe generated:\n{json.dumps(recipe, indent=2, ensure_ascii=False)}")
                     steps = recipe.get("steps", [])
-                    
                     if steps:
-                        current_recipe = recipe  # Maintain workflow state
-                        # Initialiser l'environnement avec les secrets du coffre-fort
+                        current_recipe = recipe
                         current_recipe["env"] = vault.load_secrets()
+                        
+                        # Auto-save to historical timestamped file
+                        try:
+                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            history_dir = Path("history_recipes")
+                            history_dir.mkdir(exist_ok=True)
+                            filename = f"recipe_{timestamp}.json"
+                            with open(history_dir / filename, "w", encoding="utf-8") as f:
+                                json.dump(current_recipe, f, indent=2, ensure_ascii=False)
+                            await websocket.send(json.dumps({
+                                "type": "LOG",
+                                "message": f"[PERSISTANCE] Recette sauvegardée sous '{history_dir}/{filename}'."
+                            }))
+                        except Exception as save_err:
+                            print(f"[WS SERVER] Auto-save failed: {save_err}")
                     
-                    # Send generated plan to JS for node rendering
                     await websocket.send(json.dumps({
                         "type": "PLAN_RECEIVED",
                         "steps": steps,
@@ -603,24 +645,16 @@ async def handler(websocket, path=None):
                         "intent_analysis": recipe.get("intent_analysis", "No plan created"),
                         "env": current_recipe.get("env", {})
                     }))
-                    
                 except Exception as planner_err:
-                    print(f"[WS SERVER] Planning error: {planner_err}")
-                    await websocket.send(json.dumps({
-                        "type": "LOG", 
-                        "message": f"Planning Error: {planner_err}"
-                     }))
+                    await websocket.send(json.dumps({"type": "LOG", "message": f"Planning Error: {planner_err}"}))
                 continue
 
             if data.get("type") == "SUBMIT_STUDY_CHAT":
                 intent = data.get("original_intent", "")
                 chat_history = data.get("chat_history", [])
-                
-                await websocket.send(json.dumps({"type": "LOG", "message": "[ETUDE] Prise en compte de vos réponses par l'IA..."}))
+                await websocket.send(json.dumps({"type": "LOG", "message": "[ETUDE] Prise en compte de vos réponses..."}))
                 try:
-                    # Relancer study avec l'historique pour affiner ou générer de nouvelles questions
                     study_res = planner.study(intent, chat_history)
-                    print(f"[WS SERVER] Next study phase: {study_res}")
                     await websocket.send(json.dumps({
                         "type": "STUDY_QUESTIONS",
                         "analysis": study_res.get("analysis", ""),
@@ -634,20 +668,25 @@ async def handler(websocket, path=None):
             if data.get("type") == "GENERATE_STUDY_RECIPE":
                 intent = data.get("original_intent", "")
                 chat_history = data.get("chat_history", [])
-                
-                await websocket.send(json.dumps({"type": "LOG", "message": "[ETUDE] Alignement validé. Génération de la recette finale..."}))
+                await websocket.send(json.dumps({"type": "LOG", "message": "[ETUDE] Alignement validé. Génération..."}))
                 try:
-                    # Concaténer l'intention d'origine avec l'historique des réponses d'alignement pour le planneur final
                     full_intent = f"Intention : {intent}\n\nAlignement & Clarifications :\n"
                     for msg in chat_history:
                         full_intent += f"- {msg.get('role').upper()}: {msg.get('content')}\n"
-                    
                     recipe = planner.plan(full_intent, current_recipe)
                     steps = recipe.get("steps", [])
                     if steps:
                         current_recipe = recipe
                         current_recipe["env"] = vault.load_secrets()
-                    
+                        try:
+                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            history_dir = Path("history_recipes")
+                            history_dir.mkdir(exist_ok=True)
+                            filename = f"recipe_{timestamp}.json"
+                            with open(history_dir / filename, "w", encoding="utf-8") as f:
+                                json.dump(current_recipe, f, indent=2, ensure_ascii=False)
+                        except Exception as save_err:
+                            print(f"[WS SERVER] Auto-save failed: {save_err}")
                     await websocket.send(json.dumps({
                         "type": "PLAN_RECEIVED",
                         "steps": steps,
@@ -655,7 +694,7 @@ async def handler(websocket, path=None):
                         "intent_analysis": recipe.get("intent_analysis", "No plan created"),
                         "env": current_recipe.get("env", {})
                     }))
-                    await websocket.send(json.dumps({"type": "LOG", "message": "Recette finale générée et rendue sur le graphe."}))
+                    await websocket.send(json.dumps({"type": "LOG", "message": "Recette finale générée."}))
                 except Exception as planner_err:
                     await websocket.send(json.dumps({"type": "LOG", "message": f"Erreur de génération : {planner_err}"}))
                 continue
@@ -664,20 +703,15 @@ async def handler(websocket, path=None):
                 recipe_to_run = data.get("recipe", current_recipe)
                 target_env = data.get("target_env", "dev")
                 if not recipe_to_run or not recipe_to_run.get("steps"):
-                    await websocket.send(json.dumps({"type": "LOG", "message": "Erreur : aucune recette active à exécuter."}))
+                    await websocket.send(json.dumps({"type": "LOG", "message": "Erreur : aucune recette active."}))
                     continue
-                
-                # Conserver la recette exécutée en mémoire locale
                 current_recipe = recipe_to_run
-
-                # Persist the environment variables/secrets back to the Chromatix PNG Vault
                 if "env" in recipe_to_run:
                     vault.save_secrets(recipe_to_run["env"])
-
-                await websocket.send(json.dumps({"type": "LOG", "message": f"Lancement de l'exécution du workflow en mode {target_env.upper()}..."}))
+                
+                await websocket.send(json.dumps({"type": "LOG", "message": f"Exécution en cours en mode {target_env.upper()}..."}))
                 try:
                     def status_update(step_num, status, log_message):
-                        # Schedule sending status update without blocking caller
                         asyncio.create_task(websocket.send(json.dumps({
                             "type": "STEP_STATUS",
                             "step": step_num,
@@ -689,27 +723,22 @@ async def handler(websocket, path=None):
                         loop = asyncio.get_running_loop()
                         fut = loop.create_future()
                         pending_confirmations[step_num] = fut
-                        
-                        # Send confirmation request to frontend
                         await websocket.send(json.dumps({
                             "type": "USER_CONFIRMATION_REQUIRED",
                             "step": step_num,
-                            "message": f"Le fichier '{Path(filepath).name}' existe déjà dans la destination ({target_env.upper()}). Choisissez une action :",
+                            "message": f"Le fichier '{Path(filepath).name}' existe déjà. Action :",
                             "options": [
                                 {"value": "overwrite", "label": "Écraser"},
-                                {"value": "skip", "label": "Ignorer le fichier"},
+                                {"value": "skip", "label": "Ignorer"},
                                 {"value": "newer", "label": "Plus récent uniquement"}
                             ]
                         }))
-                        
                         try:
-                            # 120 seconds timeout before defaulting to skip
                             choice = await asyncio.wait_for(fut, timeout=120.0)
                         except asyncio.TimeoutError:
-                            print(f"[WS SERVER] Timeout waiting for user choice on step {step_num}. Defaulting to 'skip'.")
                             await websocket.send(json.dumps({
                                 "type": "LOG",
-                                "message": f"Pas de réponse après 120s pour l'étape {step_num}. Option 'Ignorer' sélectionnée par défaut."
+                                "message": f"Timeout pour l'étape {step_num}. Option 'Ignorer' sélectionnée."
                             }))
                             choice = "skip"
                         finally:
@@ -723,13 +752,11 @@ async def handler(websocket, path=None):
                         ask_user,
                         target_env=target_env
                     )
-                    
                     await websocket.send(json.dumps({
                         "type": "PLAN_FINISHED",
                         "success": success
                     }))
                 except Exception as exec_err:
-                    print(f"[WS SERVER] Execution error: {exec_err}")
                     await websocket.send(json.dumps({
                         "type": "LOG", 
                         "message": f"Execution Error: {exec_err}"
@@ -738,13 +765,14 @@ async def handler(websocket, path=None):
                         "type": "PLAN_FINISHED",
                         "success": False
                     }))
+                continue
 
     except websockets.exceptions.ConnectionClosedOK:
         print("[WS SERVER] Connection closed normally.")
     except Exception as e:
         print(f"[WS SERVER] Error: {e}")
     finally:
-        # Cancel all pending futures to prevent hanging on connection drop
+        ACTIVE_CONNECTIONS.discard(websocket)
         print("[WS SERVER] Cleaning up pending confirmations...")
         for step_num, fut in list(pending_confirmations.items()):
             if not fut.done():
@@ -755,10 +783,19 @@ async def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--server":
         port = int(ENV_CONFIG.get("PORT", 8765))
         print(f"[WS SERVER] Starting WebSocket server on port {port} in '{env_mode}' mode...")
+        
+        # Start background tasks
+        asyncio.create_task(cron_scheduler_loop())
+        asyncio.create_task(directory_watcher_loop())
+        
+        # Start Webhook HTTP Server
+        http_port = 8766
+        print(f"[HTTP SERVER] Starting Webhook HTTP server on port {http_port}...")
+        http_server = await asyncio.start_server(handle_http_request, "localhost", http_port)
+        
         async with websockets.serve(handler, "localhost", port):
             await asyncio.Future()  # Keep running forever
     else:
-        # Standard CLI Recipe File run
         if len(sys.argv) < 2:
             print("Usage:")
             print("  Run recipe:  python orchestrator.py <recipe_json_file_path>")

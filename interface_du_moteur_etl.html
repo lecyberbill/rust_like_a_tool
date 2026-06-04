@@ -10,16 +10,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0b0f19;
-            --panel: rgba(17, 24, 39, 0.7);
-            --accent: #4a90e2;
-            --accent-glow: rgba(74, 144, 226, 0.4);
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-            --border: rgba(255, 255, 255, 0.08);
+            --bg: #020205;
+            --panel: rgba(10, 10, 25, 0.6);
+            --accent: #00f0ff;
+            --accent-glow: rgba(0, 240, 255, 0.4);
+            --text: #f0f4f8;
+            --text-muted: #8a99ad;
+            --border: rgba(255, 255, 255, 0.05);
             
-            --success: #10b981;
-            --success-glow: rgba(16, 185, 129, 0.3);
+            --success: #00ff66;
+            --success-glow: rgba(0, 255, 102, 0.3);
             --error: #ef4444;
             --error-glow: rgba(239, 68, 68, 0.3);
             --running: #f59e0b;
@@ -41,7 +41,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-image: radial-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px);
             background-size: 24px 24px;
         }
 
@@ -49,19 +49,20 @@
         #intent-bar {
             padding: 16px 24px;
             background: var(--panel);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: space-between;
             z-index: 10;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
         .logo-title {
             font-weight: 800;
             font-size: 1.5rem;
             letter-spacing: 1px;
-            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            background: linear-gradient(90deg, var(--accent), var(--success));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -72,7 +73,7 @@
             padding: 12px 18px;
             border-radius: 12px;
             border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(0, 0, 0, 0.3);
             color: var(--text);
             font-family: inherit;
             font-size: 0.95rem;
@@ -88,7 +89,7 @@
         #intent-input:focus {
             border-color: var(--accent);
             box-shadow: 0 0 10px var(--accent-glow), inset 0 2px 4px rgba(0, 0, 0, 0.6);
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.02);
         }
 
         /* Layout Container */
@@ -110,7 +111,7 @@
             width: 100%;
             height: 100%;
             position: relative;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1.5px, transparent 1.5px);
+            background-image: radial-gradient(rgba(0, 255, 102, 0.01) 1.5px, transparent 1.5px);
             background-size: 30px 30px;
         }
 
@@ -145,12 +146,12 @@
         .node {
             position: absolute;
             padding: 20px;
-            background: rgba(30, 41, 59, 0.85);
+            background: rgba(10, 10, 25, 0.75);
             border-radius: 12px;
             border: 1px solid var(--border);
             min-width: 200px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
             z-index: 2;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             user-select: none;
@@ -158,7 +159,8 @@
 
         .node:hover {
             transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+            border-color: rgba(0, 240, 255, 0.3);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.9), 0 0 15px var(--accent-glow);
         }
 
         .node-header {
@@ -180,7 +182,7 @@
 
         /* Dynamic Statuses */
         .node.pending {
-            border-color: var(--pending);
+            border-color: var(--border);
         }
         .node.running {
             border-color: var(--running);
@@ -216,12 +218,13 @@
         #log-panel {
             width: 350px;
             background: var(--panel);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             border-left: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             transition: all 0.3s ease;
             z-index: 5;
+            box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
         }
 
         #log-panel.collapsed {
@@ -241,15 +244,28 @@
         .panel-header h3 {
             font-size: 1.1rem;
             font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .toggle-logs-btn {
-            background: transparent;
-            border: none;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 1.2rem;
-            padding: 4px;
+            font-size: 0.95rem;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-logs-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 240, 255, 0.05);
+            box-shadow: 0 0 10px var(--accent-glow);
         }
 
         #logs {
@@ -689,12 +705,10 @@
             opacity: 0.9;
         }
 
-        /* Badge d'activation du Mode Étude dans le header */
         .study-toggle-container {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-left: 20px;
             font-size: 0.85rem;
             font-weight: 600;
             color: var(--text-muted);
@@ -705,42 +719,502 @@
             width: 16px;
             height: 16px;
         }
+
+        /* --- FLOATING CONTROLS PLATFORM (WFGY CORE v3) --- */
+        
+        /* Drawer for Prompt & Intent (Bottom-Right Panel) */
+        #prompt-drawer {
+            position: fixed;
+            bottom: 80px;
+            right: 24px;
+            width: 450px;
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.15);
+            z-index: 80;
+            transform: scale(0.9) translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #prompt-drawer.active {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* Floating Bubble Button (Bottom-Right trigger) */
+        .floating-bubble {
+            position: fixed;
+            bottom: 20px;
+            right: 24px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--accent-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 81;
+            transition: all 0.3s ease;
+            color: #000;
+        }
+
+        .floating-bubble:hover {
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 6px 20px rgba(0, 240, 255, 0.6);
+        }
+
+        .floating-bubble:active {
+            transform: scale(0.95);
+        }
+
+        /* Floating Environment Selector (Bottom-Left Pod) */
+        .env-pod {
+            position: fixed;
+            bottom: 20px;
+            left: 24px;
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            padding: 6px;
+            border-radius: 12px;
+            display: flex;
+            gap: 4px;
+            z-index: 80;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .env-pod-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .env-pod-btn:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .env-pod-btn.active[data-env="dev"] {
+            background: rgba(0, 240, 255, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .env-pod-btn.active[data-env="test"] {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--running);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            box-shadow: 0 0 10px var(--running-glow);
+        }
+
+        .env-pod-btn.active[data-env="prod"] {
+            background: rgba(0, 255, 102, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(0, 255, 102, 0.25);
+            box-shadow: 0 0 10px var(--success-glow);
+        }
+
+        /* --- SETTINGS DRAWER (WFGY CORE v3) --- */
+        #settings-drawer {
+            position: fixed;
+            bottom: 80px;
+            left: 24px;
+            width: 320px;
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1);
+            z-index: 80;
+            transform: scale(0.9) translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        #settings-drawer.active {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .floating-settings-wheel {
+            position: fixed;
+            bottom: 20px;
+            left: 310px; /* Space it after env-pod (which spans approx 280px) */
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(10, 10, 25, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 81;
+            transition: all 0.3s ease;
+            color: var(--text-muted);
+        }
+
+        .floating-settings-wheel:hover {
+            transform: scale(1.1) rotate(45deg);
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .floating-settings-wheel:active {
+            transform: scale(0.95);
+        }
+
+        .settings-input-group {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .settings-input-group label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .settings-select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text);
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .settings-select:focus {
+            border-color: var(--accent);
+        }
+
+        /* --- DASHBOARD VIEW STYLE --- */
+        #dashboard-view {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background: var(--bg);
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .dashboard-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .dashboard-table-container {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .dashboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .dashboard-table th {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .dashboard-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            color: var(--text);
+            vertical-align: middle;
+        }
+
+        .dashboard-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .dashboard-table tr:hover {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .trigger-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+        }
+        
+        .trigger-badge.cron {
+            background: rgba(0, 240, 255, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+        }
+        
+        .trigger-badge.event {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--running);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .trigger-badge.webhook {
+            background: rgba(0, 255, 102, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(0, 255, 102, 0.2);
+        }
+
+        .trigger-badge.none {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-dot.active {
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success-glow);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.inactive {
+            background-color: var(--pending);
+        }
+
+        .status-dot.running {
+            background-color: var(--running);
+            box-shadow: 0 0 8px var(--running-glow);
+            animation: pulse 1s infinite;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .nav-tab {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .nav-tab:hover {
+            color: var(--text);
+        }
+
+        .nav-tab.active {
+            color: var(--accent);
+            background: rgba(0, 240, 255, 0.08);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: flex;
+        }
+        
+        #app-header {
+            padding: 16px 24px;
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
     </style>
 </head>
 <body>
-
-    <header id="intent-bar">
-        <div class="logo-title">WFGY Core v3</div>
-        <div style="flex: 1; display: flex; align-items: center; margin-left: 20px; gap: 10px;">
-            <textarea id="intent-input" style="flex: 1; margin-left: 0;" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
-Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pour un saut de ligne."></textarea>
-            <button class="toggle-logs-btn" onclick="submitIntent()" style="background: var(--accent); color: white; border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); height: 80px; font-weight: 600; width: 100px;">🚀 Soumettre</button>
+    <header id="app-header">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="logo-title">WFGY Core v3</div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">📊 Tableau de Bord</button>
+                <button class="nav-tab" id="tab-btn-workshop" onclick="switchTab('workshop')">Atelier (Conception)</button>
+            </div>
         </div>
         
-        <div class="study-toggle-container">
-            <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
-            <label for="study-mode-checkbox">🧪 Mode Étude</label>
+        <!-- Workshop canvas control actions (visible only in Workshop view) -->
+        <div id="workshop-actions" style="display: none; gap: 8px; align-items: center;">
+            <button class="toggle-logs-btn" onclick="triggerUpload()">📂 Charger</button>
+            <button class="toggle-logs-btn" onclick="downloadRecipe()">💾 Sauvegarder</button>
+            <button class="toggle-logs-btn" onclick="clearRecipe()">🗑️ Effacer</button>
+            <button class="toggle-logs-btn" onclick="toggleEnv()">🔧 Secrets</button>
+            <button class="toggle-logs-btn" onclick="toggleLogs()">📜 Logs</button>
+            <button class="toggle-logs-btn" onclick="runRecipe()" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800;">▶ Exécuter</button>
+            <input type="file" id="recipe-upload" onchange="uploadRecipe(event)" style="display: none;" accept=".json">
         </div>
-
-        <button class="toggle-logs-btn" onclick="triggerUpload()" style="margin-left: 20px;">📂 Charger</button>
-        <button class="toggle-logs-btn" onclick="downloadRecipe()" style="margin-left: 10px;">💾 Sauvegarder</button>
-        <button class="toggle-logs-btn" onclick="clearRecipe()" style="margin-left: 10px;">🗑️ Effacer</button>
-        <button class="toggle-logs-btn" onclick="toggleEnv()" style="margin-left: 10px;">🔧 Variables</button>
-        <button class="toggle-logs-btn" onclick="toggleLogs()" style="margin-left: 10px;">📜 Logs</button>
-        <select id="env-selector" onchange="changeActiveEnv()" style="margin-left: 20px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: #60a5fa; font-weight: 600; font-family: inherit; outline: none; cursor: pointer; height: 36px; vertical-align: middle;">
-            <option value="dev">🛠️ DEV</option>
-            <option value="test">🧪 TEST</option>
-            <option value="prod">🚀 PROD</option>
-        </select>
-        <button class="toggle-logs-btn" onclick="runRecipe()" style="margin-left: 10px; background: var(--success); color: white; border-color: var(--success); box-shadow: 0 0 10px var(--success-glow); height: 36px; vertical-align: middle;">▶ Exécuter</button>
-        <input type="file" id="recipe-upload" onchange="uploadRecipe(event)" style="display: none;" accept=".json">
+        <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
+        </div>
     </header>
 
-    <div id="main-container">
+    <!-- SECTION 1: DASHBOARD VIEW -->
+    <div id="dashboard-view" class="view-section active">
+        <div class="dashboard-header">
+            <div class="dashboard-title">Tableau de Bord des Flux ETL</div>
+            <div id="connection-status" style="font-size: 0.9rem; color: var(--error); font-weight: bold; display: flex; align-items: center; gap: 6px;"><span style="width:8px; height:8px; border-radius:50%; background:var(--error); display:inline-block;"></span> Serveur Déconnecté</div>
+        </div>
+        
+        <div class="dashboard-table-container">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Statut</th>
+                        <th>Nom du Flux</th>
+                        <th>Déclencheur actif</th>
+                        <th>Dernière Exécution</th>
+                        <th>Prochain Déclenchement</th>
+                        <th style="text-align: right; width: 340px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="workspaces-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 30px;">Chargement des flux...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SECTION 2: WORKSHOP VIEW -->
+    <div id="workshop-view" class="view-section" style="flex: 1; display: none; flex-direction: column; overflow: hidden; position: relative;">
+        <div id="main-container">
         <div id="canvas-wrapper">
             <svg id="connections-svg"></svg>
             <div id="canvas">
                 <!-- Workflow Nodes will be injected here -->
+            </div>
+            
+            <!-- Bottom-Left Environmental Control Pod -->
+            <div class="env-pod">
+                <button class="env-pod-btn active" data-env="dev" onclick="changeEnvPod('dev')">🛠️ DEV</button>
+                <button class="env-pod-btn" data-env="test" onclick="changeEnvPod('test')">🧪 TEST</button>
+                <button class="env-pod-btn" data-env="prod" onclick="changeEnvPod('prod')">🚀 PROD</button>
+            </div>
+
+            <!-- Floating Settings Gear Button (Bottom-Left side) -->
+            <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+
+            <!-- Settings Drawer (Bottom-Left Panel) -->
+            <div id="settings-drawer">
+                <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px; margin-bottom: 16px;">Configuration IA</h4>
+                
+                <div class="settings-input-group">
+                    <label>Moteur LLM (Provider)</label>
+                    <select id="setting-provider" class="settings-select" onchange="updateSettingsModelOptions()">
+                        <option value="openai_compatible">Local (LM Studio / Ollama)</option>
+                        <option value="gemini">API Cloud (Gemini)</option>
+                    </select>
+                </div>
+
+                <div class="settings-input-group">
+                    <label>Modèle Cible (Model ID)</label>
+                    <select id="setting-model" class="settings-select">
+                        <!-- Filled dynamically -->
+                    </select>
+                </div>
+
+                <div class="settings-input-group">
+                    <label>URL du Serveur Local (Base URL)</label>
+                    <input type="text" id="setting-base-url" class="editor-input" style="background: rgba(0, 0, 0, 0.3);" value="http://localhost:1234/v1">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                    <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
+                    <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
+                </div>
+            </div>
+
+            <!-- Bottom-Right Floating Prompt Trigger Bubble -->
+            <button class="floating-bubble" onclick="togglePromptDrawer()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+
+            <!-- Bottom-Right Floating Prompt Drawer -->
+            <div id="prompt-drawer">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px;">Intention d'Orchestration</h4>
+                    <div class="study-toggle-container">
+                        <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
+                        <label for="study-mode-checkbox" style="cursor: pointer; user-select: none;">🧪 Mode Étude</label>
+                    </div>
+                </div>
+                <textarea id="intent-input" style="width: 100%; margin-left: 0; margin-bottom: 12px; background: rgba(0,0,0,0.5); border-radius: 8px;" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
+Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button class="toggle-logs-btn" onclick="togglePromptDrawer()" style="border-color: transparent;">Fermer</button>
+                    <button class="toggle-logs-btn" onclick="submitIntent()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">🚀 Soumettre</button>
+                </div>
             </div>
         </div>
 
@@ -786,6 +1260,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
             </div>
         </aside>
     </div>
+    </div> <!-- Close #workshop-view -->
 
     <!-- Boîte de dialogue interactive pour la résolution des conflits -->
     <div id="conflict-modal">
@@ -812,6 +1287,66 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
                 <input type="text" id="study-chat-input" class="chat-input-field" placeholder="Répondez aux questions de l'IA pour l'aider à concevoir le flux...">
                 <button class="chat-send-btn" onclick="sendStudyChatReply()">Envoyer</button>
                 <button class="chat-generate-btn" onclick="generateStudyRecipe()">Générer le Flux</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de configuration des déclencheurs -->
+    <div id="trigger-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(10px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 480px; text-align: left;">
+            <div class="modal-title" style="color: var(--accent); font-weight: 800; margin-bottom: 20px;">⚙️ Configurer le Déclencheur</div>
+            
+            <input type="hidden" id="trigger-workspace-id">
+            
+            <div class="editor-checkbox-group" style="margin-bottom: 20px;">
+                <input type="checkbox" id="trigger-enabled" style="width: 18px; height: 18px;">
+                <label for="trigger-enabled" style="font-size: 1rem; font-weight: 600; color: var(--text);">Activer le déclencheur automatique</label>
+            </div>
+            
+            <div class="settings-input-group" style="margin-bottom: 16px;">
+                <label>Type de Déclencheur</label>
+                <select id="trigger-type" class="settings-select" onchange="toggleTriggerInputs()" style="width: 100%;">
+                    <option value="none">Aucun (Manuel)</option>
+                    <option value="cron">⏰ Planificateur Cron</option>
+                    <option value="event">📁 Observateur de Dossier (File Watcher)</option>
+                    <option value="webhook">🌐 Webhook API HTTP</option>
+                </select>
+            </div>
+            
+            <!-- Cron inputs -->
+            <div id="trigger-cron-fields" class="trigger-fields" style="display: none; margin-bottom: 16px;">
+                <div class="settings-input-group">
+                    <label>Expression Cron (ex: */5 * * * * pour toutes les 5 mins)</label>
+                    <input type="text" id="trigger-cron-expr" class="editor-input" value="*/5 * * * *">
+                </div>
+            </div>
+            
+            <!-- File Watcher inputs -->
+            <div id="trigger-event-fields" class="trigger-fields" style="display: none; margin-bottom: 16px;">
+                <div class="settings-input-group" style="margin-bottom: 10px;">
+                    <label>Dossier à surveiller (chemin local)</label>
+                    <input type="text" id="trigger-event-dir" class="editor-input" value="test_results/inbox">
+                </div>
+                <div class="settings-input-group">
+                    <label>Pattern de fichier (glob, ex: *.csv)</label>
+                    <input type="text" id="trigger-event-pattern" class="editor-input" value="*.csv">
+                </div>
+            </div>
+            
+            <!-- Webhook inputs -->
+            <div id="trigger-webhook-fields" class="trigger-fields" style="display: none; margin-bottom: 20px;">
+                <div class="settings-input-group">
+                    <label>URL du Webhook Local (Copier pour appeler)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="trigger-webhook-url" class="editor-input" style="flex: 1; background: rgba(0,0,0,0.3); font-family: monospace; font-size: 0.8rem;" readonly>
+                        <button class="toggle-logs-btn" onclick="copyWebhookUrl()">📋 Copier</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                <button class="toggle-logs-btn" onclick="closeTriggerModal()" style="border-color: transparent;">Annuler</button>
+                <button class="toggle-logs-btn" onclick="saveTriggerConfig()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
             </div>
         </div>
     </div>
@@ -859,6 +1394,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
                 this.id = `node-step-${step}`;
                 this.style.left = this.getAttribute('x') + 'px';
                 this.style.top = this.getAttribute('y') + 'px';
+                this.style.position = 'absolute';
+                this.style.display = 'block';
                 
                 this.innerHTML = `
                     <div class="node-header">
@@ -884,10 +1421,21 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
             
             ws.onopen = () => {
                 addLog('Connecté au serveur d\'orchestration Python.', 'success');
+                const statusDiv = document.getElementById('connection-status');
+                if (statusDiv) {
+                    statusDiv.innerHTML = '<span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; box-shadow: 0 0 8px var(--success-glow);"></span> Serveur Connecté';
+                    statusDiv.style.color = 'var(--success)';
+                }
+                ws.send(JSON.stringify({ type: 'LIST_WORKSPACES' }));
             };
 
             ws.onclose = () => {
                 addLog('Connexion perdue avec le serveur. Tentative de reconnexion...', 'error');
+                const statusDiv = document.getElementById('connection-status');
+                if (statusDiv) {
+                    statusDiv.innerHTML = '<span style="width:8px; height:8px; border-radius:50%; background:var(--error); display:inline-block;"></span> Serveur Déconnecté';
+                    statusDiv.style.color = 'var(--error)';
+                }
                 document.getElementById('conflict-modal').classList.remove('active');
                 setTimeout(initWebSocket, 2000);
             };
@@ -936,6 +1484,12 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
                 }
                 else if (data.type === 'PLAN_FINISHED') {
                     addLog(data.success ? 'Exécution du plan terminée avec SUCCÈS.' : 'Exécution du plan échouée.', data.success ? 'success' : 'error');
+                }
+                else if (data.type === 'WORKSPACES_LIST') {
+                    updateWorkspacesList(data.active_workspace, data.workspaces);
+                }
+                else if (data.type === 'WORKSPACE_EXECUTION_STATE') {
+                    updateWorkspaceExecutionState(data.workspace_id, data.state);
                 }
             };
         }
@@ -1426,6 +1980,91 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
             document.getElementById('study-chat-modal').classList.remove('active');
         }
 
+        function togglePromptDrawer() {
+            const drawer = document.getElementById('prompt-drawer');
+            drawer.classList.toggle('active');
+            if (drawer.classList.contains('active')) {
+                document.getElementById('intent-input').focus();
+                // Close other drawers
+                document.getElementById('settings-drawer').classList.remove('active');
+            }
+        }
+
+        function toggleSettingsDrawer() {
+            const drawer = document.getElementById('settings-drawer');
+            drawer.classList.toggle('active');
+            if (drawer.classList.contains('active')) {
+                // Close other drawers
+                document.getElementById('prompt-drawer').classList.remove('active');
+            }
+        }
+
+        const PROVIDER_MODELS = {
+            "openai_compatible": [
+                { value: "lfm2.5-1.2b-instruct", label: "LiquidAI LFM-1.2B (Instruct)" },
+                { value: "lfm2.5-8b-a1b", label: "LiquidAI LFM-8B (Local)" },
+                { value: "gemma", label: "Google Gemma (Local)" },
+                { value: "custom", label: "Autre modèle local" }
+            ],
+            "gemini": [
+                { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+                { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" }
+            ]
+        };
+
+        function updateSettingsModelOptions() {
+            const provider = document.getElementById('setting-provider').value;
+            const modelSelect = document.getElementById('setting-model');
+            const baseUrlGroup = document.getElementById('setting-base-url').parentNode;
+            
+            modelSelect.innerHTML = '';
+            
+            const models = PROVIDER_MODELS[provider] || [];
+            models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.value;
+                opt.innerText = m.label;
+                modelSelect.appendChild(opt);
+            });
+
+            if (provider === 'gemini') {
+                baseUrlGroup.style.display = 'none';
+            } else {
+                baseUrlGroup.style.display = 'flex';
+            }
+        }
+
+        function saveSettings() {
+            const provider = document.getElementById('setting-provider').value;
+            const model = document.getElementById('setting-model').value;
+            const baseUrl = document.getElementById('setting-base-url').value;
+
+            addLog(`Application des réglages IA : Provider=${provider}, Model=${model}`, 'info');
+
+            // Send config update request to the python server or store locally if server handled
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'UPDATE_LLM_SETTINGS',
+                    provider: provider,
+                    model: model,
+                    base_url: baseUrl
+                }));
+            }
+            
+            toggleSettingsDrawer();
+        }
+
+        function changeEnvPod(env) {
+            activeEnv = env;
+            // Update active state in Env selector (both floats and panel)
+            document.querySelectorAll('.env-pod-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-env') === env);
+            });
+            document.getElementById('env-panel-title').innerText = `Secrets (${env.toUpperCase()})`;
+            addLog(`Environnement actif basculé sur : ${env.toUpperCase()}`, 'info');
+            detectAndRenderEnvVars();
+        }
+
         function submitIntent() {
             const input = document.getElementById('intent-input');
             const intent = input.value.trim();
@@ -1438,6 +2077,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
                     study_mode: isStudyMode
                 }));
                 input.value = '';
+                // Close prompt drawer after successful submission
+                document.getElementById('prompt-drawer').classList.remove('active');
             } else {
                 addLog('Erreur : impossible d\'envoyer l\'intention (déconnecté ou vide).', 'error');
             }
@@ -1458,9 +2099,235 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier, Shift+Entrée pou
             }
         });
 
+        // --- WORKSPACE & TRIGGER MANAGEMENT (WFGY CORE v3) ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.id === `tab-btn-${tabName}`);
+            });
+            document.querySelectorAll('.view-section').forEach(view => {
+                if (view.id === `${tabName}-view`) {
+                    view.classList.add('active');
+                    view.style.display = 'flex';
+                } else {
+                    view.classList.remove('active');
+                    view.style.display = 'none';
+                }
+            });
+            document.getElementById('workshop-actions').style.display = tabName === 'workshop' ? 'flex' : 'none';
+            document.getElementById('dashboard-actions').style.display = tabName === 'dashboard' ? 'flex' : 'none';
+            
+            if (tabName === 'workshop') {
+                setTimeout(() => {
+                    if (currentRecipe && currentRecipe.steps) {
+                        renderNodes(currentRecipe.steps);
+                    }
+                }, 100);
+            }
+        }
+
+        let localWorkspaces = {};
+        function updateWorkspacesList(activeId, workspaces) {
+            localWorkspaces = workspaces;
+            const tbody = document.getElementById('workspaces-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            const keys = Object.keys(workspaces);
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">Aucun flux enregistré. Cliquez sur "+ Nouveau Flux" pour commencer.</td></tr>`;
+                return;
+            }
+            
+            keys.forEach(id => {
+                const w = workspaces[id];
+                const tr = document.createElement('tr');
+                tr.id = `workspace-row-${id}`;
+                if (id === activeId) {
+                    tr.style.background = 'rgba(0, 240, 255, 0.03)';
+                    tr.style.borderLeft = '3px solid var(--accent)';
+                }
+                
+                const isTriggerEnabled = w.trigger && w.trigger.enabled;
+                const statusDotClass = isTriggerEnabled ? 'active' : 'inactive';
+                
+                let lastRunStr = 'Jamais';
+                if (w.last_run) {
+                    lastRunStr = new Date(w.last_run).toLocaleString();
+                }
+                
+                let nextRunStr = 'N/A';
+                if (w.next_run && w.next_run !== 'N/A') {
+                    nextRunStr = new Date(w.next_run).toLocaleString();
+                }
+                
+                let triggerBadge = '<span class="trigger-badge none">Aucun</span>';
+                if (isTriggerEnabled) {
+                    if (w.trigger.type === 'cron') {
+                        triggerBadge = `<span class="trigger-badge cron" title="${w.trigger.cron_expression}">⏰ Cron</span>`;
+                    } else if (w.trigger.type === 'event') {
+                        triggerBadge = `<span class="trigger-badge event" title="${w.trigger.watch_directory} (${w.trigger.pattern})">📁 File Watcher</span>`;
+                    } else if (w.trigger.type === 'webhook') {
+                        triggerBadge = `<span class="trigger-badge webhook">🌐 Webhook</span>`;
+                    }
+                }
+                
+                tr.innerHTML = `
+                    <td style="padding-left: 25px;">
+                        <span class="status-dot ${statusDotClass}" id="workspace-dot-${id}"></span>
+                    </td>
+                    <td style="font-weight: 600; color: ${id === activeId ? 'var(--accent)' : 'var(--text)'};">
+                        ${w.name} ${id === activeId ? ' <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(Actif)</span>' : ''}
+                    </td>
+                    <td>${triggerBadge}</td>
+                    <td id="workspace-last-run-${id}">${lastRunStr}</td>
+                    <td id="workspace-next-run-${id}">${nextRunStr}</td>
+                    <td style="text-align: right; gap: 6px; display: flex; justify-content: flex-end; align-items: center; border-bottom: none; padding-top: 8px; padding-bottom: 8px;">
+                        <button class="toggle-logs-btn" onclick="openWorkspace('${id}')" style="background: rgba(0,240,255,0.05); color: var(--accent); border-color: rgba(0,240,255,0.2);">🛠️ Ouvrir</button>
+                        <button class="toggle-logs-btn" onclick="configureTrigger('${id}')" style="background: rgba(245,158,11,0.05); color: var(--running); border-color: rgba(245,158,11,0.2);">⚙️ Déclencheur</button>
+                        <button class="toggle-logs-btn" onclick="renameWorkspace('${id}', '${w.name}')" style="background: rgba(255,255,255,0.02);">✏️</button>
+                        <button class="toggle-logs-btn" onclick="deleteWorkspace('${id}')" style="background: rgba(239,68,68,0.05); color: var(--error); border-color: rgba(239,68,68,0.2);">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateWorkspaceExecutionState(id, state) {
+            const dot = document.getElementById(`workspace-dot-${id}`);
+            if (dot) {
+                dot.className = `status-dot ${state}`;
+            }
+        }
+
+        function openCreateWorkspaceModal() {
+            const name = prompt("Entrez le nom du nouveau flux de travail :");
+            if (name && name.trim()) {
+                ws.send(JSON.stringify({
+                    type: 'CREATE_WORKSPACE',
+                    name: name.trim()
+                }));
+            }
+        }
+
+        function renameWorkspace(id, currentName) {
+            const newName = prompt(`Renommer le flux "${currentName}" en :`, currentName);
+            if (newName && newName.trim() && newName !== currentName) {
+                ws.send(JSON.stringify({
+                    type: 'RENAME_WORKSPACE',
+                    workspace_id: id,
+                    new_name: newName.trim()
+                }));
+            }
+        }
+
+        function deleteWorkspace(id) {
+            if (confirm("Êtes-vous sûr de supprimer ce flux ? Le fichier de recette sera également supprimé.")) {
+                ws.send(JSON.stringify({
+                    type: 'DELETE_WORKSPACE',
+                    workspace_id: id
+                }));
+            }
+        }
+
+        function openWorkspace(id) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'SELECT_WORKSPACE',
+                    workspace_id: id
+                }));
+                switchTab('workshop');
+            }
+        }
+
+        function saveActiveWorkspace() {
+            if (ws && ws.readyState === WebSocket.OPEN && currentRecipe) {
+                ws.send(JSON.stringify({
+                    type: 'SAVE_WORKSPACE',
+                    recipe: currentRecipe
+                }));
+            } else {
+                addLog("Aucune recette active à enregistrer.", "error");
+            }
+        }
+
+        function configureTrigger(id) {
+            const w = localWorkspaces[id];
+            if (!w) return;
+            
+            document.getElementById('trigger-workspace-id').value = id;
+            
+            const trig = w.trigger || { enabled: false, type: 'none' };
+            document.getElementById('trigger-enabled').checked = trig.enabled || false;
+            document.getElementById('trigger-type').value = trig.type || 'none';
+            document.getElementById('trigger-cron-expr').value = trig.cron_expression || '*/5 * * * *';
+            document.getElementById('trigger-event-dir').value = trig.watch_directory || 'test_results/inbox';
+            document.getElementById('trigger-event-pattern').value = trig.pattern || '*.csv';
+            
+            const webhookUrl = `http://localhost:8766/trigger?workspace=${id}`;
+            document.getElementById('trigger-webhook-url').value = webhookUrl;
+            
+            toggleTriggerInputs();
+            
+            document.getElementById('trigger-modal').style.display = 'flex';
+        }
+
+        function closeTriggerModal() {
+            document.getElementById('trigger-modal').style.display = 'none';
+        }
+
+        function toggleTriggerInputs() {
+            const type = document.getElementById('trigger-type').value;
+            document.querySelectorAll('.trigger-fields').forEach(el => el.style.display = 'none');
+            
+            if (type === 'cron') {
+                document.getElementById('trigger-cron-fields').style.display = 'block';
+            } else if (type === 'event') {
+                document.getElementById('trigger-event-fields').style.display = 'block';
+            } else if (type === 'webhook') {
+                document.getElementById('trigger-webhook-fields').style.display = 'block';
+            }
+        }
+
+        function saveTriggerConfig() {
+            const id = document.getElementById('trigger-workspace-id').value;
+            const enabled = document.getElementById('trigger-enabled').checked;
+            const type = document.getElementById('trigger-type').value;
+            
+            const trigger = {
+                enabled: enabled,
+                type: type
+            };
+            
+            if (type === 'cron') {
+                trigger.cron_expression = document.getElementById('trigger-cron-expr').value.trim();
+            } else if (type === 'event') {
+                trigger.watch_directory = document.getElementById('trigger-event-dir').value.trim();
+                trigger.pattern = document.getElementById('trigger-event-pattern').value.trim();
+            }
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'UPDATE_WORKSPACE_TRIGGER',
+                    workspace_id: id,
+                    trigger: trigger
+                }));
+            }
+            
+            closeTriggerModal();
+        }
+
+        function copyWebhookUrl() {
+            const input = document.getElementById('trigger-webhook-url');
+            input.select();
+            input.setSelectionRange(0, 9999);
+            navigator.clipboard.writeText(input.value);
+            alert("URL Webhook copiée !");
+        }
+
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
             initWebSocket();
+            updateSettingsModelOptions();
         });
     </script>
 </body>

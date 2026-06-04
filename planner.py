@@ -89,6 +89,18 @@ Structure du JSON attendu :
   ]
 }}
 
+CRITICAL PARAMETERS RULE:
+You MUST map prompt arguments exactly as specified in the schema. For example:
+- If you use `net.http_request` with `extract_regex`, the schema indicates that `extract_destination` is required to save the regex match results. Do NOT use fake variables or omit required argument pairings from the schema. Keep arguments precise and complete.
+- For format conversions, match the source format exactly to the target format:
+  * To convert XML to JSON, use `data.xml_to_json` with arguments `source` and `destination`.
+  * To convert CSV to JSON, use `data.csv_to_json`.
+  * To convert JSON to CSV, use `data.json_to_csv`.
+  * Do NOT invent converters like converting XML to JSON via `data.json_to_csv` or using incorrect source formats.
+- For filtering with `data.filter`:
+  * If the input is structured CSV, use a valid `column_index` (0-based integer) or `column_name` (with `has_headers=true`). Do NOT use negative indices (e.g. -1) or invalid names.
+  * Define `operator` (e.g., "equals", "contains", "regex") and `value` carefully.
+
 Pour tout mot de passe, clé API, hôte, ou credentials sensibles (ex: mot de passe Snowflake, token API), utilise impérativement des placeholders sous la forme de variable d'environnement "${{SECRET_NOM_VARIABLE}}" (ex: "${{SECRET_SNOWFLAKE_PASSWORD}}"). Ne mets jamais de secret en clair dans le JSON.
 
 Si le plan requiert une transformation XML personnalisée (primitive `data.xml_transform`) et qu'aucun fichier de feuille de style XSLT existant n'est fourni par l'utilisateur, tu dois concevoir et générer la feuille de style XSLT. Pour ce faire, crée une étape préliminaire utilisant la primitive `io.write_file` pour écrire le contenu de ton XSLT dans un fichier temporaire (ex: "stylesheet.xslt"), puis référence ce fichier dans l'étape `data.xml_transform`.
@@ -111,10 +123,77 @@ Réponds IMPÉRATIVEMENT sous la forme d'un objet JSON strict avec cette structu
   "analysis": "Ton analyse succincte de l'intention et de ce que le flux va accomplir.",
   "questions": [
     "Première question de clarification...",
-    "Deuxième question..."
+    "Deuxième question de clarification..."
   ]
 }}
 """
+
+    def _get_study_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "is_complex": {"type": "boolean"},
+                "analysis": {"type": "string"},
+                "questions": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            },
+            "required": ["is_complex", "analysis", "questions"]
+        }
+
+    def _get_phase1_schema(self) -> dict:
+        return {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+
+    def _get_recipe_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string"},
+                "intent_analysis": {"type": "string"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "step": {"type": "integer"},
+                            "primitive": {"type": "string"},
+                            "depends_on": {
+                                "type": "array",
+                                "items": {"type": "integer"}
+                            },
+                            "ui": {
+                                "type": "object",
+                                "properties": {
+                                    "label": {"type": "string"},
+                                    "color": {"type": "string"},
+                                    "position": {
+                                        "type": "object",
+                                        "properties": {
+                                            "x": {"type": "integer"},
+                                            "y": {"type": "integer"}
+                                        },
+                                        "required": ["x", "y"]
+                                    }
+                                },
+                                "required": ["label", "color", "position"]
+                            },
+                            "args": {
+                                "type": "object",
+                                "additionalProperties": True
+                            }
+                        },
+                        "required": ["step", "primitive", "depends_on", "args"]
+                    }
+                }
+            },
+            "required": ["plan_id", "intent_analysis", "steps"]
+        }
 
     def study(self, user_intent: str, chat_history: list = None) -> dict:
         """
@@ -128,7 +207,7 @@ Réponds IMPÉRATIVEMENT sous la forme d'un objet JSON strict avec cette structu
             user_prompt += f"\n\nHistorique de la discussion d'étude :\n{history_str}\n\nFormule tes nouvelles questions de clarification ou résume les réponses."
 
         print(f"[PLANNER] Mode Étude - Analyse de l'intention complexe...")
-        raw_response = self.client.generate_completion(system_prompt, user_prompt)
+        raw_response = self.client.generate_completion(system_prompt, user_prompt, schema=self._get_study_schema())
         
         clean = raw_response.strip()
         if clean.startswith("```json"): clean = clean[7:]
@@ -157,7 +236,7 @@ Réponds IMPÉRATIVEMENT sous la forme d'un objet JSON strict avec cette structu
             user_prompt_1 += f"\n primitives déjà présentes dans la recette actuelle : {existing_primitives}"
             
         print(f"[PLANNER] Phase 1 - Identification des primitives requises pour l'intention...")
-        raw_phase1 = self.client.generate_completion(phase1_sys, user_prompt_1)
+        raw_phase1 = self.client.generate_completion(phase1_sys, user_prompt_1, schema=self._get_phase1_schema())
         
         # Nettoyage et parsing des IDs identifiés
         clean_p1 = raw_phase1.strip()
@@ -202,15 +281,15 @@ Réponds IMPÉRATIVEMENT sous la forme d'un objet JSON strict avec cette structu
             recipe_context = json.dumps(current_recipe, indent=2, ensure_ascii=False)
             user_prompt_2 = f"""Voici la recette actuelle du workflow :
 {recipe_context}
-
+ 
 Voici la nouvelle intention de l'utilisateur pour enrichir ou modifier cette recette :
 "{user_intent}"
-
+ 
 Tu dois intégrer cette nouvelle intention dans la recette actuelle. Modifie la recette existante (ajoute, supprime ou modifie des étapes) et renvoie la recette finale fusionnée et mise à jour au format JSON.
 """
         
         print(f"[PLANNER] Phase 2 - Génération de la recette paramétrée...")
-        raw_response = self.client.generate_completion(phase2_sys, user_prompt_2)
+        raw_response = self.client.generate_completion(phase2_sys, user_prompt_2, schema=self._get_recipe_schema())
         
         # Clean response if LLM wrapped it in markdown code blocks
         clean_response = raw_response.strip()

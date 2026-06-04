@@ -18,6 +18,8 @@ This system is an intent-based ETL orchestrator:
 - **Invariant 4 [WebSocket State Streaming]:** Execution states are streamed via full-duplex WebSockets to the workbench.
 - **Invariant 5 [LLM Interoperability]:** The planner must support local OpenAI-compatible endpoints (LM Studio/Ollama) and API endpoints (Gemini) via uniform interfaces.
 - **Invariant 6 [Secrets Vault Injection]:** Sensitive credentials must be represented as placeholders ("${SECRET_XXX}") in recipes and resolved at runtime by the Orchestrator, preventing plaintext exposure in saved JSON files.
+- **Invariant 7 [Background Daemon & Webhook Triggers]:** Automated scheduler tasks (Cron checks, directory scanner, and HTTP Webhook server) run persistently.
+- **Invariant 8 [Workspace Metadata Registry]:** All workspace flows and trigger specifications are recorded in `workspaces.json`.
 
 ## Verification Gate
 - Invariant 1 [Recipe Schema Validation]: SUCCESS (`SchemaValidator` implements JSON schema validation against registry specifications)
@@ -26,6 +28,8 @@ This system is an intent-based ETL orchestrator:
 - Invariant 4 [WebSocket State Streaming]: SUCCESS (Real-time bi-directional WebSocket state streaming tested successfully)
 - Invariant 5 [LLM Interoperability]: SUCCESS (LLM clients written for both OpenAI-compatible and Gemini endpoints, integrated with planner)
 - Invariant 6 [Secrets Vault Injection]: SUCCESS (Credentials placeholders resolved at runtime via .env / env variables)
+- Invariant 7 [Background Daemon & Webhook Triggers]: SUCCESS (Lightweight Cron, File Watcher scanner, and port 8766 HTTP Webhook API validated)
+- Invariant 8 [Workspace Metadata Registry]: SUCCESS (`workspaces.json` registry file loaded and managed dynamically by WebSocket commands)
 
 
 ## Exit Codes & Standard Error Resolution
@@ -59,11 +63,11 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-02:** Implemented Parallel DAG scheduling with dependency resolution and cycle detection, alongside an automatic retry/backoff mechanism in Python orchestrator.
 - **2026-06-02:** Implemented generic database primitives (`db.query`, `db.insert`) in Rust Muscle supporting SQLite, Postgres, MySQL, Snowflake REST and ODBC, fully integrated into registry and validated by tests.
 - **2026-06-02:** Implemented `s3.upload` and `s3.download` object storage primitives in Rust Muscle supporting AWS S3 and MinIO local custom endpoints, fully compiled, schema registered and validated via integration test.
-- **2026-06-02:** Designed a sleek Node Editor sidebar in vanilla JS/CSS for visual workflow modification and dynamic connection path rendering, alongside an environment-specific global secrets manager linked directly to the Chromatix PNG Vault.
-- **2026-06-02:** Introduced interactive "Mode Étude" (Study Mode) featuring a modern modal Chat UI that triggers two-way alignment dialogue with the LLM planner before generating the recipe JSON, resolving ambiguities on complex DAGs.
 - **2026-06-02:** Added the missing `submitIntent` Javascript function in `interface_du_moteur_etl.html` and bound the submit button and keypress events to it, resolving issues with prompt submissions.
 - **2026-06-02:** Implemented `data.json_to_csv` format converter primitive in Rust Muscle using `csv` crate, registered it in schema registry, and verified conversion of heterogeneous JSON objects with a Python verification script.
 - **2026-06-03:** Refactored the monolithic `rust_muscle/src/main.rs` (2300+ lines) by splitting all core primitives into dedicated modules under `src/primitives/` (io, net, data_format, data_transform, analytical, db, s3) and isolating MuscleError inside `error.rs` for clean maintainability.
+- **2026-06-03:** Added a landing Tableau de Bord (Dashboard) view containing registered flows status, next execution timer, and inline trigger configuration. Created background daemon loops for Cron matching, directory File Watcher scan, and port 8766 HTTP Webhook API receiver.
+- **2026-06-04:** Refactored the orchestrator.py script into 5 single-responsibility submodules (vault.py, worker_bridge.py, schema_validator.py, registry.py, scheduler.py) to accommodate future auth integrations.
 
 
 
