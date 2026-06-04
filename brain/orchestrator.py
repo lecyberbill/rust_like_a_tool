@@ -347,7 +347,10 @@ async def handler(websocket, path=None):
     current_recipe = None
     pending_confirmations = {}
     
-    vault_key = os.environ.get("SECRET_API_KEY") or ENV_CONFIG.get("SECRET_API_KEY", "wfgy-default-vault-key-12345")
+    vault_key = os.environ.get("SECRET_VAULT_KEY") or ENV_CONFIG.get("SECRET_VAULT_KEY")
+    if not vault_key:
+        print("[CRITICAL SECURITY ERROR] SECRET_VAULT_KEY is not defined in environment variables.")
+        sys.exit(1)
     vault = StealthVault(vault_key)
     saved_secrets = vault.load_secrets()
     
@@ -787,6 +790,13 @@ async def handler(websocket, path=None):
         pending_confirmations.clear()
 
 async def main():
+    # Security Enforce: Refuse startup if SECRET_VAULT_KEY is missing
+    vault_key = os.environ.get("SECRET_VAULT_KEY") or ENV_CONFIG.get("SECRET_VAULT_KEY")
+    if not vault_key:
+        print("[CRITICAL SECURITY ERROR] SECRET_VAULT_KEY is not defined in environment variables.")
+        print("Please configure SECRET_VAULT_KEY in your environment before running the orchestrator.")
+        sys.exit(1)
+
     if len(sys.argv) > 1 and sys.argv[1] == "--server":
         port = int(ENV_CONFIG.get("PORT", 8765))
         print(f"[WS SERVER] Starting WebSocket server on port {port} in '{env_mode}' mode...")
