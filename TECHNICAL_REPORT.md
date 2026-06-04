@@ -68,6 +68,7 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-03:** Refactored the monolithic `rust_muscle/src/main.rs` (2300+ lines) by splitting all core primitives into dedicated modules under `src/primitives/` (io, net, data_format, data_transform, analytical, db, s3) and isolating MuscleError inside `error.rs` for clean maintainability.
 - **2026-06-03:** Added a landing Tableau de Bord (Dashboard) view containing registered flows status, next execution timer, and inline trigger configuration. Created background daemon loops for Cron matching, directory File Watcher scan, and port 8766 HTTP Webhook API receiver.
 - **2026-06-04:** Refactored the orchestrator.py script into 5 single-responsibility submodules (vault.py, worker_bridge.py, schema_validator.py, registry.py, scheduler.py) to accommodate future auth integrations.
+- **2026-06-04:** Committed modular refactoring of Python submodules and Dashboard UI, successfully merged branch `dev` into `main`, and pushed updates to remote origin repository.
 
 
 
