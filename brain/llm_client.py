@@ -101,6 +101,21 @@ class GeminiAPIClient(LLMClient):
         self.api_key = api_key
         self.model = model
 
+    def clean_schema_for_gemini(self, schema):
+        if not isinstance(schema, dict):
+            return schema
+        cleaned = {}
+        for k, v in schema.items():
+            if k == "additionalProperties":
+                continue
+            if isinstance(v, dict):
+                cleaned[k] = self.clean_schema_for_gemini(v)
+            elif isinstance(v, list):
+                cleaned[k] = [self.clean_schema_for_gemini(item) if isinstance(item, dict) else item for item in v]
+            else:
+                cleaned[k] = v
+        return cleaned
+
     def generate_completion(self, system_prompt: str, user_prompt: str, schema: dict = None) -> str:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
         headers = {
@@ -121,7 +136,7 @@ class GeminiAPIClient(LLMClient):
         }
 
         if schema:
-            payload["generationConfig"]["responseSchema"] = schema
+            payload["generationConfig"]["responseSchema"] = self.clean_schema_for_gemini(schema)
 
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -134,5 +149,12 @@ class GeminiAPIClient(LLMClient):
                 candidate = res_json["candidates"][0]
                 text = candidate["content"]["parts"][0]["text"]
                 return text
+        except urllib.error.HTTPError as he:
+            try:
+                err_body = he.read().decode("utf-8", errors="ignore")
+                print(f"[GEMINI LLM ERROR DETAIL] {err_body}")
+            except Exception:
+                err_body = str(he)
+            raise RuntimeError(f"Gemini API request failed: {he} - Details: {err_body}")
         except Exception as e:
             raise RuntimeError(f"Gemini API request failed: {e}")
