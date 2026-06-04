@@ -1,4 +1,4 @@
-<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Add local variables to AiMapper visual mapping interface -->
+<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Add prompt history to intent box with quick restore -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1204,10 +1204,17 @@
             <div id="prompt-drawer">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px;">Intention d'Orchestration</h4>
-                    <div class="study-toggle-container">
-                        <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
-                        <label for="study-mode-checkbox" style="cursor: pointer; user-select: none;">🧪 Mode Étude</label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="togglePromptHistory()">📜 Historique</button>
+                        <div class="study-toggle-container">
+                            <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
+                            <label for="study-mode-checkbox" style="cursor: pointer; user-select: none;">🧪 Mode Étude</label>
+                        </div>
                     </div>
+                </div>
+                <!-- Prompt History List -->
+                <div id="prompt-history-list" style="display: none; max-height: 150px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 6px; background: rgba(0,0,0,0.4);">
+                    <!-- Injected dynamically -->
                 </div>
                 <textarea id="intent-input" style="width: 100%; margin-left: 0; margin-bottom: 12px; background: rgba(0,0,0,0.5); border-radius: 8px;" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
 Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
@@ -2163,6 +2170,9 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             const isStudyMode = document.getElementById('study-mode-checkbox').checked;
             if (intent && ws && ws.readyState === WebSocket.OPEN) {
                 addLog(`Soumission de l'intention (Mode Étude=${isStudyMode}) : "${intent.substring(0, 60)}..."`, 'info');
+                
+                savePromptToHistory(intent);
+                
                 ws.send(JSON.stringify({
                     type: 'SUBMIT_INTENT',
                     intent: intent,
@@ -2171,6 +2181,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 input.value = '';
                 // Close prompt drawer after successful submission
                 document.getElementById('prompt-drawer').classList.remove('active');
+                document.getElementById('prompt-history-list').style.display = 'none';
             } else {
                 addLog('Erreur : impossible d\'envoyer l\'intention (déconnecté ou vide).', 'error');
             }
@@ -2181,6 +2192,90 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 submitIntent();
+            }
+        });
+
+        // Prompt history tracking logic
+        let promptHistory = [];
+        try {
+            promptHistory = JSON.parse(localStorage.getItem('prompt_history')) || [];
+        } catch (e) {
+            promptHistory = [];
+        }
+        let historyIndex = -1;
+
+        function savePromptToHistory(prompt) {
+            if (!prompt || prompt.trim() === '') return;
+            promptHistory = promptHistory.filter(p => p !== prompt);
+            promptHistory.unshift(prompt);
+            if (promptHistory.length > 50) {
+                promptHistory.pop();
+            }
+            localStorage.setItem('prompt_history', JSON.stringify(promptHistory));
+            historyIndex = -1;
+        }
+
+        function togglePromptHistory() {
+            const listDiv = document.getElementById('prompt-history-list');
+            if (listDiv.style.display === 'none') {
+                renderPromptHistory();
+                listDiv.style.display = 'block';
+            } else {
+                listDiv.style.display = 'none';
+            }
+        }
+
+        function renderPromptHistory() {
+            const container = document.getElementById('prompt-history-list');
+            container.innerHTML = '';
+            
+            if (promptHistory.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-muted); font-style:italic; padding:6px; font-size:0.8rem;">Aucun historique de prompt.</div>';
+                return;
+            }
+
+            promptHistory.forEach((p, idx) => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition: background 0.2s;';
+                item.innerText = p;
+                
+                item.addEventListener('mouseenter', () => {
+                    item.style.background = 'rgba(255,255,255,0.05)';
+                });
+                item.addEventListener('mouseleave', () => {
+                    item.style.background = 'transparent';
+                });
+                item.addEventListener('click', () => {
+                    document.getElementById('intent-input').value = p;
+                    container.style.display = 'none';
+                });
+                container.appendChild(item);
+            });
+        }
+
+        // Bind ArrowUp/ArrowDown for quick history navigation when textarea is focused
+        document.getElementById('intent-input').addEventListener('keydown', function(e) {
+            const input = e.target;
+            if (e.key === 'ArrowUp' && input.selectionStart === 0) {
+                if (promptHistory.length > 0) {
+                    e.preventDefault();
+                    if (historyIndex < promptHistory.length - 1) {
+                        historyIndex++;
+                        input.value = promptHistory[historyIndex];
+                        input.selectionStart = input.selectionEnd = input.value.length;
+                    }
+                }
+            } else if (e.key === 'ArrowDown' && input.selectionStart === input.value.length) {
+                if (promptHistory.length > 0) {
+                    e.preventDefault();
+                    if (historyIndex > 0) {
+                        historyIndex--;
+                        input.value = promptHistory[historyIndex];
+                    } else if (historyIndex === 0) {
+                        historyIndex = -1;
+                        input.value = '';
+                    }
+                }
             }
         });
 
