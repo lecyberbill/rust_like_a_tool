@@ -55,7 +55,51 @@ def load_env(env_name="dev"):
                 if "=" in line:
                     k, v = line.split("=", 1)
                     config[k.strip()] = v.strip()
-    return config
+        return config
+
+def extract_file_headers(filepath: str) -> list[str]:
+    path = Path(filepath)
+    if not path.exists():
+        # Check relative to cwd
+        path = Path.cwd() / filepath
+        if not path.exists():
+            return []
+    
+    ext = path.suffix.lower()
+    if ext == ".csv":
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                header_line = f.readline().strip()
+                if header_line:
+                    delims = [",", ";", "\t", "|"]
+                    delim = ","
+                    for d in delims:
+                        if d in header_line:
+                            delim = d
+                            break
+                    return [h.strip().replace("\"", "").replace("'", "") for h in header_line.split(delim) if h.strip()]
+        except Exception as e:
+            print(f"[SCHEMA ERROR] Failed to read CSV headers: {e}")
+            
+    elif ext == ".json":
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read(4096).strip()
+                if content.startswith("["):
+                    end_idx = content.find("}")
+                    if end_idx != -1:
+                        obj_str = content[1:end_idx+1]
+                        import json
+                        obj = json.loads(obj_str)
+                        return list(obj.keys())
+                elif content.startswith("{"):
+                    import json
+                    obj = json.loads(content)
+                    return list(obj.keys())
+        except Exception as e:
+            print(f"[SCHEMA ERROR] Failed to read JSON headers: {e}")
+            
+    return []
 
 # Load environment configuration
 env_mode = os.environ.get("WFGY_ENV", "dev")
@@ -421,6 +465,16 @@ async def handler(websocket, path=None):
 
             if data.get("type") == "LIST_WORKSPACES":
                 await broadcast_workspaces_list()
+                continue
+
+            if data.get("type") == "GET_SCHEMA":
+                filepath = data.get("filepath", "")
+                headers = extract_file_headers(filepath)
+                await websocket.send(json.dumps({
+                    "type": "SCHEMA_DETAILS",
+                    "filepath": filepath,
+                    "headers": headers
+                }, ensure_ascii=False))
                 continue
 
             if data.get("type") == "CREATE_WORKSPACE":

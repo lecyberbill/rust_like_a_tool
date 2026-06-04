@@ -20,6 +20,7 @@ This system is an intent-based ETL orchestrator:
 - **Invariant 6 [Secrets Vault Injection]:** Sensitive credentials must be represented as placeholders ("${SECRET_XXX}") in recipes and resolved at runtime by the Orchestrator, preventing plaintext exposure in saved JSON files.
 - **Invariant 7 [Background Daemon & Webhook Triggers]:** Automated scheduler tasks (Cron checks, directory scanner, and HTTP Webhook server) run persistently.
 - **Invariant 8 [Workspace Metadata Registry]:** All workspace flows and trigger specifications are recorded in `workspaces.json`.
+- **Invariant 9 [AiMapper visual matching overlay]:** The visual mapping interface resolves schemas over WebSocket and maps visual connections to `data.clean` arguments.
 
 ## Verification Gate
 - Invariant 1 [Recipe Schema Validation]: SUCCESS (`SchemaValidator` implements JSON schema validation against registry specifications)
@@ -30,7 +31,7 @@ This system is an intent-based ETL orchestrator:
 - Invariant 6 [Secrets Vault Injection]: SUCCESS (Credentials placeholders resolved at runtime via .env / env variables)
 - Invariant 7 [Background Daemon & Webhook Triggers]: SUCCESS (Lightweight Cron, File Watcher scanner, and port 8766 HTTP Webhook API validated)
 - Invariant 8 [Workspace Metadata Registry]: SUCCESS (`workspaces.json` registry file loaded and managed dynamically by WebSocket commands)
-
+- Invariant 9 [AiMapper visual matching overlay]: SUCCESS (AiMapper overlay dynamically loads schemas over WebSocket, supports interactive mapping highlights, and correctly serializes settings into `data.clean` arguments)
 
 ## Exit Codes & Standard Error Resolution
 To preserve internationalization and separate concerns, the Rust Muscle binary returns strict numeric exit codes. The Python Orchestrator intercepts these codes and translates them to the target local language via `ERROR_TRANSLATIONS`.
@@ -70,6 +71,7 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-04:** Refactored the orchestrator.py script into 5 single-responsibility submodules (vault.py, worker_bridge.py, schema_validator.py, registry.py, scheduler.py) to accommodate future auth integrations.
 - **2026-06-04:** Committed modular refactoring of Python submodules and Dashboard UI, successfully merged branch `dev` into `main`, and pushed updates to remote origin repository.
 - **2026-06-04:** Implemented the `data.clean` dataset-cleaning primitive in Rust Muscle utilizing Polars, including a custom AST compiler translating IF-THEN-ELSE and arithmetic expressions into native Polars Expr operations.
+- **2026-06-04:** Implemented **AiMapper**, a Talend-like visual mapping interface overlay modal with column highlight support, dynamically resolved via `GET_SCHEMA` WebSocket message handler and parsed to Polars `data.clean` arguments.
 
 
 
