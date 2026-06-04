@@ -91,14 +91,16 @@ class Orchestrator:
                 placeholders = re.findall(r"\$\{([^}]+)\}", v)
                 resolved_val = v
                 for var_name in placeholders:
-                    # Priorité: 1. local execution_context, 2. local_env[target_env], 3. ENV_CONFIG, 4. OS env
+                    # Priorité: 1. local execution_context, 2. local_env[target_env], 3. OS env, 4. ENV_CONFIG
                     val = self.execution_context.get(var_name)
                     if val is None:
                         val = env_vars.get(var_name)
                     if val is None:
                         val = local_env.get(var_name)
                     if val is None:
-                        val = ENV_CONFIG.get(var_name, os.environ.get(var_name, f"${{{var_name}}}"))
+                        val = os.environ.get(var_name)
+                    if val is None:
+                        val = ENV_CONFIG.get(var_name, f"${{{var_name}}}")
                     
                     resolved_val = resolved_val.replace(f"${{{var_name}}}", str(val))
                 resolved[k] = resolved_val
@@ -345,7 +347,7 @@ async def handler(websocket, path=None):
     current_recipe = None
     pending_confirmations = {}
     
-    vault_key = ENV_CONFIG.get("SECRET_API_KEY") or os.environ.get("SECRET_API_KEY", "wfgy-default-vault-key-12345")
+    vault_key = os.environ.get("SECRET_API_KEY") or ENV_CONFIG.get("SECRET_API_KEY", "wfgy-default-vault-key-12345")
     vault = StealthVault(vault_key)
     saved_secrets = vault.load_secrets()
     
