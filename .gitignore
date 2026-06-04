@@ -8,3 +8,9 @@ __pycache__/
 *.exe
 *.log
 *.txt
+
+# Ignorer les CSV/JSON générés à la racine et les dossiers temporaires
+/*.csv
+/*.json
+.trash/
+extracted_links.json

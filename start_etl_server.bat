@@ -30,7 +30,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 
 echo [INFO] Lancement du serveur WebSocket sur le port 8765...
-python orchestrator.py --server
+python brain/orchestrator.py --server
 
 if %errorlevel% neq 0 (
     echo [ERREUR] Le serveur s'est arrete avec une erreur.

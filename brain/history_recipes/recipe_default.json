@@ -1,0 +1,6 @@
+{
+  "plan_id": "default_workflow",
+  "intent_analysis": "Flux par défaut initial",
+  "steps": [],
+  "env": {}
+}

@@ -36,12 +36,17 @@ def load_env(env_name="dev"):
     """
     Rudimentary .env parser to avoid extra dependency like python-dotenv.
     """
-    root_dir = Path(__file__).parent
     filename = ".env.test" if env_name == "test" else ".env"
-    env_path = root_dir / filename
     
+    env_path = None
+    for candidate_dir in [Path.cwd(), Path(__file__).parent, Path(__file__).parent.parent]:
+        candidate_path = candidate_dir / filename
+        if candidate_path.exists():
+            env_path = candidate_path
+            break
+            
     config = {}
-    if env_path.exists():
+    if env_path and env_path.exists():
         with open(env_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
