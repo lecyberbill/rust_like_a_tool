@@ -348,3 +348,188 @@ pub fn chunk_cumulative(
     println!("SUCCESS: Chunked '{}' by cumulative threshold {} on column '{}'", source, cumulative_threshold, target_column);
     Ok(())
 }
+
+fn find_op_outside_quotes(s: &str, op: &str) -> Option<usize> {
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+    let bytes = s.as_bytes();
+    let op_bytes = op.as_bytes();
+    
+    if bytes.len() < op_bytes.len() {
+        return None;
+    }
+    
+    for i in 0..=(bytes.len() - op_bytes.len()) {
+        let c = bytes[i] as char;
+        if c == '\'' && !in_double_quote {
+            in_single_quote = !in_single_quote;
+        } else if c == '"' && !in_single_quote {
+            in_double_quote = !in_double_quote;
+        }
+        
+        if !in_single_quote && !in_double_quote {
+            if &bytes[i..i+op_bytes.len()] == op_bytes {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
+fn parse_simple_expr(s: &str) -> Result<Expr, String> {
+    let math_ops = [("+", "add"), ("-", "sub"), ("*", "mul"), ("/", "div")];
+    for (op, op_name) in &math_ops {
+        if let Some(idx) = find_op_outside_quotes(s, op) {
+            let left = parse_simple_expr(&s[..idx])?;
+            let right = parse_simple_expr(&s[idx + op.len()..])?;
+            return match *op_name {
+                "add" => Ok(left + right),
+                "sub" => Ok(left - right),
+                "mul" => Ok(left * right),
+                "div" => Ok(left / right),
+                _ => Err("Invalid math operator".to_string()),
+            };
+        }
+    }
+
+    let s_clean = s.trim();
+    if s_clean.starts_with('\'') && s_clean.ends_with('\'') && s_clean.len() >= 2 {
+        Ok(lit(&s_clean[1..s_clean.len() - 1]))
+    } else if s_clean.starts_with('"') && s_clean.ends_with('"') && s_clean.len() >= 2 {
+        Ok(lit(&s_clean[1..s_clean.len() - 1]))
+    } else if let Ok(val) = s_clean.parse::<i64>() {
+        Ok(lit(val))
+    } else if let Ok(val) = s_clean.parse::<f64>() {
+        Ok(lit(val))
+    } else if s_clean.to_lowercase() == "true" {
+        Ok(lit(true))
+    } else if s_clean.to_lowercase() == "false" {
+        Ok(lit(false))
+    } else {
+        Ok(col(s_clean))
+    }
+}
+
+fn parse_comparison_expr(s: &str) -> Result<Expr, String> {
+    let operators = [("==", "eq"), ("!=", "ne"), (">=", "gt_eq"), (">", "gt"), ("<=", "lt_eq"), ("<", "lt")];
+    for (op, op_name) in &operators {
+        if let Some(idx) = s.find(op) {
+            let left_part = s[..idx].trim();
+            let right_part = s[idx + op.len()..].trim();
+            let left_expr = parse_simple_expr(left_part)?;
+            let right_expr = parse_simple_expr(right_part)?;
+            
+            return match *op_name {
+                "eq" => Ok(left_expr.eq(right_expr)),
+                "ne" => Ok(left_expr.neq(right_expr)),
+                "gt_eq" => Ok(left_expr.gt_eq(right_expr)),
+                "gt" => Ok(left_expr.gt(right_expr)),
+                "lt_eq" => Ok(left_expr.lt_eq(right_expr)),
+                "lt" => Ok(left_expr.lt(right_expr)),
+                _ => Err("Invalid comparison operator".to_string()),
+            };
+        }
+    }
+    parse_simple_expr(s)
+}
+
+fn parse_conditional_expr(expr_str: &str) -> Result<Expr, String> {
+    let s = expr_str.trim();
+    if s.starts_with("IF ") || s.starts_with("if ") {
+        let then_idx = s.find(" THEN ").or_else(|| s.find(" then ")).ok_or("Syntax Error: Missing THEN")?;
+        let else_idx = s.find(" ELSE ").or_else(|| s.find(" else ")).ok_or("Syntax Error: Missing ELSE")?;
+        
+        let cond_part = &s[3..then_idx].trim();
+        let then_part = &s[then_idx + 6..else_idx].trim();
+        let else_part = &s[else_idx + 6..].trim();
+        
+        let cond_expr = parse_comparison_expr(cond_part)?;
+        let then_expr = parse_simple_expr(then_part)?;
+        let else_expr = parse_simple_expr(else_part)?;
+        
+        Ok(when(cond_expr).then(then_expr).otherwise(else_expr))
+    } else {
+        parse_simple_expr(s)
+    }
+}
+
+/// Clean dataset: sort, deduplicate, rename/select columns, fill/drop NA, and derive columns.
+pub fn clean(
+    source: &str,
+    destination: &str,
+    sort_by: Option<String>,
+    sort_descending: bool,
+    deduplicate: bool,
+    deduplicate_on: Option<Vec<String>>,
+    select_columns: Option<Vec<String>>,
+    rename_columns: Option<Vec<(String, String)>>,
+    fill_na: Option<Vec<(String, String)>>,
+    drop_na: bool,
+    derive_columns: Option<Vec<(String, String)>>,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+
+    // 1. Select columns if specified
+    if let Some(cols) = select_columns {
+        let select_exprs: Vec<Expr> = cols.iter().map(|c| col(c)).collect();
+        lf = lf.select(select_exprs);
+    }
+
+    // 2. Rename columns if specified
+    if let Some(renames) = rename_columns {
+        let (existing, new): (Vec<String>, Vec<String>) = renames.into_iter().unzip();
+        lf = lf.rename(existing, new);
+    }
+
+    // 3. Fill NA if specified
+    if let Some(fills) = fill_na {
+        for (col_name, fill_value) in fills {
+            let expr = if let Ok(val) = fill_value.parse::<i64>() {
+                lit(val)
+            } else if let Ok(val) = fill_value.parse::<f64>() {
+                lit(val)
+            } else if let Ok(val) = fill_value.parse::<bool>() {
+                lit(val)
+            } else {
+                lit(fill_value)
+            };
+            lf = lf.with_column(col(&col_name).fill_null(expr).alias(&col_name));
+        }
+    }
+
+    // 4. Drop NA rows if specified
+    if drop_na {
+        lf = lf.drop_nulls(None);
+    }
+
+    // 5. Derive columns if specified
+    if let Some(derives) = derive_columns {
+        for (new_col, expr_str) in derives {
+            let compiled_expr = parse_conditional_expr(&expr_str)?;
+            lf = lf.with_column(compiled_expr.alias(&new_col));
+        }
+    }
+
+    // 6. Deduplicate if specified
+    if deduplicate {
+        let subset = deduplicate_on;
+        lf = lf.unique(subset, UniqueKeepStrategy::First);
+    }
+
+    // 7. Sort if specified
+    if let Some(sort_col) = sort_by {
+        let sort_options = SortOptions {
+            descending: sort_descending,
+            nulls_last: true,
+            multithreaded: true,
+            maintain_order: true,
+        };
+        lf = lf.sort(&sort_col, sort_options);
+    }
+
+    let df = lf.collect().map_err(|e| format!("Erreur lors de la collection de nettoyage : {}", e))?;
+    write_df(df, destination)?;
+
+    println!("SUCCESS: Cleaned dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
