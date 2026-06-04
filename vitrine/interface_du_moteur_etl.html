@@ -1,4 +1,4 @@
-<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Integrate AiMapper visual mapper and schema resolving interface -->
+<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Add local variables to AiMapper visual mapping interface -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1279,14 +1279,28 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             
             <!-- Main Columns -->
             <div style="flex: 1; display: flex; overflow: hidden;">
-                <!-- Left: Source columns list -->
-                <div style="width: 250px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
-                    <div style="padding: 16px; border-bottom: 1px solid var(--border);">
-                        <h4 style="color: var(--accent); text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Colonnes Source</h4>
-                        <input type="text" id="aimapper-search-source" placeholder="Filtrer..." oninput="filterSourceColumns()" style="width:100%; margin-top:10px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--text); font-size:0.8rem; outline:none;">
+                <!-- Left: Source columns list & Local Variables -->
+                <div style="width: 280px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15); height: 100%;">
+                    <!-- Source Columns Section -->
+                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                        <div style="padding: 16px; border-bottom: 1px solid var(--border);">
+                            <h4 style="color: var(--accent); text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Colonnes Source</h4>
+                            <input type="text" id="aimapper-search-source" placeholder="Filtrer..." oninput="filterSourceColumns()" style="width:100%; margin-top:10px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--text); font-size:0.8rem; outline:none;">
+                        </div>
+                        <div id="aimapper-source-list" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Injected dynamically -->
+                        </div>
                     </div>
-                    <div id="aimapper-source-list" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                        <!-- Injected dynamically -->
+                    
+                    <!-- Local Variables Section -->
+                    <div style="height: 250px; border-top: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.25); overflow: hidden;">
+                        <div style="padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="color: #c084fc; text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Variables Locales</h4>
+                            <button class="toggle-logs-btn" onclick="addLocalVariable()" style="padding: 2px 6px; font-size: 0.75rem; border-color: #c084fc; color: #c084fc;">➕</button>
+                        </div>
+                        <div id="aimapper-variables-list" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Injected dynamically -->
+                        </div>
                     </div>
                 </div>
                 
@@ -2431,6 +2445,14 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 mapperMappings = parseStepArgsToMappings(step);
             }
 
+            // Load existing variables
+            if (step.ui && step.ui.variables) {
+                mapperVariables = JSON.parse(JSON.stringify(step.ui.variables));
+            } else {
+                mapperVariables = [];
+            }
+            renderLocalVariables();
+
             // Fetch schema details from backend
             if (ws && ws.readyState === WebSocket.OPEN && step.args.source) {
                 ws.send(JSON.stringify({
@@ -2492,8 +2514,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             const container = document.getElementById('aimapper-source-list');
             container.innerHTML = '';
 
-            if (mapperSourceHeaders.length === 0) {
-                container.innerHTML = '<div style="color:var(--text-muted); font-style:italic; padding:10px;">Aucune colonne détectée</div>';
+            if (mapperSourceHeaders.length === 0 && mapperVariables.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-muted); font-style:italic; padding:10px;">Aucune colonne ou variable</div>';
                 return;
             }
 
@@ -2540,6 +2562,36 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
 
                 container.appendChild(div);
             });
+
+            // Append variables to source items for quick insertion
+            if (mapperVariables.length > 0) {
+                const sep = document.createElement('div');
+                sep.style.cssText = 'font-size:0.75rem; color:#c084fc; text-transform:uppercase; font-weight:800; padding:6px 4px; border-top:1px solid var(--border); margin-top:8px;';
+                sep.innerText = 'Variables';
+                container.appendChild(sep);
+
+                mapperVariables.forEach(v => {
+                    if (!v.name || !v.name.trim()) return;
+                    if (search && !v.name.toLowerCase().includes(search)) return;
+
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding:8px 12px; background:rgba(192, 132, 252, 0.05); border:1px solid rgba(192, 132, 252, 0.2); border-radius:8px; cursor:pointer; font-size:0.8rem; font-family:"Roboto Mono", monospace; color:#c084fc; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
+                    div.innerHTML = `<span>${v.name}</span>`;
+
+                    div.addEventListener('click', () => {
+                        if (lastFocusedInput) {
+                            const start = lastFocusedInput.selectionStart;
+                            const end = lastFocusedInput.selectionEnd;
+                            const text = lastFocusedInput.value;
+                            lastFocusedInput.value = text.substring(0, start) + v.name + text.substring(end);
+                            lastFocusedInput.focus();
+                            const event = new Event('input', { bubbles: true });
+                            lastFocusedInput.dispatchEvent(event);
+                        }
+                    });
+                    container.appendChild(div);
+                });
+            }
         }
 
         function quickMapSource(header) {
@@ -2677,7 +2729,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 return;
             }
 
-            serializeMappingsToStepArgs(mapperStepNum, mapperMappings);
+            serializeMappingsToStepArgs(mapperStepNum, mapperMappings, mapperVariables);
             
             if (selectedStepNum === mapperStepNum) {
                 editNode(mapperStepNum);
@@ -2687,12 +2739,13 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             closeAiMapper();
         }
 
-        function serializeMappingsToStepArgs(stepNum, mappings) {
+        function serializeMappingsToStepArgs(stepNum, mappings, variables) {
             const step = currentRecipe.steps.find(s => s.step === stepNum);
             if (!step) return;
 
             if (!step.ui) step.ui = {};
             step.ui.mappings = mappings;
+            step.ui.variables = variables;
 
             let selectCols = [];
             let renameCols = [];
@@ -2702,8 +2755,17 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             mappings.forEach(m => {
                 if (!m.destCol) return;
                 selectCols.push(m.destCol);
-                if (m.expression) {
-                    deriveCols.push(`${m.destCol}=${m.expression}`);
+                
+                // Compile expressions with local variables substitution
+                let expr = m.expression || "";
+                if (expr) {
+                    variables.forEach(v => {
+                        if (v.name && v.name.trim()) {
+                            let regex = new RegExp('\\b' + v.name.trim() + '\\b', 'g');
+                            expr = expr.replace(regex, v.value);
+                        }
+                    });
+                    deriveCols.push(`${m.destCol}=${expr}`);
                 } else if (m.sourceCol && m.sourceCol !== m.destCol) {
                     renameCols.push(`${m.sourceCol}:${m.destCol}`);
                 }
@@ -2718,6 +2780,57 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             step.args.fill_na = fillnaCols.join(",");
 
             saveActiveWorkspace();
+        }
+
+        // Local Variables implementation
+        let mapperVariables = [];
+
+        function addLocalVariable() {
+            mapperVariables.push({
+                name: 'var_' + (mapperVariables.length + 1),
+                value: ''
+            });
+            renderLocalVariables();
+            filterSourceColumns();
+        }
+
+        function deleteLocalVariable(idx) {
+            mapperVariables.splice(idx, 1);
+            renderLocalVariables();
+            filterSourceColumns();
+        }
+
+        function updateLocalVariable(idx, field, value) {
+            if (mapperVariables[idx]) {
+                mapperVariables[idx][field] = value;
+                if (field === 'name') {
+                    filterSourceColumns();
+                }
+            }
+        }
+
+        function renderLocalVariables() {
+            const container = document.getElementById('aimapper-variables-list');
+            container.innerHTML = '';
+
+            if (mapperVariables.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-muted); font-style:italic; padding:10px; font-size:0.8rem;">Aucune variable locale</div>';
+                return;
+            }
+
+            mapperVariables.forEach((v, idx) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex; gap:4px; align-items:center;';
+                
+                div.innerHTML = `
+                    <input type="text" class="editor-input" style="flex:1; font-family:monospace; font-size:0.75rem; padding:4px 6px; border-color:rgba(192, 132, 252, 0.3);" value="${v.name}" placeholder="Nom" oninput="updateLocalVariable(${idx}, 'name', this.value)">
+                    <span style="color:var(--text-muted); font-size:0.75rem;">=</span>
+                    <input type="text" class="editor-input" style="flex:1.2; font-family:monospace; font-size:0.75rem; padding:4px 6px;" value="${v.value}" placeholder="Valeur" oninput="updateLocalVariable(${idx}, 'value', this.value)">
+                    <button class="toggle-logs-btn" style="padding:2px 6px; border-color:var(--error); color:var(--error); background:rgba(239,68,68,0.05);" onclick="deleteLocalVariable(${idx})">🗑️</button>
+                `;
+                
+                container.appendChild(div);
+            });
         }
 
         // Initialize on load
