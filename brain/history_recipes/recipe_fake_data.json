@@ -1,0 +1,139 @@
+{
+  "plan_id": "scenario_fake_data",
+  "intent_analysis": "Nettoyage de données CSV, calcul de la majorité et insertion des mineurs dans la base de données MySQL sql.free.fr",
+  "steps": [
+    {
+      "step": 1,
+      "primitive": "data.clean",
+      "depends_on": [],
+      "ui": {
+        "label": "Nettoyage & Calcul Majorité",
+        "color": "#4A90E2",
+        "position": {
+          "x": 150,
+          "y": 180
+        },
+        "mappings": [
+          {
+            "sourceCol": "id",
+            "expression": "",
+            "destCol": "id",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "prenom",
+            "expression": "",
+            "destCol": "prenom",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "nom",
+            "expression": "",
+            "destCol": "nom",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "email",
+            "expression": "",
+            "destCol": "email",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "cotisation_a_jour",
+            "expression": "",
+            "destCol": "cotisation_a_jour",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "adresse",
+            "expression": "",
+            "destCol": "adresse",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "cp",
+            "expression": "",
+            "destCol": "cp",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "date_naissance",
+            "expression": "",
+            "destCol": "date_naissance",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "",
+            "expression": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
+            "destCol": "majeur",
+            "defaultVal": ""
+          }
+        ]
+      },
+      "args": {
+        "source": "fake_data.csv",
+        "destination": "fake_data_clean.csv",
+        "select_columns": "id,prenom,nom,email,cotisation_a_jour,adresse,cp,date_naissance,majeur",
+        "derive_columns": "majeur=IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'"
+      }
+    },
+    {
+      "step": 2,
+      "primitive": "data.filter",
+      "depends_on": [
+        1
+      ],
+      "ui": {
+        "label": "Filtrer les Mineurs",
+        "color": "#F5A623",
+        "position": {
+          "x": 480,
+          "y": 180
+        }
+      },
+      "args": {
+        "source": "fake_data_clean.csv",
+        "destination": "minors.csv",
+        "column_name": "majeur",
+        "operator": "equals",
+        "value": "false",
+        "has_headers": true
+      }
+    },
+    {
+      "step": 3,
+      "primitive": "db.insert",
+      "depends_on": [
+        2
+      ],
+      "ui": {
+        "label": "Insert MySQL (sql.free.fr)",
+        "color": "#7ED321",
+        "position": {
+          "x": 800,
+          "y": 180
+        }
+      },
+      "args": {
+        "connection_string": "mysql://${SECRET_MYSQL_USER}:${SECRET_MYSQL_PASSWORD}@sql.free.fr:3306/db_name",
+        "table_name": "mineurs",
+        "source": "minors.csv",
+        "mode": "replace"
+      }
+    }
+  ],
+  "env": {
+    "dev": {
+      "SECRET_MYSQL_USER": "votre_utilisateur",
+      "SECRET_MYSQL_PASSWORD": "votre_password"
+    },
+    "test": {
+      "SECRET_MYSQL_USER": "votre_utilisateur",
+      "SECRET_MYSQL_PASSWORD": "votre_password"
+    },
+    "prod": {
+      "SECRET_MYSQL_USER": "votre_utilisateur",
+      "SECRET_MYSQL_PASSWORD": "votre_password"
+    }
+  }
+}

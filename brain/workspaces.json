@@ -10,6 +10,16 @@
         "enabled": false,
         "type": "none"
       }
+    },
+    "scenario_fake_data": {
+      "name": "Nettoyage & Filtrage Données MySQL",
+      "recipe_file": "history_recipes/recipe_fake_data.json",
+      "created_at": "2026-06-04T16:36:00.000000",
+      "last_run": null,
+      "trigger": {
+        "enabled": false,
+        "type": "none"
+      }
     }
   }
 }
