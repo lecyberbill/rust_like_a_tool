@@ -356,3 +356,172 @@ pub fn handle_data_chunk_cumulative(args: &[String]) -> Result<(), MuscleError> 
     analytical_engine::chunk_cumulative(source, destination_prefix, accumulate_column, threshold)
         .map_err(|e| MuscleError::Generic(e))
 }
+
+pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut sort_by = None;
+    let mut sort_descending = false;
+    let mut deduplicate = false;
+    let mut deduplicate_on = None;
+    let mut select_columns = None;
+    let mut rename_columns = None;
+    let mut fill_na = None;
+    let mut drop_na = false;
+    let mut derive_columns = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            "--sort-by" | "--sort_by" => {
+                if i + 1 < args.len() {
+                    sort_by = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --sort-by".to_string()));
+                }
+            }
+            "--sort-descending" | "--sort_descending" => {
+                if i + 1 < args.len() {
+                    sort_descending = args[i + 1].parse::<bool>()
+                        .unwrap_or(false);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --sort-descending".to_string()));
+                }
+            }
+            "--deduplicate" => {
+                if i + 1 < args.len() {
+                    deduplicate = args[i + 1].parse::<bool>()
+                        .unwrap_or(false);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --deduplicate".to_string()));
+                }
+            }
+            "--deduplicate-on" | "--deduplicate_on" => {
+                if i + 1 < args.len() {
+                    let cols: Vec<String> = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    deduplicate_on = Some(cols);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --deduplicate-on".to_string()));
+                }
+            }
+            "--select-columns" | "--select_columns" => {
+                if i + 1 < args.len() {
+                    let cols: Vec<String> = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    select_columns = Some(cols);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --select-columns".to_string()));
+                }
+            }
+            "--rename-columns" | "--rename_columns" => {
+                if i + 1 < args.len() {
+                    let pairs: Vec<(String, String)> = args[i + 1]
+                        .split(',')
+                        .filter_map(|pair| {
+                            let parts: Vec<&str> = pair.split(':').collect();
+                            if parts.len() == 2 {
+                                Some((parts[0].trim().to_string(), parts[1].trim().to_string()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    rename_columns = Some(pairs);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --rename-columns".to_string()));
+                }
+            }
+            "--fill-na" | "--fill_na" => {
+                if i + 1 < args.len() {
+                    let pairs: Vec<(String, String)> = args[i + 1]
+                        .split(',')
+                        .filter_map(|pair| {
+                            let parts: Vec<&str> = pair.split(':').collect();
+                            if parts.len() == 2 {
+                                Some((parts[0].trim().to_string(), parts[1].trim().to_string()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    fill_na = Some(pairs);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --fill-na".to_string()));
+                }
+            }
+            "--drop-na" | "--drop_na" => {
+                if i + 1 < args.len() {
+                    drop_na = args[i + 1].parse::<bool>()
+                        .unwrap_or(false);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --drop-na".to_string()));
+                }
+            }
+            "--derive-columns" | "--derive_columns" => {
+                if i + 1 < args.len() {
+                    let pairs: Vec<(String, String)> = args[i + 1]
+                        .split(',')
+                        .filter_map(|pair| {
+                            // Find the first '=' character to split the column name and the expression
+                            let eq_idx = pair.find('=');
+                            if let Some(idx) = eq_idx {
+                                let col_name = pair[..idx].trim().to_string();
+                                let expr = pair[idx + 1..].trim().to_string();
+                                Some((col_name, expr))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    derive_columns = Some(pairs);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --derive-columns".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+
+    analytical_engine::clean(
+        source,
+        destination,
+        sort_by,
+        sort_descending,
+        deduplicate,
+        deduplicate_on,
+        select_columns,
+        rename_columns,
+        fill_na,
+        drop_na,
+        derive_columns
+    ).map_err(|e| MuscleError::Generic(e))
+}

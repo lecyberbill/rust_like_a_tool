@@ -507,6 +507,62 @@
         "required": ["source", "destination_prefix", "accumulate_column", "threshold"]
       }
     },
+    "data.clean": {
+      "description": "Nettoie et transforme un jeu de données (CSV, JSON, Parquet). Supporte le tri, le dédoublonnage, la sélection/renommage de colonnes, le traitement des valeurs nulles (fill/drop) et l'ajout de colonnes calculées ou conditionnelles via un compilateur d'expression léger.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de destination propre."
+          },
+          "sort_by": {
+            "type": "string",
+            "description": "Optionnel : Nom de la colonne sur laquelle trier."
+          },
+          "sort_descending": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Trier par ordre décroissant si vrai."
+          },
+          "deduplicate": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Supprimer les lignes doublons si vrai."
+          },
+          "deduplicate_on": {
+            "type": "string",
+            "description": "Optionnel : Liste de colonnes séparées par des virgules pour le dédoublonnage."
+          },
+          "select_columns": {
+            "type": "string",
+            "description": "Optionnel : Liste de colonnes à conserver séparées par des virgules (ex: age,nom_complet)."
+          },
+          "rename_columns": {
+            "type": "string",
+            "description": "Optionnel : Mappings de renommage au format col_ancienne:col_nouvelle,col2:col2_nouv."
+          },
+          "fill_na": {
+            "type": "string",
+            "description": "Optionnel : Valeurs de remplacement pour les nulls au format col1:valeur1,col2:valeur2."
+          },
+          "drop_na": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Supprime toutes les lignes contenant des valeurs nulles/vides."
+          },
+          "derive_columns": {
+            "type": "string",
+            "description": "Optionnel : Création de colonnes calculées ou conditionnelles séparées par des virgules au format col_nouvelle=EXPRESSION. L'expression supporte : 1. Opérateurs mathématiques (+, -, *, /) ex: total = qty * price. 2. Concaténations textuelles (+ et guillemets) ex: nom_complet = prenom + ' ' + nom. 3. Conditions IF-THEN-ELSE avec opérateurs (==, !=, >, >=, <, <=) ex: statut = IF age >= 18 THEN 'adulte' ELSE 'mineur'."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
     "db.query": {
       "description": "Exécute une requête SQL SELECT sur une base de données (SQLite, Postgres, MySQL, Snowflake, ODBC) et écrit le résultat dans un fichier.",
       "parameters": {

@@ -14,3 +14,7 @@ __pycache__/
 /*.json
 .trash/
 extracted_links.json
+
+# Fichiers générés par les tests
+test_results/dirty_users.csv
+test_results/clean_users.csv

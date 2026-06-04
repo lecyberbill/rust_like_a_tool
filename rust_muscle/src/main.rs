@@ -43,6 +43,7 @@ fn main() {
         "data.split" => primitives::data_transform::handle_data_split(&args[2..]),
         "data.merge" => primitives::data_transform::handle_data_merge(&args[2..]),
         "data.chunk_cumulative" => primitives::data_transform::handle_data_chunk_cumulative(&args[2..]),
+        "data.clean" => primitives::data_transform::handle_data_clean(&args[2..]),
 
         // analytical
         "data.groupby" => primitives::analytical::handle_data_groupby(&args[2..]),
