@@ -1087,6 +1087,76 @@
         },
         "required": ["source", "destination", "rules"]
       }
+    },
+    "data.pivot": {
+      "description": "Pivote une table de données du format long au format large (lignes en colonnes).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre."
+          },
+          "index": {
+            "type": "string",
+            "description": "Nom(s) des colonnes d'index de ligne séparés par des virgules (ex: year,country)."
+          },
+          "on": {
+            "type": "string",
+            "description": "Nom de la colonne dont les valeurs distinctes deviendront les en-têtes des nouvelles colonnes."
+          },
+          "values": {
+            "type": "string",
+            "description": "Nom de la colonne contenant les valeurs à ventiler dans les nouvelles colonnes."
+          },
+          "aggregate": {
+            "type": "string",
+            "enum": ["first", "last", "sum", "mean", "min", "max", "count"],
+            "default": "first",
+            "description": "Fonction d'agrégation à appliquer pour les valeurs."
+          }
+        },
+        "required": ["source", "destination", "index", "on", "values"]
+      }
+    },
+    "data.unpivot": {
+      "description": "Dépivote une table de données du format large au format long (colonnes en lignes).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre."
+          },
+          "index": {
+            "type": "string",
+            "description": "Nom(s) des colonnes d'identifiants à conserver séparées par des virgules (ex: id,name)."
+          },
+          "on": {
+            "type": "string",
+            "description": "Optionnel: Nom(s) des colonnes de mesures à dépivoter séparées par des virgules. Si vide, toutes les autres colonnes."
+          },
+          "variable_name": {
+            "type": "string",
+            "default": "variable",
+            "description": "Nom de la colonne finale contenant les anciens en-têtes (défaut: variable)."
+          },
+          "value_name": {
+            "type": "string",
+            "default": "value",
+            "description": "Nom de la colonne finale contenant les valeurs des mesures (défaut: value)."
+          }
+        },
+        "required": ["source", "destination", "index"]
+      }
     }
   }
 }

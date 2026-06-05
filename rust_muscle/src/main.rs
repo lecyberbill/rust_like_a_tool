@@ -58,6 +58,8 @@ fn main() {
         "data.lookup" => primitives::analytical::handle_data_lookup(&args[2..]),
         "data.deduplicate" => primitives::analytical::handle_data_deduplicate(&args[2..]),
         "data.anonymize" => primitives::analytical::handle_data_anonymize(&args[2..]),
+        "data.pivot" => primitives::analytical::handle_data_pivot(&args[2..]),
+        "data.unpivot" => primitives::analytical::handle_data_unpivot(&args[2..]),
 
         // db
         "db.query" => primitives::db::handle_db_query(&args[2..]),

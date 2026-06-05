@@ -821,4 +821,77 @@ pub fn anonymize(
     Ok(())
 }
 
+/// Pivote une table du format long au format large (lignes en colonnes)
+pub fn pivot(
+    source: &str,
+    destination: &str,
+    index: Vec<String>,
+    on: &str,
+    values: &str,
+    aggregate: &str,
+) -> Result<(), String> {
+    let df = read_df(source)?.collect()
+        .map_err(|e| format!("Erreur de lecture du fichier source pour pivot : {}", e))?;
+
+    let pivot_agg = match aggregate.to_lowercase().as_str() {
+        "sum" => col(values).sum(),
+        "mean" => col(values).mean(),
+        "min" => col(values).min(),
+        "max" => col(values).max(),
+        "count" => col(values).count(),
+        "last" => col(values).last(),
+        _ => col(values).first(),
+    };
+
+    let index_refs: Vec<&str> = index.iter().map(|s| s.as_str()).collect();
+
+    let res_df = polars::prelude::pivot::pivot(
+        &df,
+        &[values],
+        &index_refs,
+        &[on],
+        true, // sort_columns
+        Some(pivot_agg),
+        None, // separator
+    ).map_err(|e| format!("Erreur lors de l'execution du pivot Polars : {}", e))?;
+
+    write_df(res_df, destination)?;
+    println!("SUCCESS: Pivoted dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// Dépivote une table du format large au format long (colonnes en lignes)
+pub fn unpivot(
+    source: &str,
+    destination: &str,
+    index: Vec<String>,
+    on: Option<Vec<String>>,
+    variable_name: &str,
+    value_name: &str,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+
+    let id_vars = index.into_iter().map(|s| s.into()).collect();
+    let value_vars = on.unwrap_or_default().into_iter().map(|s| s.into()).collect();
+
+    let var_name_opt = if variable_name.is_empty() { None } else { Some(variable_name.to_string().into()) };
+    let val_name_opt = if value_name.is_empty() { None } else { Some(value_name.to_string().into()) };
+
+    let melt_args = polars::prelude::MeltArgs {
+        id_vars,
+        value_vars,
+        variable_name: var_name_opt,
+        value_name: val_name_opt,
+        streamable: false,
+    };
+
+    let res_lf = lf.melt(melt_args);
+    let res_df = res_lf.collect().map_err(|e| format!("Erreur lors du depivotement Melt Polars : {}", e))?;
+
+    write_df(res_df, destination)?;
+    println!("SUCCESS: Unpivoted dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+
 

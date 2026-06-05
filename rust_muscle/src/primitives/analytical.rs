@@ -410,4 +410,158 @@ pub fn handle_data_anonymize(args: &[String]) -> Result<(), MuscleError> {
         .map_err(|e| MuscleError::Generic(e))
 }
 
+pub fn handle_data_pivot(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut index = None;
+    let mut on = None;
+    let mut values = None;
+    let mut aggregate = String::from("first");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            "--index" => {
+                if i + 1 < args.len() {
+                    index = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --index".to_string()));
+                }
+            }
+            "--on" => {
+                if i + 1 < args.len() {
+                    on = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --on".to_string()));
+                }
+            }
+            "--values" => {
+                if i + 1 < args.len() {
+                    values = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --values".to_string()));
+                }
+            }
+            "--aggregate" => {
+                if i + 1 < args.len() {
+                    aggregate = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --aggregate".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let index_str = index.ok_or_else(|| MuscleError::Generic("Missing argument --index".to_string()))?;
+    let on = on.ok_or_else(|| MuscleError::Generic("Missing argument --on".to_string()))?;
+    let values = values.ok_or_else(|| MuscleError::Generic("Missing argument --values".to_string()))?;
+
+    let index_cols: Vec<String> = index_str.split(',').map(|s| s.trim().to_string()).collect();
+
+    analytical_engine::pivot(source, destination, index_cols, on, values, &aggregate)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+pub fn handle_data_unpivot(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut index = None;
+    let mut on = None;
+    let mut variable_name = String::from("variable");
+    let mut value_name = String::from("value");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            "--index" => {
+                if i + 1 < args.len() {
+                    index = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --index".to_string()));
+                }
+            }
+            "--on" => {
+                if i + 1 < args.len() {
+                    on = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --on".to_string()));
+                }
+            }
+            "--variable-name" | "--variable_name" => {
+                if i + 1 < args.len() {
+                    variable_name = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --variable-name".to_string()));
+                }
+            }
+            "--value-name" | "--value_name" => {
+                if i + 1 < args.len() {
+                    value_name = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --value-name".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let index_str = index.ok_or_else(|| MuscleError::Generic("Missing argument --index".to_string()))?;
+
+    let index_cols: Vec<String> = index_str.split(',').map(|s| s.trim().to_string()).collect();
+    let on_cols: Option<Vec<String>> = on.map(|s| s.split(',').map(|c| c.trim().to_string()).collect());
+
+    analytical_engine::unpivot(source, destination, index_cols, on_cols, &variable_name, &value_name)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+
 
