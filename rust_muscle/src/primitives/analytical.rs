@@ -355,3 +355,59 @@ pub fn handle_data_deduplicate(args: &[String]) -> Result<(), MuscleError> {
         .map_err(|e| MuscleError::Generic(e))
 }
 
+pub fn handle_data_anonymize(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut rules = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            "--rules" => {
+                if i + 1 < args.len() {
+                    rules = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --rules".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let rules_str = rules.ok_or_else(|| MuscleError::Generic("Missing argument --rules".to_string()))?;
+
+    let mut parsed_rules = Vec::new();
+    for rule in rules_str.split(',') {
+        let parts: Vec<&str> = rule.split(':').collect();
+        if parts.len() != 2 {
+            return Err(MuscleError::Generic(format!("Invalid rule format: '{}'. Expected col:strategy", rule)));
+        }
+        parsed_rules.push((parts[0].trim().to_string(), parts[1].trim().to_string()));
+    }
+
+    analytical_engine::anonymize(source, destination, parsed_rules)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+

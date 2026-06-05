@@ -1066,6 +1066,27 @@
         },
         "required": ["source", "destination", "subset"]
       }
+    },
+    "data.anonymize": {
+      "description": "Anonymise et masque les colonnes sensibles (PII) d'un jeu de données.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre."
+          },
+          "rules": {
+            "type": "string",
+            "description": "Mappings de règles d'anonymisation au format col1:strategy1,col2:strategy2. Stratégies: hash, mask, mask_email, replace."
+          }
+        },
+        "required": ["source", "destination", "rules"]
+      }
     }
   }
 }

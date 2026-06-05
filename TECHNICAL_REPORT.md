@@ -40,6 +40,7 @@ This system is an intent-based ETL orchestrator:
 - **Invariant 22 [Workbench Visual Drill-down Navigation]:** Workbench UI must provide breadcrumb visual navigation and drill-down/drill-up views to edit steps nested inside `core.sub_flow` and `core.loop` blocks.
 - **Invariant 23 [Data Lookup Dictionary Join]:** System must support left-joining reference dictionary datasets via Polars (`data.lookup`).
 - **Invariant 24 [Dataset Deduplication]:** System must support dropping duplicate rows based on subset keys (`data.deduplicate`).
+- **Invariant 25 [Data Anonymization]:** System must support anonymizing dataset columns using masking, hashing, and replacement strategies (`data.anonymize`).
 
 ## Verification Gate
 - Invariant 1 [Recipe Schema Validation]: SUCCESS (`SchemaValidator` implements JSON schema validation against registry specifications)
@@ -66,6 +67,7 @@ This system is an intent-based ETL orchestrator:
 - Invariant 22 [Workbench Visual Drill-down Navigation]: SUCCESS (Integrated navigation paths, SVG Breadcrumbs, drill-down/drill-up navigation triggers, and recursive step bindings inside index.html, style.css, and app.js)
 - Invariant 23 [Data Lookup Dictionary Join]: SUCCESS (Implemented left-join reference dictionaries in Rust using Polars via `data.lookup` primitive, fully verified by integration tests)
 - Invariant 24 [Dataset Deduplication]: SUCCESS (Implemented Polars deduplication inside `data.deduplicate` primitive, supporting first/last occurrence strategies, verified by integration tests)
+- Invariant 25 [Data Anonymization]: SUCCESS (Implemented dataset anonymization strategies (replace, hash, mask, mask_email) in Rust using Polars via `data.anonymize` primitive, fully verified by integration tests)
 
 ## Exit Codes & Standard Error Resolution
 To preserve internationalization and separate concerns, the Rust Muscle binary returns strict numeric exit codes. The Python Orchestrator intercepts these codes and translates them to the target local language via `ERROR_TRANSLATIONS`.
@@ -117,6 +119,7 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-05:** Implemented row-level Data Quality validation `data.validate` primitive in Rust Muscle utilizing Polars expression engine to filter valid records and isolate rejets into a quarantine DLQ file, verified via automated integration tests.
 - **2026-06-05:** Implemented `net.notify` primitive in Rust Muscle supporting SMTP Email and Webhook alerts, delegating socket execution to Python standard library helper to maintain offline environment compatibility, verified via socket loopback integration tests.
 - **2026-06-05:** Implemented `data.lookup` and `data.deduplicate` analytical primitives in Rust Muscle using Polars, parsing arguments inside CLI handler, and routing calls via the main executable dispatcher. Verified correct lookup joins and row deduplication using automated integration tests.
+- **2026-06-05:** Implemented `data.anonymize` utility primitive in Rust Muscle using Polars expressions, supporting FNV-1a hashing, custom string masking, local-part email masking, and replacement strategies. Created integration test script `test_anonymize.py`.
 
 
 

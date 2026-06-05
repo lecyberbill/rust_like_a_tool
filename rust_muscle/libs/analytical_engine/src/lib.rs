@@ -752,3 +752,73 @@ pub fn deduplicate(
     Ok(())
 }
 
+fn fnv1a_hash(s: &str) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in s.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{:016x}", hash)
+}
+
+fn mask_string(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let len = chars.len();
+    if len <= 2 {
+        return "*".repeat(len);
+    }
+    let mut result = String::new();
+    result.push(chars[0]);
+    for _ in 1..len - 1 {
+        result.push('*');
+    }
+    result.push(chars[len - 1]);
+    result
+}
+
+fn mask_email(s: &str) -> String {
+    if let Some(pos) = s.find('@') {
+        let (local, domain) = s.split_at(pos);
+        let masked_local = mask_string(local);
+        format!("{}{}", masked_local, domain)
+    } else {
+        mask_string(s)
+    }
+}
+
+/// Anonymise les colonnes spécifiées selon les règles (colonne:stratégie)
+pub fn anonymize(
+    source: &str,
+    destination: &str,
+    rules: Vec<(String, String)>,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+
+    for (col_name, strategy) in rules {
+        let strategy_clone = strategy.clone();
+        lf = lf.with_column(
+            col(&col_name).cast(DataType::String).map(move |s| {
+                let ca = s.str()?;
+                let anonymized: StringChunked = ca.into_iter().map(|opt_val| {
+                    opt_val.map(|val| {
+                        match strategy_clone.as_str() {
+                            "replace" => "[REDACTED]".to_string(),
+                            "hash" => fnv1a_hash(val),
+                            "mask" => mask_string(val),
+                            "mask_email" => mask_email(val),
+                            _ => "[REDACTED]".to_string()
+                        }
+                    })
+                }).collect();
+                Ok(Some(anonymized.into_series()))
+            }, GetOutput::from_type(DataType::String)).alias(&col_name)
+        );
+    }
+
+    let df = lf.collect().map_err(|e| format!("Erreur lors de la collection de l'anonymisation : {}", e))?;
+    write_df(df, destination)?;
+    println!("SUCCESS: Anonymized dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+

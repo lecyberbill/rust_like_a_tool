@@ -57,6 +57,7 @@ fn main() {
         "data.metrics" => primitives::analytical::handle_data_metrics(&args[2..]),
         "data.lookup" => primitives::analytical::handle_data_lookup(&args[2..]),
         "data.deduplicate" => primitives::analytical::handle_data_deduplicate(&args[2..]),
+        "data.anonymize" => primitives::analytical::handle_data_anonymize(&args[2..]),
 
         // db
         "db.query" => primitives::db::handle_db_query(&args[2..]),

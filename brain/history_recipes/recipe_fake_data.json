@@ -63,7 +63,7 @@
             "defaultVal": ""
           },
           {
-            "sourceCol": "",
+            "sourceCol": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
             "expression": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
             "destCol": "majeur",
             "defaultVal": ""
