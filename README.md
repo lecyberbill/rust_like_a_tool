@@ -47,8 +47,10 @@ The workspace is organized into clean, dedicated directories to keep the root di
 │   ├── registry.json             <-- Primitive specifications JSON Schema
 │   ├── workspaces.json           <-- Active workflow configurations
 │   └── history_recipes/          <-- Local history of generated JSON recipes
-├── vitrine/                      <-- The Vitrine (Frontend Client)
-│   └── interface_du_moteur_etl.html <-- Glassmorphic Visual workbench
+├── vitrine/                      <-- The Vitrine (Frontend Client modularized)
+│   ├── index.html                <-- UI Entrypoint served on port 8766
+│   ├── css/style.css             <-- Premium Glassmorphism styling sheets
+│   └── js/app.js                 <-- WebSocket client and workbench flow graph logic
 ├── rust_muscle/                  <-- The Muscle (Rust Primitives Engine)
 │   ├── Cargo.toml
 │   ├── src/
@@ -76,16 +78,29 @@ The Rust binary executes performance-critical tasks categorized by domain:
   - `net.download`: Asynchronous downloading of remote files.
   - `net.upload`: Multipart file upload with custom headers.
   - `net.http_request`: General-purpose HTTP requests with Regex links extraction.
+  - `net.ftp_download` & `net.ftp_upload`: Transfer files to/from FTP servers (delegated to Python `ftplib` helper).
+  - `net.notify`: SMTP Email and Webhook telemetry alert dispatches.
 - **Data & Formatting (`data.*`)**:
   - `data.csv_to_json` & `data.json_to_csv`: High-speed format converters.
   - `data.xml_to_json`: High-speed hierarchical XML parser using `quick-xml`.
   - `data.filter`: Filter dataset rows based on regular expressions and comparison operators.
   - `data.metrics`: Compute aggregates (sum, mean, min, max) using **Polars**.
   - `data.chunk_cumulative`: Partition files and compute running cumulative aggregates using **Polars**.
+  - `data.clean`: Clean datasets, reorder schemas, rename columns and compile IF-THEN-ELSE/arithmetic formulas via Polars.
+  - `data.validate`: Evaluate row assertions and direct rejets to a Quarantine (DLQ) path.
+  - `data.lookup`: Join external dictionary reference files using Polars left joins.
+  - `data.deduplicate`: Eliminate duplicate rows based on subset keys (first/last strategy).
+  - `data.to_xlsx`: Format and export JSON/CSV to Microsoft Excel using `openpyxl`.
+  - `data.json_to_xml`: Structure datasets into formatted XML files.
+- **AI & NLP (`ai.*`)**:
+  - `ai.summarize` & `ai.extract`: Perform LLM summary and structural entity extraction (overriding models per step).
 - **Databases (`db.*`)**:
-  - `db.query` & `db.insert`: Unified queries supporting SQLite, PostgreSQL, and MySQL. (Snowflake REST and ODBC drivers are defined as mock/compatibility specifications and listed in the roadmap).
+  - `db.query` & `db.insert`: Unified queries and high-performance chunked batch insertions (SQLite, PostgreSQL, MySQL).
 - **Cloud Storage (`s3.*`)**:
-  - `s3.upload` & `s3.download`: File transfers supporting AWS S3 and MinIO local instances.
+  - `s3.upload` & `s3.download`: File transfers supporting AWS S3 and MinIO.
+- **Orchestration / Flow (`core.*`)**:
+  - `core.sub_flow`: Nest sub-graphs recursively inside execution plans.
+  - `core.loop`: Iterate workflows over files, rows, or variables injecting `${ITER_ITEM}`.
 
 ---
 
@@ -117,7 +132,7 @@ This script automatically:
 3. Launches the Python orchestrator (WebSocket on port `8765` and HTTP API on port `8766`).
 
 ### 3. Open the UI
-Open the frontend file [interface_du_moteur_etl.html](file:///d:/image_to_text/RUST_LIKE_A_TOOL/vitrine/interface_du_moteur_etl.html) in your browser.
+Access the workbench in your browser at: **`http://localhost:8766/`** (served dynamically by the integrated web server).
 
 ---
 
