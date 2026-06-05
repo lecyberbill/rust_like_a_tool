@@ -29,7 +29,10 @@ fn main() {
         // net
         "net.download" => primitives::net::handle_net_download(&args[2..]),
         "net.upload" => primitives::net::handle_net_upload(&args[2..]),
+        "net.ftp_download" => primitives::net::handle_net_ftp_download(&args[2..]),
+        "net.ftp_upload" => primitives::net::handle_net_ftp_upload(&args[2..]),
         "net.http_request" => primitives::net::handle_net_http_request(&args[2..]),
+        "net.notify" => primitives::net::handle_net_notify(&args[2..]),
         "net.download_images" => Err(MuscleError::Generic("Deprecated: use net.http_request".to_string())),
 
         // data format
@@ -37,6 +40,8 @@ fn main() {
         "data.json_to_csv" => primitives::data_format::handle_json_to_csv(&args[2..]),
         "data.xml_to_json" => primitives::data_format::handle_xml_to_json(&args[2..]),
         "data.xml_transform" => primitives::data_format::handle_xml_transform(&args[2..]),
+        "data.to_xlsx" => primitives::data_format::handle_to_xlsx(&args[2..]),
+        "data.json_to_xml" => primitives::data_format::handle_json_to_xml(&args[2..]),
 
         // data transform
         "data_filter" | "data.filter" => primitives::data_transform::handle_data_filter(&args[2..]),
@@ -44,15 +49,22 @@ fn main() {
         "data.merge" => primitives::data_transform::handle_data_merge(&args[2..]),
         "data.chunk_cumulative" => primitives::data_transform::handle_data_chunk_cumulative(&args[2..]),
         "data.clean" => primitives::data_transform::handle_data_clean(&args[2..]),
+        "data.validate" => primitives::data_transform::handle_data_validate(&args[2..]),
 
         // analytical
         "data.groupby" => primitives::analytical::handle_data_groupby(&args[2..]),
         "data.join" => primitives::analytical::handle_data_join(&args[2..]),
         "data.metrics" => primitives::analytical::handle_data_metrics(&args[2..]),
+        "data.lookup" => primitives::analytical::handle_data_lookup(&args[2..]),
+        "data.deduplicate" => primitives::analytical::handle_data_deduplicate(&args[2..]),
 
         // db
         "db.query" => primitives::db::handle_db_query(&args[2..]),
         "db.insert" => primitives::db::handle_db_insert(&args[2..]),
+
+        // ai
+        "ai.summarize" => primitives::ai::handle_ai_summarize(&args[2..]),
+        "ai.extract" => primitives::ai::handle_ai_extract(&args[2..]),
 
         // s3
         "s3.upload" => primitives::s3::handle_s3_upload(&args[2..]),

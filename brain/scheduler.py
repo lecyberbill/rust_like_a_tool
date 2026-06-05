@@ -227,20 +227,85 @@ async def handle_http_request(reader, writer):
                             "Connection: close\r\n\r\n"
                             '{"error": "Missing workspace parameter"}'
                         )
+                    writer.write(response.encode('utf-8'))
+                    await writer.drain()
                 else:
-                    response = (
-                        "HTTP/1.1 404 Not Found\r\n"
-                        "Content-Type: application/json\r\n"
-                        "Connection: close\r\n\r\n"
-                        '{"error": "Not Found"}'
-                    )
+                    # Serve static files from vitrine directory
+                    clean_path = path.split('?')[0]
+                    if clean_path == "/":
+                        clean_path = "/index.html"
+                    
+                    if ".." in clean_path:
+                        response_headers = (
+                            "HTTP/1.1 403 Forbidden\r\n"
+                            "Connection: close\r\n\r\n"
+                        )
+                        writer.write(response_headers.encode('utf-8'))
+                        await writer.drain()
+                        writer.close()
+                        return
+                    
+                    from pathlib import Path
+                    file_path = Path(__file__).parent.parent / "vitrine" / clean_path.lstrip("/")
+                    
+                    if file_path.exists() and file_path.is_file():
+                        suffix = file_path.suffix.lower()
+                        mime_type = "text/plain"
+                        if suffix == ".html":
+                            mime_type = "text/html; charset=utf-8"
+                        elif suffix == ".css":
+                            mime_type = "text/css; charset=utf-8"
+                        elif suffix in (".js", ".mjs"):
+                            mime_type = "application/javascript; charset=utf-8"
+                        elif suffix == ".png":
+                            mime_type = "image/png"
+                        elif suffix in (".jpg", ".jpeg"):
+                            mime_type = "image/jpeg"
+                        elif suffix == ".svg":
+                            mime_type = "image/svg+xml; charset=utf-8"
+                        elif suffix == ".json":
+                            mime_type = "application/json; charset=utf-8"
+                            
+                        try:
+                            with open(file_path, "rb") as f:
+                                content = f.read()
+                            response_headers = (
+                                "HTTP/1.1 200 OK\r\n"
+                                f"Content-Type: {mime_type}\r\n"
+                                f"Content-Length: {len(content)}\r\n"
+                                "Access-Control-Allow-Origin: *\r\n"
+                                "Connection: close\r\n\r\n"
+                            )
+                            writer.write(response_headers.encode('utf-8') + content)
+                            await writer.drain()
+                        except Exception as file_err:
+                            response_body = f'{{"error": "Failed to read file: {file_err}"}}'
+                            response_headers = (
+                                "HTTP/1.1 500 Internal Server Error\r\n"
+                                "Content-Type: application/json\r\n"
+                                f"Content-Length: {len(response_body)}\r\n"
+                                "Connection: close\r\n\r\n"
+                            )
+                            writer.write(response_headers.encode('utf-8') + response_body.encode('utf-8'))
+                            await writer.drain()
+                    else:
+                        response_body = '{"error": "File not found"}'
+                        response_headers = (
+                            "HTTP/1.1 404 Not Found\r\n"
+                            "Content-Type: application/json\r\n"
+                            f"Content-Length: {len(response_body)}\r\n"
+                            "Connection: close\r\n\r\n"
+                        )
+                        writer.write(response_headers.encode('utf-8') + response_body.encode('utf-8'))
+                        await writer.drain()
             else:
                 response = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
+                writer.write(response.encode('utf-8'))
+                await writer.drain()
         else:
             response = "HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
-
-        writer.write(response.encode('utf-8'))
-        await writer.drain()
+            writer.write(response.encode('utf-8'))
+            await writer.drain()
     except Exception as e:
         print(f"[HTTP SERVER ERROR] {e}")
     finally:

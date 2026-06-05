@@ -520,3 +520,104 @@ fn xml_transform(source: &str, stylesheet: &str, destination: &str) -> Result<()
     println!("SUCCESS: Applied XML transformation from '{}' using stylesheet '{}' to '{}'", source, stylesheet, destination);
     Ok(())
 }
+
+fn run_format_helper(mode: &str, args: &[&str]) -> Result<(), MuscleError> {
+    use std::process::Command;
+    let python_path = if cfg!(target_os = "windows") {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    let mut cmd = cmd.arg("brain/format_helper.py").arg(mode);
+    for arg in args {
+        cmd = cmd.arg(arg);
+    }
+    
+    let output = cmd.output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python format helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("Format helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_to_xlsx(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut sheet_name = String::from("Sheet1");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination".to_string())); }
+            }
+            "--sheet-name" | "--sheet_name" => {
+                if i + 1 < args.len() { sheet_name = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --sheet-name".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+
+    run_format_helper("xlsx", &[source, destination, &sheet_name])
+}
+
+pub fn handle_json_to_xml(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut root_element = String::from("root");
+    let mut row_element = String::from("row");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination".to_string())); }
+            }
+            "--root-element" | "--root_element" => {
+                if i + 1 < args.len() { root_element = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --root-element".to_string())); }
+            }
+            "--row-element" | "--row_element" => {
+                if i + 1 < args.len() { row_element = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --row-element".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+
+    run_format_helper("xml", &[source, destination, &root_element, &row_element])
+}

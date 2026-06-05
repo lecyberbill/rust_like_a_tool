@@ -18,3 +18,7 @@ extracted_links.json
 # Fichiers générés par les tests
 test_results/dirty_users.csv
 test_results/clean_users.csv
+test_results/*.csv
+test_results/*.xlsx
+test_results/*.xml
+brain/run_history.json

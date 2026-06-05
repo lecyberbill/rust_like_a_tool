@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 use crate::MuscleError;
 
 pub fn handle_net_download(args: &[String]) -> Result<(), MuscleError> {
@@ -345,4 +346,268 @@ pub fn handle_net_http_request(args: &[String]) -> Result<(), MuscleError> {
     }
 
     Ok(())
+}
+
+fn run_ftp_helper(
+    action: &str,
+    host: &str,
+    port: &str,
+    user: &str,
+    password: &str,
+    remote_path: &str,
+    local_path: &str,
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(windows) {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    println!("[RUST FTP] Delegating {} to python ftp_helper...", action);
+    let output = cmd
+        .arg("brain/ftp_helper.py")
+        .arg(action)
+        .arg(host)
+        .arg(port)
+        .arg(user)
+        .arg(password)
+        .arg(remote_path)
+        .arg(local_path)
+        .output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("FTP helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_net_ftp_download(args: &[String]) -> Result<(), MuscleError> {
+    let mut host = None;
+    let mut port = String::from("21");
+    let mut user = None;
+    let mut password = None;
+    let mut remote_path = None;
+    let mut local_path = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--host" => {
+                if i + 1 < args.len() { host = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --host".to_string())); }
+            }
+            "--port" => {
+                if i + 1 < args.len() { port = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --port".to_string())); }
+            }
+            "--user" => {
+                if i + 1 < args.len() { user = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --user".to_string())); }
+            }
+            "--password" => {
+                if i + 1 < args.len() { password = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --password".to_string())); }
+            }
+            "--remote-path" | "--remote_path" => {
+                if i + 1 < args.len() { remote_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --remote-path".to_string())); }
+            }
+            "--local-path" | "--local_path" => {
+                if i + 1 < args.len() { local_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --local-path".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let host = host.ok_or_else(|| MuscleError::Generic("Missing required argument --host".to_string()))?;
+    let user = user.ok_or_else(|| MuscleError::Generic("Missing required argument --user".to_string()))?;
+    let password = password.ok_or_else(|| MuscleError::Generic("Missing required argument --password".to_string()))?;
+    let remote_path = remote_path.ok_or_else(|| MuscleError::Generic("Missing required argument --remote-path".to_string()))?;
+    let local_path = local_path.ok_or_else(|| MuscleError::Generic("Missing required argument --local-path".to_string()))?;
+
+    run_ftp_helper("download", host, &port, user, password, remote_path, local_path)
+}
+
+pub fn handle_net_ftp_upload(args: &[String]) -> Result<(), MuscleError> {
+    let mut host = None;
+    let mut port = String::from("21");
+    let mut user = None;
+    let mut password = None;
+    let mut remote_path = None;
+    let mut local_path = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--host" => {
+                if i + 1 < args.len() { host = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --host".to_string())); }
+            }
+            "--port" => {
+                if i + 1 < args.len() { port = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --port".to_string())); }
+            }
+            "--user" => {
+                if i + 1 < args.len() { user = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --user".to_string())); }
+            }
+            "--password" => {
+                if i + 1 < args.len() { password = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --password".to_string())); }
+            }
+            "--remote-path" | "--remote_path" => {
+                if i + 1 < args.len() { remote_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --remote-path".to_string())); }
+            }
+            "--local-path" | "--local_path" => {
+                if i + 1 < args.len() { local_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --local-path".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let host = host.ok_or_else(|| MuscleError::Generic("Missing required argument --host".to_string()))?;
+    let user = user.ok_or_else(|| MuscleError::Generic("Missing required argument --user".to_string()))?;
+    let password = password.ok_or_else(|| MuscleError::Generic("Missing required argument --password".to_string()))?;
+    let remote_path = remote_path.ok_or_else(|| MuscleError::Generic("Missing required argument --remote-path".to_string()))?;
+    let local_path = local_path.ok_or_else(|| MuscleError::Generic("Missing required argument --local-path".to_string()))?;
+
+    run_ftp_helper("upload", host, &port, user, password, remote_path, local_path)
+}
+
+fn run_notify_helper(
+    action: &str,
+    args: &[&str],
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(windows) {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    println!("[RUST NOTIFY] Delegating {} to python notify_helper...", action);
+    let mut cmd = cmd.arg("brain/notify_helper.py").arg(action);
+    for arg in args {
+        cmd = cmd.arg(arg);
+    }
+    
+    let output = cmd.output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python notify helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("Notify helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
+    let mut notify_type = None;
+    let mut smtp_host = String::from("localhost");
+    let mut smtp_port = String::from("25");
+    let mut smtp_user = String::from("");
+    let mut smtp_pass = String::from("");
+    let mut to = None;
+    let mut subject = String::from("ETL Job Notification");
+    let mut url = None;
+    let mut message = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--type" => {
+                if i + 1 < args.len() { notify_type = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --type".to_string())); }
+            }
+            "--smtp-host" | "--smtp_host" => {
+                if i + 1 < args.len() { smtp_host = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --smtp-host".to_string())); }
+            }
+            "--smtp-port" | "--smtp_port" => {
+                if i + 1 < args.len() { smtp_port = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --smtp-port".to_string())); }
+            }
+            "--smtp-user" | "--smtp_user" => {
+                if i + 1 < args.len() { smtp_user = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --smtp-user".to_string())); }
+            }
+            "--smtp-pass" | "--smtp_pass" => {
+                if i + 1 < args.len() { smtp_pass = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --smtp-pass".to_string())); }
+            }
+            "--to" => {
+                if i + 1 < args.len() { to = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --to".to_string())); }
+            }
+            "--subject" => {
+                if i + 1 < args.len() { subject = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --subject".to_string())); }
+            }
+            "--url" => {
+                if i + 1 < args.len() { url = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --url".to_string())); }
+            }
+            "--message" => {
+                if i + 1 < args.len() { message = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --message".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let notify_type = notify_type.ok_or_else(|| MuscleError::Generic("Missing required argument --type".to_string()))?;
+    let message = message.ok_or_else(|| MuscleError::Generic("Missing required argument --message".to_string()))?;
+
+    match notify_type.to_lowercase().as_str() {
+        "email" => {
+            let to = to.ok_or_else(|| MuscleError::Generic("Missing required argument --to for email notification".to_string()))?;
+            let run_args = [
+                smtp_host.as_str(),
+                smtp_port.as_str(),
+                smtp_user.as_str(),
+                smtp_pass.as_str(),
+                to.as_str(),
+                subject.as_str(),
+                message.as_str()
+            ];
+            run_notify_helper("email", &run_args)
+        }
+        "webhook" => {
+            let url = url.ok_or_else(|| MuscleError::Generic("Missing required argument --url for webhook notification".to_string()))?;
+            let run_args = [
+                url.as_str(),
+                message.as_str()
+            ];
+            run_notify_helper("webhook", &run_args)
+        }
+        other => Err(MuscleError::Generic(format!("Unsupported notification type '{}'", other)))
+    }
 }

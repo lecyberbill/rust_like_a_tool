@@ -1,4 +1,4 @@
-# [WFGY] Zone: SAFE | λ: 0.1 | Action: Python orchestrator with WebSocket server & Env loading
+# [WFGY] Zone: SAFE | λ: 0.3 | Action: Fix run_recipe return statement
 import os
 import sys
 import json
@@ -35,8 +35,15 @@ except ImportError:
 def load_env(env_name="dev"):
     """
     Rudimentary .env parser to avoid extra dependency like python-dotenv.
+    Supports environment-specific files (.env.test, .env.dev, .env.prod) and falls back to .env.
     """
-    filename = ".env.test" if env_name == "test" else ".env"
+    filename = ".env"
+    if env_name == "test":
+        filename = ".env.test"
+    elif env_name == "prod":
+        filename = ".env.prod"
+    elif env_name == "dev":
+        filename = ".env.dev"
     
     env_path = None
     for candidate_dir in [Path.cwd(), Path(__file__).parent, Path(__file__).parent.parent]:
@@ -45,6 +52,14 @@ def load_env(env_name="dev"):
             env_path = candidate_path
             break
             
+    # Fallback to standard .env
+    if not env_path:
+        for candidate_dir in [Path.cwd(), Path(__file__).parent, Path(__file__).parent.parent]:
+            candidate_path = candidate_dir / ".env"
+            if candidate_path.exists():
+                env_path = candidate_path
+                break
+                
     config = {}
     if env_path and env_path.exists():
         with open(env_path, "r", encoding="utf-8") as f:
@@ -56,6 +71,7 @@ def load_env(env_name="dev"):
                     k, v = line.split("=", 1)
                     config[k.strip()] = v.strip()
         return config
+    return config
 
 def extract_file_headers(filepath: str) -> list[str]:
     path = Path(filepath)
@@ -101,6 +117,80 @@ def extract_file_headers(filepath: str) -> list[str]:
             
     return []
 
+def extract_file_preview(filepath: str, max_rows: int = 10) -> dict:
+    path = Path(filepath)
+    if not path.exists():
+        path = Path.cwd() / filepath
+        if not path.exists():
+            return {"headers": [], "rows": [], "error": f"Fichier introuvable : {filepath}"}
+            
+    ext = path.suffix.lower()
+    headers = []
+    rows = []
+    
+    if ext == ".csv":
+        try:
+            import csv
+            with open(path, "r", encoding="utf-8-sig") as f:
+                sample = f.read(2048)
+                f.seek(0)
+                delim = ","
+                for d in [";", ",", "\t", "|"]:
+                    if d in sample:
+                        delim = d
+                        break
+                reader = csv.reader(f, delimiter=delim)
+                try:
+                    headers = next(reader)
+                except StopIteration:
+                    return {"headers": [], "rows": []}
+                
+                headers = [h.strip().replace('"', '').replace("'", "") for h in headers]
+                
+                count = 0
+                for r in reader:
+                    if count >= max_rows:
+                        break
+                    row_dict = {}
+                    for idx, h in enumerate(headers):
+                        val = r[idx] if idx < len(r) else ""
+                        row_dict[h] = val.strip()
+                    rows.append(row_dict)
+                    count += 1
+                    
+            return {"headers": headers, "rows": rows}
+        except Exception as e:
+            return {"headers": [], "rows": [], "error": f"Erreur de lecture CSV : {str(e)}"}
+            
+    elif ext == ".json":
+        try:
+            import json
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                
+            if isinstance(data, dict):
+                data = [data]
+                
+            if isinstance(data, list) and data:
+                all_keys = []
+                for item in data[:max_rows]:
+                    if isinstance(item, dict):
+                        for k in item.keys():
+                            if k not in all_keys:
+                                all_keys.append(k)
+                headers = all_keys
+                
+                for item in data[:max_rows]:
+                    if isinstance(item, dict):
+                        row_dict = {k: str(item.get(k, "")) for k in headers}
+                        rows.append(row_dict)
+                return {"headers": headers, "rows": rows}
+            return {"headers": [], "rows": []}
+        except Exception as e:
+            return {"headers": [], "rows": [], "error": f"Erreur de lecture JSON : {str(e)}"}
+            
+    return {"headers": [], "rows": [], "error": f"Format d'aperçu non supporté : {ext}"}
+
 # Load environment configuration
 env_mode = os.environ.get("WFGY_ENV", "dev")
 ENV_CONFIG = load_env(env_mode)
@@ -115,7 +205,24 @@ class Orchestrator:
         self.root_dir = Path(__file__).parent
         self.validator = SchemaValidator(self.root_dir / "registry.json")
         self.bridge = WorkerBridge(env_config=ENV_CONFIG)
-        self.execution_context = {}
+        import socket
+        import getpass
+        from datetime import datetime
+        now = datetime.now()
+        
+        try:
+            username = getpass.getuser()
+        except Exception:
+            username = os.environ.get("USERNAME", os.environ.get("USER", "unknown"))
+            
+        self.execution_context = {
+            "CURRENT_YEAR": str(now.year),
+            "TODAY": now.strftime("%Y-%m-%d"),
+            "NOW": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "HOSTNAME": socket.gethostname(),
+            "USERNAME": username,
+            "OS_NAME": "windows" if os.name == "nt" else "linux"
+        }
 
     def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev") -> dict:
         resolved = {}
@@ -207,6 +314,10 @@ class Orchestrator:
         failed_steps = set()
         completed_steps = set()
 
+        import time
+        run_start = time.perf_counter()
+        step_performance = {}
+
         async def run_single_step(step_item):
             step_num = step_item.get("step")
             primitive = step_item.get("primitive")
@@ -219,6 +330,12 @@ class Orchestrator:
                     await step_events[pid].wait()
                     if pid in failed_steps:
                         failed_steps.add(step_num)
+                        step_performance[step_num] = {
+                            "step": step_num,
+                            "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                            "duration_ms": 0,
+                            "status": "skipped"
+                        }
                         step_events[step_num].set()
                         return False
                 else:
@@ -227,11 +344,19 @@ class Orchestrator:
 
             if failed_steps:
                 failed_steps.add(step_num)
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": 0,
+                    "status": "skipped"
+                }
                 step_events[step_num].set()
                 return False
 
             if status_callback:
                 status_callback(step_num, "running", f"Exécution de l'étape ({target_env.upper()})...")
+
+            step_start = time.perf_counter()
 
             # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
@@ -267,11 +392,188 @@ class Orchestrator:
                     sub_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
                     if not sub_success:
                         failed_steps.add(step_num)
+                        step_end = time.perf_counter()
+                        step_performance[step_num] = {
+                            "step": step_num,
+                            "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                            "duration_ms": int((step_end - step_start) * 1000),
+                            "status": "error"
+                        }
                         step_events[step_num].set()
                         return False
+                
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": "success"
+                }
                 completed_steps.add(step_num)
                 step_events[step_num].set()
                 return True
+
+            # Gestion spécifique de core.sub_flow (Sous-flux)
+            if primitive == "core.sub_flow":
+                sub_steps = args.get("steps", [])
+                print(f"[ORCHESTRATOR] Exécution du sous-flux (Étape {step_num}) comprenant {len(sub_steps)} étapes...")
+                if status_callback:
+                    status_callback(step_num, "running", f"Démarrage du sous-flux ({len(sub_steps)} étapes)...")
+                
+                sub_recipe = {
+                    "plan_id": f"{plan_id}_sub_{step_num}",
+                    "intent_analysis": f"Sous-flux de l'étape {step_num}",
+                    "steps": sub_steps,
+                    "env": local_env
+                }
+                sub_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                
+                step_end = time.perf_counter()
+                status_str = "success" if sub_success else "error"
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Sous-flux {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": status_str
+                }
+                
+                if sub_success:
+                    completed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "success", "Sous-flux exécuté avec succès.")
+                else:
+                    failed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "error", "Le sous-flux a échoué.")
+                        
+                step_events[step_num].set()
+                return sub_success
+
+            # Gestion spécifique de core.loop (Boucle d'exécution)
+            if primitive == "core.loop":
+                loop_over = args.get("loop_over")
+                items_source_raw = args.get("items_source", "")
+                sub_steps = args.get("steps", [])
+                
+                # Resolve secrets & environment variables in the source path/string
+                resolved_args = self.resolve_secrets({"src": items_source_raw}, local_env, target_env)
+                items_source = resolved_args.get("src", "")
+
+                print(f"[ORCHESTRATOR] Boucle Étape {step_num} sur '{loop_over}' (Source: {items_source})")
+                if status_callback:
+                    status_callback(step_num, "running", f"Démarrage de la boucle ({loop_over})...")
+
+                # 1. Collect elements to iterate over
+                items = []
+                if loop_over == "variables":
+                    items = [x.strip() for x in items_source.split(",") if x.strip()]
+                elif loop_over == "files":
+                    src_path = Path(items_source)
+                    pattern = args.get("pattern", "*")
+                    if src_path.exists() and src_path.is_dir():
+                        items = [str(f.resolve()) for f in src_path.glob(pattern) if f.is_file()]
+                    else:
+                        print(f"[ORCHESTRATOR WARNING] Dossier source introuvable pour la boucle files : {items_source}")
+                elif loop_over == "rows":
+                    src_file = Path(items_source)
+                    if src_file.exists():
+                        ext = src_file.suffix.lower()
+                        if ext == ".csv":
+                            try:
+                                import csv
+                                with open(src_file, "r", encoding="utf-8-sig") as f:
+                                    # Sniff delimiter
+                                    sample = f.read(2048)
+                                    f.seek(0)
+                                    delim = ","
+                                    for d in [";", ",", "\t", "|"]:
+                                        if d in sample:
+                                            delim = d
+                                            break
+                                    reader = csv.reader(f, delimiter=delim)
+                                    headers = next(reader)
+                                    headers = [h.strip().replace('"', '').replace("'", "") for h in headers]
+                                    for row in reader:
+                                        row_dict = {}
+                                        for idx, h in enumerate(headers):
+                                            val = row[idx] if idx < len(row) else ""
+                                            row_dict[h] = val.strip()
+                                        items.append(json.dumps(row_dict, ensure_ascii=False))
+                            except Exception as csv_err:
+                                print(f"[ORCHESTRATOR ERROR] Failed to read CSV for loop rows: {csv_err}")
+                        elif ext == ".json":
+                            try:
+                                with open(src_file, "r", encoding="utf-8") as f:
+                                    data = json.load(f)
+                                if isinstance(data, list):
+                                    items = [json.dumps(item, ensure_ascii=False) if isinstance(item, (dict, list)) else str(item) for item in data]
+                                elif isinstance(data, dict):
+                                    items = [json.dumps(data, ensure_ascii=False)]
+                            except Exception as json_err:
+                                print(f"[ORCHESTRATOR ERROR] Failed to read JSON for loop rows: {json_err}")
+                    else:
+                        print(f"[ORCHESTRATOR WARNING] Fichier source introuvable pour la boucle rows : {items_source}")
+
+                print(f"[ORCHESTRATOR] Boucle initialisée avec {len(items)} éléments à traiter.")
+
+                # 2. Iterate and execute steps
+                loop_success = True
+                for idx, item in enumerate(items):
+                    # Set the iteration variable in a temporary local context
+                    iter_env = local_env.copy() if local_env else {}
+                    
+                    # We inject both the raw string (or JSON string) and properties if it's JSON
+                    self.execution_context["ITER_ITEM"] = item
+                    
+                    # If item is JSON, try to populate nested attributes in the execution context
+                    try:
+                        parsed_item = json.loads(item)
+                        if isinstance(parsed_item, dict):
+                            for prop_k, prop_v in parsed_item.items():
+                                self.execution_context[f"ITER_ITEM.{prop_k}"] = str(prop_v)
+                    except Exception:
+                        pass
+
+                    print(f"[ORCHESTRATOR] --- Itération {idx+1}/{len(items)} : ITER_ITEM={item} ---")
+                    
+                    sub_recipe = {
+                        "plan_id": f"{plan_id}_loop_{step_num}_iter_{idx}",
+                        "intent_analysis": f"Itération {idx} de l'étape {step_num}",
+                        "steps": sub_steps,
+                        "env": iter_env
+                    }
+                    
+                    iter_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                    if not iter_success:
+                        print(f"[ORCHESTRATOR ERROR] L'itération {idx+1} a échoué.")
+                        loop_success = False
+                        break
+
+                # 3. Handle status and performance telemetry
+                step_end = time.perf_counter()
+                status_str = "success" if loop_success else "error"
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Boucle {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": status_str
+                }
+
+                if loop_success:
+                    completed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "success", f"Boucle terminée avec succès ({len(items)} itérations).")
+                else:
+                    failed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "error", f"La boucle a échoué à l'itération {idx+1}.")
+
+                # Clean context variable
+                if "ITER_ITEM" in self.execution_context:
+                    del self.execution_context["ITER_ITEM"]
+
+                step_events[step_num].set()
+                return loop_success
 
             # 3. Validation de l'étape de recette
             is_valid, err_msg = self.validator.validate_step(primitive, args)
@@ -280,6 +582,12 @@ class Orchestrator:
                 if status_callback:
                     status_callback(step_num, "error", f"Validation failed: {err_msg}")
                 failed_steps.add(step_num)
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": 0,
+                    "status": "error"
+                }
                 step_events[step_num].set()
                 return False
 
@@ -338,6 +646,13 @@ class Orchestrator:
                     translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
                     status_callback(step_num, "error", f"{translated_error} | Détails: {stderr.strip()}")
                 failed_steps.add(step_num)
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": "error"
+                }
                 step_events[step_num].set()
                 return False
 
@@ -370,6 +685,14 @@ class Orchestrator:
                 except Exception as e:
                     print(f"[ORCHESTRATOR WARNING] Failed to parse metrics stdout: {e}")
 
+            step_end = time.perf_counter()
+            step_performance[step_num] = {
+                "step": step_num,
+                "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                "duration_ms": int((step_end - step_start) * 1000),
+                "status": "success"
+            }
+
             if status_callback:
                 status_callback(step_num, "success", stdout.strip())
 
@@ -380,6 +703,47 @@ class Orchestrator:
         # Lancement de toutes les étapes en tâches concurrentes
         tasks = [asyncio.create_task(run_single_step(step)) for step in steps]
         await asyncio.gather(*tasks)
+
+        run_end = time.perf_counter()
+        total_duration_ms = int((run_end - run_start) * 1000)
+
+        # Enregistrement de l'historique des runs
+        try:
+            import datetime
+            run_record = {
+                "run_id": f"run_{int(time.time())}",
+                "workspace_id": plan_id,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "status": "error" if failed_steps else "success",
+                "duration_ms": total_duration_ms,
+                "steps": list(step_performance.values())
+            }
+
+            history_path = Path(__file__).parent / "run_history.json"
+            history_data = []
+            if history_path.exists():
+                try:
+                    with open(history_path, "r", encoding="utf-8") as f:
+                        history_data = json.load(f)
+                except Exception:
+                    history_data = []
+
+            history_data.insert(0, run_record)
+            history_data = history_data[:100]
+
+            with open(history_path, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, indent=2, ensure_ascii=False)
+
+            from registry import broadcast
+            asyncio.create_task(broadcast(json.dumps({
+                "type": "RUN_HISTORY_UPDATE",
+                "workspace_id": plan_id,
+                "last_run": run_record
+            }, ensure_ascii=False)))
+        except Exception as e:
+            print(f"[ORCHESTRATOR WARNING] Failed to save run history: {e}")
+
+        return len(failed_steps) == 0
 from planner import RecipePlanner
 from registry import load_workspaces_registry, save_workspaces_registry, broadcast, broadcast_workspaces_list, ACTIVE_CONNECTIONS
 from scheduler import cron_scheduler_loop, directory_watcher_loop, handle_http_request, get_next_cron_execution
@@ -446,10 +810,12 @@ async def handler(websocket, path=None):
             }))
 
         async for message in websocket:
-            print(f"[WS SERVER] Received message: {message}")
             try:
                 data = json.loads(message)
+                msg_type = data.get("type", "unknown")
+                print(f"[WS SERVER] Received message type: {msg_type}")
             except json.JSONDecodeError:
+                print(f"[WS SERVER] Received invalid JSON message: {message[:100]}...")
                 await websocket.send(json.dumps({"type": "LOG", "message": "Invalid JSON format"}))
                 continue
 
@@ -474,6 +840,33 @@ async def handler(websocket, path=None):
                     "type": "SCHEMA_DETAILS",
                     "filepath": filepath,
                     "headers": headers
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_RUN_HISTORY":
+                history_path = Path(__file__).parent / "run_history.json"
+                history_data = []
+                if history_path.exists():
+                    try:
+                        with open(history_path, "r", encoding="utf-8") as f:
+                            history_data = json.load(f)
+                    except Exception as e:
+                        print(f"[WS SERVER] Failed to read run history: {e}")
+                await websocket.send(json.dumps({
+                    "type": "RUN_HISTORY_RESULT",
+                    "history": history_data
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_DATA_PREVIEW":
+                filepath = data.get("filepath", "")
+                preview = extract_file_preview(filepath, max_rows=10)
+                await websocket.send(json.dumps({
+                    "type": "DATA_PREVIEW_RESULT",
+                    "filepath": filepath,
+                    "headers": preview.get("headers", []),
+                    "rows": preview.get("rows", []),
+                    "error": preview.get("error")
                 }, ensure_ascii=False))
                 continue
 
@@ -886,7 +1279,7 @@ async def main():
             sys.exit(1)
 
         orchestrator = Orchestrator()
-        success = orchestrator.run_recipe(recipe)
+        success = await orchestrator.run_recipe(recipe)
         sys.exit(0 if success else 1)
 
 if __name__ == "__main__":

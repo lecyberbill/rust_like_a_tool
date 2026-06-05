@@ -1,4 +1,4 @@
-// [WFGY] Zone: SAFE | λ: 0.1 | Action: Data transform primitives
+// [WFGY] Zone: SAFE | λ: 0.2 | Action: RFC 4180 CSV filter implementation
 
 use std::fs;
 use std::path::Path;
@@ -116,8 +116,13 @@ fn filter_data(
         return Err(MuscleError::SourceNotFound(format!("Source file '{}' does not exist", source)));
     }
 
-    let content = fs::read_to_string(src_path)
-        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source file: {}", e)))?;
+    let delim_byte = delimiter.as_bytes().first().copied().unwrap_or(b',');
+
+    let mut reader = csv::ReaderBuilder::new()
+        .delimiter(delim_byte)
+        .has_headers(has_headers)
+        .from_path(src_path)
+        .map_err(|e| MuscleError::Generic(format!("Failed to open CSV reader: {}", e)))?;
 
     let dest_path = Path::new(destination);
     if let Some(parent) = dest_path.parent() {
@@ -127,24 +132,25 @@ fn filter_data(
         }
     }
 
-    let mut out_file = fs::File::create(dest_path)
-        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to create destination file: {}", e)))?;
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(delim_byte)
+        .from_path(dest_path)
+        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to create destination CSV writer: {}", e)))?;
 
-    let mut lines = content.lines();
-    
     let mut resolved_index = column_index;
+    let headers = reader.headers()
+        .map_err(|e| MuscleError::Generic(format!("Failed to read CSV headers: {}", e)))?
+        .clone();
+
     if has_headers {
-        if let Some(header_line) = lines.next() {
-            writeln!(out_file, "{}", header_line)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write header to destination: {}", e)))?;
-            
-            if let Some(col_name) = column_name {
-                let headers: Vec<&str> = header_line.split(delimiter).collect();
-                if let Some(idx) = headers.iter().position(|&h| h.trim() == col_name.trim()) {
-                    resolved_index = Some(idx);
-                } else {
-                    return Err(MuscleError::Generic(format!("Header column '{}' not found in headers row: {:?}", col_name, headers)));
-                }
+        writer.write_record(&headers)
+            .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write CSV headers: {}", e)))?;
+
+        if let Some(col_name) = column_name {
+            if let Some(idx) = headers.iter().position(|h| h.trim() == col_name.trim()) {
+                resolved_index = Some(idx);
+            } else {
+                return Err(MuscleError::Generic(format!("Header column '{}' not found in headers row: {:?}", col_name, headers)));
             }
         }
     }
@@ -158,58 +164,67 @@ fn filter_data(
 
     let mut matched_count = 0;
 
-    for line in lines {
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let fields: Vec<&str> = line.split(delimiter).collect();
+    for result in reader.records() {
+        let record = result.map_err(|e| MuscleError::Generic(format!("Error reading CSV record: {}", e)))?;
+        
         let target_field = match resolved_index {
             Some(idx) => {
-                if idx < fields.len() {
-                    fields[idx].trim()
+                if idx < record.len() {
+                    record[idx].trim()
                 } else {
                     ""
                 }
             }
-            None => line.trim(),
+            None => ""
+        };
+
+        let line_to_match = if resolved_index.is_none() {
+            record.iter().collect::<Vec<_>>().join(delimiter)
+        } else {
+            target_field.to_string()
         };
 
         let is_match = match operator {
-            "equals" => target_field == value,
-            "contains" => target_field.contains(value),
-            "starts_with" => target_field.starts_with(value),
-            "ends_with" => target_field.ends_with(value),
+            "equals" => (resolved_index.is_none() && line_to_match == value) || (resolved_index.is_some() && target_field == value),
+            "contains" => (resolved_index.is_none() && line_to_match.contains(value)) || (resolved_index.is_some() && target_field.contains(value)),
+            "starts_with" => (resolved_index.is_none() && line_to_match.starts_with(value)) || (resolved_index.is_some() && target_field.starts_with(value)),
+            "ends_with" => (resolved_index.is_none() && line_to_match.ends_with(value)) || (resolved_index.is_some() && target_field.ends_with(value)),
             "regex" => {
+                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
                 if let Some(re) = &regex_pattern {
-                    re.is_match(target_field)
+                    re.is_match(target)
                 } else {
                     false
                 }
             }
             "greater_than" => {
-                if let (Ok(f_val), Ok(t_val)) = (target_field.parse::<f64>(), value.parse::<f64>()) {
+                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                if let (Ok(f_val), Ok(t_val)) = (target.parse::<f64>(), value.parse::<f64>()) {
                     f_val > t_val
                 } else {
-                    target_field > value
+                    target > value
                 }
             }
             "less_than" => {
-                if let (Ok(f_val), Ok(t_val)) = (target_field.parse::<f64>(), value.parse::<f64>()) {
+                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                if let (Ok(f_val), Ok(t_val)) = (target.parse::<f64>(), value.parse::<f64>()) {
                     f_val < t_val
                 } else {
-                    target_field < value
+                    target < value
                 }
             }
             _ => return Err(MuscleError::Generic(format!("Unsupported operator '{}'", operator))),
         };
 
         if is_match {
-            writeln!(out_file, "{}", line)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write line to output file: {}", e)))?;
+            writer.write_record(&record)
+                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write CSV record: {}", e)))?;
             matched_count += 1;
         }
     }
+
+    writer.flush()
+        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to flush CSV writer: {}", e)))?;
 
     println!("SUCCESS: Filtered data from '{}' to '{}'. Matched rows: {}", source, destination, matched_count);
     Ok(())
@@ -524,4 +539,44 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
         drop_na,
         derive_columns
     ).map_err(|e| MuscleError::Generic(e))
+}
+
+pub fn handle_data_validate(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut quarantine = None;
+    let mut rules = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination".to_string())); }
+            }
+            "--quarantine" => {
+                if i + 1 < args.len() { quarantine = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --quarantine".to_string())); }
+            }
+            "--rules" => {
+                if i + 1 < args.len() { rules = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --rules".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let quarantine = quarantine.ok_or_else(|| MuscleError::Generic("Missing required argument --quarantine".to_string()))?;
+    let rules = rules.ok_or_else(|| MuscleError::Generic("Missing required argument --rules".to_string()))?;
+
+    analytical_engine::validate(source, destination, quarantine, rules)
+        .map_err(|e| MuscleError::Generic(e))
 }

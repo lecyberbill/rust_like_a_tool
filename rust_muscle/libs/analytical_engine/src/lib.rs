@@ -411,6 +411,22 @@ fn parse_simple_expr(s: &str) -> Result<Expr, String> {
 }
 
 fn parse_comparison_expr(s: &str) -> Result<Expr, String> {
+    if let Some(idx) = s.to_uppercase().find(" CONTAINS ") {
+        let left_part = s[..idx].trim();
+        let right_part = s[idx + 10..].trim();
+        let left_expr = parse_simple_expr(left_part)?;
+        
+        let right_clean = right_part.trim();
+        let right_val = if right_clean.starts_with('\'') && right_clean.ends_with('\'') && right_clean.len() >= 2 {
+            right_clean[1..right_clean.len() - 1].to_string()
+        } else if right_clean.starts_with('"') && right_clean.ends_with('"') && right_clean.len() >= 2 {
+            right_clean[1..right_clean.len() - 1].to_string()
+        } else {
+            right_clean.to_string()
+        };
+        return Ok(left_expr.str().contains(lit(right_val), false));
+    }
+
     let operators = [("==", "eq"), ("!=", "ne"), (">=", "gt_eq"), (">", "gt"), ("<=", "lt_eq"), ("<", "lt")];
     for (op, op_name) in &operators {
         if let Some(idx) = s.find(op) {
@@ -533,3 +549,206 @@ pub fn clean(
     println!("SUCCESS: Cleaned dataset '{}' -> '{}'", source, destination);
     Ok(())
 }
+
+/// Valide les lignes d'un jeu de données par rapport à un ensemble de règles et sépare les rejets
+pub fn validate(
+    source: &str,
+    destination: &str,
+    quarantine: &str,
+    rules_json: &str,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+
+    let rules: serde_json::Value = serde_json::from_str(rules_json)
+        .map_err(|e| format!("Erreur lors du parsing des regles JSON: {}", e))?;
+
+    let rules_arr = rules.as_array()
+        .ok_or_else(|| "Les regles de validation doivent former un tableau JSON".to_string())?;
+
+    if rules_arr.is_empty() {
+        let df = lf.collect().map_err(|e| e.to_string())?;
+        write_df(df.clone(), destination)?;
+        let empty_df = df.clear();
+        write_df(empty_df, quarantine)?;
+        return Ok(());
+    }
+
+    let mut combined_expr: Option<Expr> = None;
+
+    for rule in rules_arr {
+        let col_name = rule.get("column")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Regle manquante : 'column'".to_string())?;
+
+        let op = rule.get("operator")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Regle manquante : 'operator'".to_string())?;
+
+        let val = rule.get("value")
+            .ok_or_else(|| "Regle manquante : 'value'".to_string())?;
+
+        let expr = match op.to_lowercase().as_str() {
+            "equals" | "==" => {
+                if let Some(s) = val.as_str() {
+                    col(col_name).eq(lit(s))
+                } else if let Some(i) = val.as_i64() {
+                    col(col_name).eq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).eq(lit(f))
+                } else if let Some(b) = val.as_bool() {
+                    col(col_name).eq(lit(b))
+                } else {
+                    return Err(format!("Type de valeur non supporte pour l'operateur '{}'", op));
+                }
+            },
+            "not_equals" | "!=" => {
+                if let Some(s) = val.as_str() {
+                    col(col_name).neq(lit(s))
+                } else if let Some(i) = val.as_i64() {
+                    col(col_name).neq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).neq(lit(f))
+                } else if let Some(b) = val.as_bool() {
+                    col(col_name).neq(lit(b))
+                } else {
+                    return Err(format!("Type de valeur non supporte pour l'operateur '{}'", op));
+                }
+            },
+            "contains" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'contains' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().contains(lit(s), true)
+            },
+            "starts_with" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'starts_with' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().starts_with(lit(s))
+            },
+            "ends_with" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'ends_with' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().ends_with(lit(s))
+            },
+            "regex" | "matches" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'regex' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().contains(lit(s), false)
+            },
+            "greater_than" | ">" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).gt(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).gt(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "less_than" | "<" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).lt(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).lt(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "greater_than_or_equal" | ">=" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).gt_eq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).gt_eq(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "less_than_or_equal" | "<=" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).lt_eq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).lt_eq(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "is_null" => {
+                col(col_name).is_null()
+            },
+            "is_not_null" => {
+                col(col_name).is_not_null()
+            },
+            other => return Err(format!("Operateur de validation non supporte : '{}'", other)),
+        };
+
+        combined_expr = Some(match combined_expr {
+            Some(curr) => curr.and(expr),
+            None => expr,
+        });
+    }
+
+    let filter_expr = combined_expr.ok_or_else(|| "Aucune regle de validation definie".to_string())?;
+
+    // Filtrer les lignes valides
+    let valid_lf = lf.clone().filter(filter_expr.clone());
+    let valid_df = valid_lf.collect().map_err(|e| format!("Erreur lors de la collection des lignes valides: {}", e))?;
+    let valid_count = valid_df.height();
+    write_df(valid_df, destination)?;
+
+    // Filtrer les lignes rejetees (negation du filtre combiné)
+    let invalid_lf = lf.filter(filter_expr.not());
+    let invalid_df = invalid_lf.collect().map_err(|e| format!("Erreur lors de la collection des lignes rejetees: {}", e))?;
+    let invalid_count = invalid_df.height();
+    write_df(invalid_df, quarantine)?;
+
+    println!("SUCCESS: Validated dataset. Valid: {}, Quarantine: {}", valid_count, invalid_count);
+    Ok(())
+}
+
+/// Recherche et fusionne des informations de référentiel externe (jointure gauche Polars)
+pub fn lookup(
+    source: &str,
+    lookup_file: &str,
+    source_key: &str,
+    lookup_key: &str,
+    lookup_value: &str,
+    destination: &str,
+) -> Result<(), String> {
+    let left_lf = read_df(source)?;
+    let right_lf = read_df(lookup_file)?;
+
+    // Projection de la table dictionnaire pour ne garder que lookup_key et lookup_value
+    let right_projected = right_lf.select([col(lookup_key), col(lookup_value)]);
+
+    let result_df = left_lf.join(
+        right_projected,
+        vec![col(source_key)],
+        vec![col(lookup_key)],
+        JoinType::Left.into(),
+    )
+    .collect()
+    .map_err(|e| format!("Erreur lors du lookup Polars: {}", e))?;
+
+    write_df(result_df, destination)?;
+    println!("SUCCESS: Lookup join executed on '{}' using dictionary '{}' -> '{}'", source, lookup_file, destination);
+    Ok(())
+}
+
+/// Supprime les lignes en doublons basées sur des clés spécifiques
+pub fn deduplicate(
+    source: &str,
+    destination: &str,
+    subset: Vec<String>,
+    keep: &str,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+
+    let strategy = match keep.to_lowercase().as_str() {
+        "last" => UniqueKeepStrategy::Last,
+        _ => UniqueKeepStrategy::First,
+    };
+
+    let subset_refs: Vec<String> = subset.iter().map(|s| s.clone()).collect();
+    let result_df = lf.unique(Some(subset_refs), strategy)
+        .collect()
+        .map_err(|e| format!("Erreur lors du dedoublonnage Polars: {}", e))?;
+
+    write_df(result_df, destination)?;
+    println!("SUCCESS: Deduplicated dataset '{}' -> '{}' keeping {}", source, destination, keep);
+    Ok(())
+}
+

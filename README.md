@@ -83,7 +83,7 @@ The Rust binary executes performance-critical tasks categorized by domain:
   - `data.metrics`: Compute aggregates (sum, mean, min, max) using **Polars**.
   - `data.chunk_cumulative`: Partition files and compute running cumulative aggregates using **Polars**.
 - **Databases (`db.*`)**:
-  - `db.query` & `db.insert`: Unified queries supporting SQLite, PostgreSQL, MySQL, Snowflake REST, and custom ODBC drivers.
+  - `db.query` & `db.insert`: Unified queries supporting SQLite, PostgreSQL, and MySQL. (Snowflake REST and ODBC drivers are defined as mock/compatibility specifications and listed in the roadmap).
 - **Cloud Storage (`s3.*`)**:
   - `s3.upload` & `s3.download`: File transfers supporting AWS S3 and MinIO local instances.
 

@@ -10,8 +10,8 @@
         "label": "Nettoyage & Calcul Majorité",
         "color": "#4A90E2",
         "position": {
-          "x": 150,
-          "y": 180
+          "x": 133,
+          "y": 121
         },
         "mappings": [
           {
@@ -68,13 +68,16 @@
             "destCol": "majeur",
             "defaultVal": ""
           }
-        ]
+        ],
+        "variables": []
       },
       "args": {
-        "source": "fake_data.csv",
-        "destination": "fake_data_clean.csv",
+        "source": "C:\\Users\\lecyb\\Downloads\\fake_data.csv",
+        "destination": "C:\\Users\\lecyb\\Downloads\\fake_data_clean.csv",
         "select_columns": "id,prenom,nom,email,cotisation_a_jour,adresse,cp,date_naissance,majeur",
-        "derive_columns": "majeur=IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'"
+        "derive_columns": "majeur=IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
+        "rename_columns": "",
+        "fill_na": ""
       }
     },
     {
@@ -87,13 +90,13 @@
         "label": "Filtrer les Mineurs",
         "color": "#F5A623",
         "position": {
-          "x": 480,
-          "y": 180
+          "x": 592,
+          "y": 74
         }
       },
       "args": {
-        "source": "fake_data_clean.csv",
-        "destination": "minors.csv",
+        "source": "C:\\Users\\lecyb\\Downloads\\fake_data_clean.csv",
+        "destination": "C:\\Users\\lecyb\\Downloads\\minors.csv",
         "column_name": "majeur",
         "operator": "equals",
         "value": "false",
@@ -110,30 +113,24 @@
         "label": "Insert MySQL (sql.free.fr)",
         "color": "#7ED321",
         "position": {
-          "x": 800,
-          "y": 180
+          "x": 948,
+          "y": 90
         }
       },
       "args": {
-        "connection_string": "mysql://${SECRET_MYSQL_USER}:${SECRET_MYSQL_PASSWORD}@sql.free.fr:3306/db_name",
+        "connection_string": "postgresql://${SECRET_MYSQL_USER}:${SECRET_MYSQL_PASSWORD}@127.0.0.1:5432/etl",
         "table_name": "mineurs",
-        "source": "minors.csv",
+        "source": "C:\\Users\\lecyb\\Downloads\\minors.csv",
         "mode": "replace"
       }
     }
   ],
   "env": {
     "dev": {
-      "SECRET_MYSQL_USER": "votre_utilisateur",
-      "SECRET_MYSQL_PASSWORD": "votre_password"
+      "SECRET_MYSQL_USER": "user_dev",
+      "SECRET_MYSQL_PASSWORD": "user_dev"
     },
-    "test": {
-      "SECRET_MYSQL_USER": "votre_utilisateur",
-      "SECRET_MYSQL_PASSWORD": "votre_password"
-    },
-    "prod": {
-      "SECRET_MYSQL_USER": "votre_utilisateur",
-      "SECRET_MYSQL_PASSWORD": "votre_password"
-    }
+    "test": {},
+    "prod": {}
   }
 }

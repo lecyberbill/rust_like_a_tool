@@ -1,1444 +1,6 @@
-<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Add prompt history to intent box with quick restore -->
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>WFGY Workbench</title>
-    <!-- Google Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #020205;
-            --panel: rgba(10, 10, 25, 0.6);
-            --accent: #00f0ff;
-            --accent-glow: rgba(0, 240, 255, 0.4);
-            --text: #f0f4f8;
-            --text-muted: #8a99ad;
-            --border: rgba(255, 255, 255, 0.05);
-            
-            --success: #00ff66;
-            --success-glow: rgba(0, 255, 102, 0.3);
-            --error: #ef4444;
-            --error-glow: rgba(239, 68, 68, 0.3);
-            --running: #f59e0b;
-            --running-glow: rgba(245, 158, 11, 0.3);
-            --pending: #6b7280;
-        }
+// [WFGY] Zone: SAFE | λ: 0.1 | Action: Extracted javascript application logic
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background-image: radial-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
-
-        /* Header (Zone A: Intent Bar) */
-        #intent-bar {
-            padding: 16px 24px;
-            background: var(--panel);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 10;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-
-        .logo-title {
-            font-weight: 800;
-            font-size: 1.5rem;
-            letter-spacing: 1px;
-            background: linear-gradient(90deg, var(--accent), var(--success));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        #intent-input {
-            flex: 1;
-            margin-left: 20px;
-            padding: 12px 18px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            background: rgba(0, 0, 0, 0.3);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 0.95rem;
-            outline: none;
-            transition: all 0.3s ease;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
-            resize: vertical;
-            min-height: 80px;
-            height: 80px;
-            line-height: 1.4;
-        }
-
-        #intent-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 10px var(--accent-glow), inset 0 2px 4px rgba(0, 0, 0, 0.6);
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        /* Layout Container */
-        #main-container {
-            flex: 1;
-            display: flex;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Canvas Area (Zone B) */
-        #canvas-wrapper {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-        }
-
-        #canvas {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            background-image: radial-gradient(rgba(0, 255, 102, 0.01) 1.5px, transparent 1.5px);
-            background-size: 30px 30px;
-        }
-
-        /* SVG Overlay for Connections */
-        #connections-svg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .connection-line {
-            fill: none;
-            stroke: var(--accent);
-            stroke-width: 3;
-            stroke-dasharray: 8 6;
-            animation: dash 35s linear infinite;
-            filter: drop-shadow(0 0 4px var(--accent-glow));
-            transition: d 0.3s ease;
-        }
-
-        @keyframes dash {
-            to {
-                stroke-dashoffset: -1000;
-            }
-        }
-
-        /* Workflow Node Component */
-        .node {
-            position: absolute;
-            padding: 20px;
-            background: rgba(10, 10, 25, 0.75);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            min-width: 200px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(12px);
-            z-index: 2;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            user-select: none;
-        }
-
-        .node:hover {
-            transform: translateY(-4px);
-            border-color: rgba(0, 240, 255, 0.3);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.9), 0 0 15px var(--accent-glow);
-        }
-
-        .node-header {
-            font-weight: 600;
-            font-size: 0.95rem;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .node-primitive {
-            font-family: 'Roboto Mono', monospace;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        /* Dynamic Statuses */
-        .node.pending {
-            border-color: var(--border);
-        }
-        .node.running {
-            border-color: var(--running);
-            box-shadow: 0 0 15px var(--running-glow);
-        }
-        .node.success {
-            border-color: var(--success);
-            box-shadow: 0 0 15px var(--success-glow);
-        }
-        .node.error {
-            border-color: var(--error);
-            box-shadow: 0 0 15px var(--error-glow);
-        }
-
-        .status-badge {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .pending .status-badge { background-color: var(--pending); }
-        .running .status-badge { background-color: var(--running); animation: pulse 1.5s infinite; }
-        .success .status-badge { background-color: var(--success); }
-        .error .status-badge { background-color: var(--error); }
-
-        @keyframes pulse {
-            0% { transform: scale(0.9); opacity: 0.5; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0.5; }
-        }
-
-        /* Side Logs Panel (Zone C) */
-        #log-panel {
-            width: 350px;
-            background: var(--panel);
-            backdrop-filter: blur(16px);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s ease;
-            z-index: 5;
-            box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
-        }
-
-        #log-panel.collapsed {
-            width: 0;
-            overflow: hidden;
-            border-left: none;
-        }
-
-        .panel-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .panel-header h3 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--accent);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .toggle-logs-btn {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 0.95rem;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .toggle-logs-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: rgba(0, 240, 255, 0.05);
-            box-shadow: 0 0 10px var(--accent-glow);
-        }
-
-        #logs {
-            flex: 1;
-            padding: 20px;
-            font-family: 'Roboto Mono', monospace;
-            font-size: 0.8rem;
-            overflow-y: auto;
-            color: #d1d5db;
-            line-height: 1.5;
-        }
-
-        .log-entry {
-            margin-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-            padding-bottom: 8px;
-        }
-        .log-time { color: var(--text-muted); margin-right: 8px; }
-        .log-info { color: var(--accent); }
-        .log-success { color: var(--success); }
-        .log-error { color: var(--error); }
-
-        /* Panels layout */
-        #log-panel, #env-panel {
-            width: 350px;
-            background: var(--panel);
-            backdrop-filter: blur(12px);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s ease;
-            z-index: 5;
-        }
-
-        #log-panel.collapsed, #env-panel.collapsed {
-            width: 0;
-            overflow: hidden;
-            border-left: none;
-        }
-
-        /* Env Panel form styling */
-        .env-var-row {
-            margin-bottom: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .env-var-row label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #60a5fa;
-            word-break: break-all;
-        }
-
-        .env-var-input {
-            padding: 10px 14px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.03);
-            color: var(--text);
-            font-family: 'Roboto Mono', monospace;
-            font-size: 0.85rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .env-var-input:focus {
-            border-color: var(--accent);
-        }
-
-        .panel-desc {
-            padding: 10px 20px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            line-height: 1.4;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .no-vars-msg {
-            padding: 20px;
-            text-align: center;
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 0.9rem;
-        }
-
-        /* Modal Style (Conflict Resolution) */
-        #conflict-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(11, 15, 25, 0.8);
-            backdrop-filter: blur(8px);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        #conflict-modal.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal-content {
-            background: rgba(30, 41, 59, 0.95);
-            border: 1px solid var(--accent);
-            box-shadow: 0 0 25px var(--accent-glow);
-            border-radius: 16px;
-            width: 450px;
-            padding: 30px;
-            text-align: center;
-            transform: scale(0.9);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        #conflict-modal.active .modal-content {
-            transform: scale(1);
-        }
-
-        .modal-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #60a5fa;
-        }
-
-        .modal-message {
-            font-size: 0.95rem;
-            color: var(--text-muted);
-            margin-bottom: 24px;
-            line-height: 1.5;
-            word-break: break-all;
-        }
-
-        .modal-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .modal-btn {
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            outline: none;
-        }
-
-        .modal-btn:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            box-shadow: 0 0 10px var(--accent-glow);
-        }
-
-        .modal-btn.btn-overwrite:hover {
-            background: var(--error);
-            border-color: var(--error);
-            box-shadow: 0 0 10px var(--error-glow);
-        }
-
-        .modal-btn.btn-skip:hover {
-            background: var(--pending);
-            border-color: var(--pending);
-            box-shadow: 0 0 10px rgba(107, 114, 128, 0.4);
-        }
-
-        /* Styles pour l'éditeur de nœud et secrets globaux */
-        #node-editor-panel {
-            width: 380px;
-            background: var(--panel);
-            backdrop-filter: blur(12px);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s ease;
-            z-index: 6;
-        }
-
-        #node-editor-panel.collapsed {
-            width: 0;
-            overflow: hidden;
-            border-left: none;
-        }
-
-        .editor-section {
-            border-bottom: 1px solid var(--border);
-            padding: 16px 20px;
-        }
-
-        .editor-section-title {
-            font-size: 0.85rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--accent);
-            margin-bottom: 12px;
-        }
-
-        .editor-input-group {
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .editor-input-group label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .editor-input {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.02);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 0.85rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .editor-input:focus {
-            border-color: var(--accent);
-        }
-
-        .editor-checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .editor-checkbox-group input {
-            cursor: pointer;
-        }
-
-        .editor-checkbox-group label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .node-edit-badge {
-            cursor: pointer;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: rgba(74, 144, 226, 0.2);
-            color: var(--accent);
-            border: 1px solid rgba(74, 144, 226, 0.4);
-            transition: all 0.2s;
-        }
-
-        .node-edit-badge:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .save-secrets-btn {
-            background: var(--accent);
-            color: white;
-            padding: 10px 14px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-family: inherit;
-            transition: all 0.2s;
-            box-shadow: 0 0 10px var(--accent-glow);
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        .save-secrets-btn:hover {
-            opacity: 0.9;
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
-
-        /* --- Zone de Chat pour le Mode Étude --- */
-        #study-chat-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(11, 15, 25, 0.85);
-            backdrop-filter: blur(10px);
-            z-index: 90;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        #study-chat-modal.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .chat-container {
-            background: rgba(17, 24, 39, 0.95);
-            border: 1px solid var(--border);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
-            border-radius: 20px;
-            width: 650px;
-            height: 80vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        #study-chat-modal.active .chat-container {
-            transform: scale(1);
-        }
-
-        .chat-header {
-            padding: 20px;
-            background: rgba(30, 41, 59, 0.5);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .chat-header h3 {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #60a5fa;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .chat-bubble {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            font-size: 0.92rem;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-
-        .chat-bubble.assistant {
-            align-self: flex-start;
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid var(--border);
-            color: var(--text);
-            border-bottom-left-radius: 4px;
-        }
-
-        .chat-bubble.user {
-            align-self: flex-end;
-            background: var(--accent);
-            color: white;
-            border-bottom-right-radius: 4px;
-            box-shadow: 0 4px 10px var(--accent-glow);
-        }
-
-        .chat-input-area {
-            padding: 16px 20px;
-            background: rgba(30, 41, 59, 0.3);
-            border-top: 1px solid var(--border);
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .chat-input-field {
-            flex: 1;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.03);
-            color: var(--text);
-            font-family: inherit;
-            outline: none;
-        }
-
-        .chat-input-field:focus {
-            border-color: var(--accent);
-        }
-
-        .chat-send-btn {
-            background: var(--accent);
-            border: none;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .chat-send-btn:hover {
-            opacity: 0.9;
-        }
-
-        .chat-generate-btn {
-            background: var(--success);
-            border: none;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 0 10px var(--success-glow);
-        }
-
-        .chat-generate-btn:hover {
-            opacity: 0.9;
-        }
-
-        .study-toggle-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .study-checkbox {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-        }
-
-        /* --- FLOATING CONTROLS PLATFORM (WFGY CORE v3) --- */
-        
-        /* Drawer for Prompt & Intent (Bottom-Right Panel) */
-        #prompt-drawer {
-            position: fixed;
-            bottom: 80px;
-            right: 24px;
-            width: 450px;
-            background: var(--panel);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.15);
-            z-index: 80;
-            transform: scale(0.9) translateY(20px);
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        #prompt-drawer.active {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        /* Floating Bubble Button (Bottom-Right trigger) */
-        .floating-bubble {
-            position: fixed;
-            bottom: 20px;
-            right: 24px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%);
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 15px var(--accent-glow);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 81;
-            transition: all 0.3s ease;
-            color: #000;
-        }
-
-        .floating-bubble:hover {
-            transform: scale(1.1) rotate(15deg);
-            box-shadow: 0 6px 20px rgba(0, 240, 255, 0.6);
-        }
-
-        .floating-bubble:active {
-            transform: scale(0.95);
-        }
-
-        /* Floating Environment Selector (Bottom-Left Pod) */
-        .env-pod {
-            position: fixed;
-            bottom: 20px;
-            left: 24px;
-            background: var(--panel);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            padding: 6px;
-            border-radius: 12px;
-            display: flex;
-            gap: 4px;
-            z-index: 80;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
-
-        .env-pod-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .env-pod-btn:hover {
-            color: var(--text);
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .env-pod-btn.active[data-env="dev"] {
-            background: rgba(0, 240, 255, 0.15);
-            color: var(--accent);
-            border: 1px solid rgba(0, 240, 255, 0.25);
-            box-shadow: 0 0 10px var(--accent-glow);
-        }
-
-        .env-pod-btn.active[data-env="test"] {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--running);
-            border: 1px solid rgba(245, 158, 11, 0.25);
-            box-shadow: 0 0 10px var(--running-glow);
-        }
-
-        .env-pod-btn.active[data-env="prod"] {
-            background: rgba(0, 255, 102, 0.15);
-            color: var(--success);
-            border: 1px solid rgba(0, 255, 102, 0.25);
-            box-shadow: 0 0 10px var(--success-glow);
-        }
-
-        /* --- SETTINGS DRAWER (WFGY CORE v3) --- */
-        #settings-drawer {
-            position: fixed;
-            bottom: 80px;
-            left: 24px;
-            width: 320px;
-            background: var(--panel);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1);
-            z-index: 80;
-            transform: scale(0.9) translateY(20px);
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        #settings-drawer.active {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .floating-settings-wheel {
-            position: fixed;
-            bottom: 20px;
-            left: 310px; /* Space it after env-pod (which spans approx 280px) */
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: rgba(10, 10, 25, 0.6);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 81;
-            transition: all 0.3s ease;
-            color: var(--text-muted);
-        }
-
-        .floating-settings-wheel:hover {
-            transform: scale(1.1) rotate(45deg);
-            border-color: var(--accent);
-            color: var(--accent);
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
-
-        .floating-settings-wheel:active {
-            transform: scale(0.95);
-        }
-
-        .settings-input-group {
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .settings-input-group label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .settings-select {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: rgba(0, 0, 0, 0.3);
-            color: var(--text);
-            font-family: inherit;
-            outline: none;
-            cursor: pointer;
-        }
-
-        .settings-select:focus {
-            border-color: var(--accent);
-        }
-
-        /* --- DASHBOARD VIEW STYLE --- */
-        #dashboard-view {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            padding: 30px;
-            overflow-y: auto;
-            background: var(--bg);
-        }
-
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .dashboard-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            background: linear-gradient(90deg, var(--accent), var(--success));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .dashboard-table-container {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            backdrop-filter: blur(16px);
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-
-        .dashboard-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        .dashboard-table th {
-            padding: 16px 20px;
-            background: rgba(255, 255, 255, 0.02);
-            border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-        }
-
-        .dashboard-table td {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-            color: var(--text);
-            vertical-align: middle;
-        }
-
-        .dashboard-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .dashboard-table tr:hover {
-            background: rgba(255, 255, 255, 0.01);
-        }
-
-        .trigger-badge {
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: inline-block;
-        }
-        
-        .trigger-badge.cron {
-            background: rgba(0, 240, 255, 0.1);
-            color: var(--accent);
-            border: 1px solid rgba(0, 240, 255, 0.2);
-        }
-        
-        .trigger-badge.event {
-            background: rgba(245, 158, 11, 0.1);
-            color: var(--running);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-        }
-
-        .trigger-badge.webhook {
-            background: rgba(0, 255, 102, 0.1);
-            color: var(--success);
-            border: 1px solid rgba(0, 255, 102, 0.2);
-        }
-
-        .trigger-badge.none {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-muted);
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-        }
-
-        .status-dot.active {
-            background-color: var(--success);
-            box-shadow: 0 0 8px var(--success-glow);
-            animation: pulse 2s infinite;
-        }
-
-        .status-dot.inactive {
-            background-color: var(--pending);
-        }
-
-        .status-dot.running {
-            background-color: var(--running);
-            box-shadow: 0 0 8px var(--running-glow);
-            animation: pulse 1s infinite;
-        }
-
-        .nav-tabs {
-            display: flex;
-            gap: 8px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-        }
-
-        .nav-tab {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 0.9rem;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            outline: none;
-        }
-
-        .nav-tab:hover {
-            color: var(--text);
-        }
-
-        .nav-tab.active {
-            color: var(--accent);
-            background: rgba(0, 240, 255, 0.08);
-            box-shadow: 0 0 10px var(--accent-glow);
-        }
-
-        .view-section {
-            display: none;
-        }
-
-        .view-section.active {
-            display: flex;
-        }
-        
-        #app-header {
-            padding: 16px 24px;
-            background: var(--panel);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 10;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-    </style>
-</head>
-<body>
-    <header id="app-header">
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="logo-title">WFGY Core v3</div>
-            <div class="nav-tabs">
-                <button class="nav-tab active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">📊 Tableau de Bord</button>
-                <button class="nav-tab" id="tab-btn-workshop" onclick="switchTab('workshop')">Atelier (Conception)</button>
-            </div>
-        </div>
-        
-        <!-- Workshop canvas control actions (visible only in Workshop view) -->
-        <div id="workshop-actions" style="display: none; gap: 8px; align-items: center;">
-            <button class="toggle-logs-btn" onclick="triggerUpload()">📂 Charger</button>
-            <button class="toggle-logs-btn" onclick="downloadRecipe()">💾 Sauvegarder</button>
-            <button class="toggle-logs-btn" onclick="clearRecipe()">🗑️ Effacer</button>
-            <button class="toggle-logs-btn" onclick="toggleEnv()">🔧 Secrets</button>
-            <button class="toggle-logs-btn" onclick="toggleLogs()">📜 Logs</button>
-            <button class="toggle-logs-btn" onclick="runRecipe()" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800;">▶ Exécuter</button>
-            <input type="file" id="recipe-upload" onchange="uploadRecipe(event)" style="display: none;" accept=".json">
-        </div>
-        <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
-            <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
-        </div>
-    </header>
-
-    <!-- SECTION 1: DASHBOARD VIEW -->
-    <div id="dashboard-view" class="view-section active">
-        <div class="dashboard-header">
-            <div class="dashboard-title">Tableau de Bord des Flux ETL</div>
-            <div id="connection-status" style="font-size: 0.9rem; color: var(--error); font-weight: bold; display: flex; align-items: center; gap: 6px;"><span style="width:8px; height:8px; border-radius:50%; background:var(--error); display:inline-block;"></span> Serveur Déconnecté</div>
-        </div>
-        
-        <div class="dashboard-table-container">
-            <table class="dashboard-table">
-                <thead>
-                    <tr>
-                        <th style="width: 80px;">Statut</th>
-                        <th>Nom du Flux</th>
-                        <th>Déclencheur actif</th>
-                        <th>Dernière Exécution</th>
-                        <th>Prochain Déclenchement</th>
-                        <th style="text-align: right; width: 340px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="workspaces-table-body">
-                    <tr>
-                        <td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 30px;">Chargement des flux...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- SECTION 2: WORKSHOP VIEW -->
-    <div id="workshop-view" class="view-section" style="flex: 1; display: none; flex-direction: column; overflow: hidden; position: relative;">
-        <div id="main-container">
-        <div id="canvas-wrapper">
-            <svg id="connections-svg"></svg>
-            <div id="canvas">
-                <!-- Workflow Nodes will be injected here -->
-            </div>
-            
-            <!-- Bottom-Left Environmental Control Pod -->
-            <div class="env-pod">
-                <button class="env-pod-btn active" data-env="dev" onclick="changeEnvPod('dev')">🛠️ DEV</button>
-                <button class="env-pod-btn" data-env="test" onclick="changeEnvPod('test')">🧪 TEST</button>
-                <button class="env-pod-btn" data-env="prod" onclick="changeEnvPod('prod')">🚀 PROD</button>
-            </div>
-
-            <!-- Floating Settings Gear Button (Bottom-Left side) -->
-            <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            </button>
-
-            <!-- Settings Drawer (Bottom-Left Panel) -->
-            <div id="settings-drawer">
-                <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px; margin-bottom: 16px;">Configuration IA</h4>
-                
-                <div class="settings-input-group">
-                    <label>Moteur LLM (Provider)</label>
-                    <select id="setting-provider" class="settings-select" onchange="updateSettingsModelOptions()">
-                        <option value="openai_compatible">Local (LM Studio / Ollama)</option>
-                        <option value="gemini">API Cloud (Gemini)</option>
-                    </select>
-                </div>
-
-                <div class="settings-input-group">
-                    <label>Modèle Cible (Model ID)</label>
-                    <select id="setting-model" class="settings-select">
-                        <!-- Filled dynamically -->
-                    </select>
-                </div>
-
-                <div class="settings-input-group">
-                    <label>URL du Serveur Local (Base URL)</label>
-                    <input type="text" id="setting-base-url" class="editor-input" style="background: rgba(0, 0, 0, 0.3);" value="http://localhost:1234/v1">
-                </div>
-
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-                    <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
-                    <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
-                </div>
-            </div>
-
-            <!-- Bottom-Right Floating Prompt Trigger Bubble -->
-            <button class="floating-bubble" onclick="togglePromptDrawer()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            </button>
-
-            <!-- Bottom-Right Floating Prompt Drawer -->
-            <div id="prompt-drawer">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px;">Intention d'Orchestration</h4>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="togglePromptHistory()">📜 Historique</button>
-                        <div class="study-toggle-container">
-                            <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
-                            <label for="study-mode-checkbox" style="cursor: pointer; user-select: none;">🧪 Mode Étude</label>
-                        </div>
-                    </div>
-                </div>
-                <!-- Prompt History List -->
-                <div id="prompt-history-list" style="display: none; max-height: 150px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 6px; background: rgba(0,0,0,0.4);">
-                    <!-- Injected dynamically -->
-                </div>
-                <textarea id="intent-input" style="width: 100%; margin-left: 0; margin-bottom: 12px; background: rgba(0,0,0,0.5); border-radius: 8px;" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
-Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
-                <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                    <button class="toggle-logs-btn" onclick="togglePromptDrawer()" style="border-color: transparent;">Fermer</button>
-                    <button class="toggle-logs-btn" onclick="submitIntent()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">🚀 Soumettre</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Panneau des Variables d'Environnement locales au flux -->
-        <aside id="env-panel" class="collapsed">
-            <div class="panel-header">
-                <h3 id="env-panel-title">Secrets (DEV)</h3>
-                <button class="toggle-logs-btn" onclick="toggleEnv()">✖</button>
-            </div>
-            <div class="panel-desc">
-                Ces variables sont locales à ce workflow et spécifiques à l'environnement sélectionné.
-            </div>
-            <div id="env-vars-container" style="flex: 1; padding: 20px; overflow-y: auto;">
-                <div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>
-            </div>
-            <div style="padding: 20px; border-top: 1px solid var(--border);">
-                <button class="save-secrets-btn" onclick="saveGlobalSecrets()">💾 Sauvegarder dans le Coffre</button>
-            </div>
-        </aside>
-
-        <!-- Panneau de modification visuelle de l'étape sélectionnée -->
-        <aside id="node-editor-panel" class="collapsed">
-            <div class="panel-header">
-                <h3 id="node-editor-title">Éditer l'étape</h3>
-                <button class="toggle-logs-btn" onclick="closeNodeEditor()">✖</button>
-            </div>
-            <div class="panel-desc" id="node-editor-desc">
-                Sélectionnez un nœud ou cliquez sur son badge d'édition pour modifier ses paramètres.
-            </div>
-            <div id="node-editor-container" style="flex: 1; padding: 20px; overflow-y: auto;">
-                <!-- Formulaire d'édition injecté dynamiquement -->
-                <div class="no-vars-msg">Aucune étape sélectionnée.</div>
-            </div>
-        </aside>
-        
-        <aside id="log-panel">
-            <div class="panel-header">
-                <h3>Console Moteur</h3>
-                <button class="toggle-logs-btn" onclick="toggleLogs()">✖</button>
-            </div>
-            <div id="logs">
-                <div class="log-entry"><span class="log-time">[System]</span><span class="log-info">Prêt. Entrez une intention pour commencer.</span></div>
-            </div>
-        </aside>
-    </div>
-    </div> <!-- Close #workshop-view -->
-
-    <!-- Modal AiMapper -->
-    <div id="aimapper-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2, 2, 5, 0.95); backdrop-filter: blur(20px); z-index: 110; align-items: center; justify-content: center;">
-        <div style="width: 95vw; height: 90vh; background: rgba(10, 10, 25, 0.8); border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;">
-            <!-- Header -->
-            <div style="padding: 20px 30px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 240, 255, 0.02);">
-                <div>
-                    <h2 style="font-weight: 800; font-size: 1.5rem; background: linear-gradient(90deg, var(--accent), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🗺️ AiMapper (tMapping Visuel)</h2>
-                    <div id="aimapper-source-path" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; font-family: 'Roboto Mono', monospace;">Source : -</div>
-                </div>
-                <div style="display: flex; gap: 12px;">
-                    <button class="toggle-logs-btn" onclick="closeAiMapper()" style="border-color: transparent;">Annuler</button>
-                    <button class="toggle-logs-btn" onclick="applyAiMapper()" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800; padding: 10px 20px; border-radius: 8px;">💾 Appliquer</button>
-                </div>
-            </div>
-            
-            <!-- Main Columns -->
-            <div style="flex: 1; display: flex; overflow: hidden;">
-                <!-- Left: Source columns list & Local Variables -->
-                <div style="width: 280px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15); height: 100%;">
-                    <!-- Source Columns Section -->
-                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-                        <div style="padding: 16px; border-bottom: 1px solid var(--border);">
-                            <h4 style="color: var(--accent); text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Colonnes Source</h4>
-                            <input type="text" id="aimapper-search-source" placeholder="Filtrer..." oninput="filterSourceColumns()" style="width:100%; margin-top:10px; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--text); font-size:0.8rem; outline:none;">
-                        </div>
-                        <div id="aimapper-source-list" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                            <!-- Injected dynamically -->
-                        </div>
-                    </div>
-                    
-                    <!-- Local Variables Section -->
-                    <div style="height: 250px; border-top: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.25); overflow: hidden;">
-                        <div style="padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                            <h4 style="color: #c084fc; text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Variables Locales</h4>
-                            <button class="toggle-logs-btn" onclick="addLocalVariable()" style="padding: 2px 6px; font-size: 0.75rem; border-color: #c084fc; color: #c084fc;">➕</button>
-                        </div>
-                        <div id="aimapper-variables-list" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
-                            <!-- Injected dynamically -->
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Middle: Mapping grid -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.05); overflow: hidden;">
-                    <div style="padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                        <h4 style="color: var(--success); text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Table de Correspondance (Transformations)</h4>
-                        <button class="toggle-logs-btn" onclick="addMappingRow()" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--success); color: var(--success);">➕ Ajouter Colonne</button>
-                    </div>
-                    <div style="flex: 1; overflow-y: auto; padding: 20px;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid var(--border);">
-                                    <th style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 220px;">Colonne Entrée</th>
-                                    <th style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Expression / Formule</th>
-                                    <th style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 220px;">Colonne Sortie</th>
-                                    <th style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 150px;">Valeur par défaut (Null)</th>
-                                    <th style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 60px; text-align: center;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="aimapper-mapping-body">
-                                <!-- Injected dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <!-- Right: Destination Schema Summary -->
-                <div style="width: 250px; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
-                    <div style="padding: 16px; border-bottom: 1px solid var(--border);">
-                        <h4 style="color: var(--running); text-transform: uppercase; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;">Colonnes Sortie</h4>
-                    </div>
-                    <div id="aimapper-dest-list" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                        <!-- Injected dynamically -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Boîte de dialogue interactive pour la résolution des conflits -->
-    <div id="conflict-modal">
-        <div class="modal-content">
-            <div class="modal-title">⚠️ Résolution de Conflit</div>
-            <div id="conflict-message" class="modal-message">Le fichier existe déjà. Que souhaitez-vous faire ?</div>
-            <div id="conflict-actions" class="modal-actions">
-                <!-- Les boutons d'action seront injectés dynamiquement -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal du Chat du Mode Étude -->
-    <div id="study-chat-modal">
-        <div class="chat-container">
-            <div class="chat-header">
-                <h3>🧪 Mode Étude : Alignement du Flux</h3>
-                <button class="toggle-logs-btn" onclick="closeStudyChat()">✖ Fermer</button>
-            </div>
-            <div id="study-chat-messages" class="chat-messages">
-                <!-- Les messages s'affichent ici -->
-            </div>
-            <div class="chat-input-area">
-                <input type="text" id="study-chat-input" class="chat-input-field" placeholder="Répondez aux questions de l'IA pour l'aider à concevoir le flux...">
-                <button class="chat-send-btn" onclick="sendStudyChatReply()">Envoyer</button>
-                <button class="chat-generate-btn" onclick="generateStudyRecipe()">Générer le Flux</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de configuration des déclencheurs -->
-    <div id="trigger-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(10px); z-index: 100; align-items: center; justify-content: center;">
-        <div class="modal-content" style="width: 480px; text-align: left;">
-            <div class="modal-title" style="color: var(--accent); font-weight: 800; margin-bottom: 20px;">⚙️ Configurer le Déclencheur</div>
-            
-            <input type="hidden" id="trigger-workspace-id">
-            
-            <div class="editor-checkbox-group" style="margin-bottom: 20px;">
-                <input type="checkbox" id="trigger-enabled" style="width: 18px; height: 18px;">
-                <label for="trigger-enabled" style="font-size: 1rem; font-weight: 600; color: var(--text);">Activer le déclencheur automatique</label>
-            </div>
-            
-            <div class="settings-input-group" style="margin-bottom: 16px;">
-                <label>Type de Déclencheur</label>
-                <select id="trigger-type" class="settings-select" onchange="toggleTriggerInputs()" style="width: 100%;">
-                    <option value="none">Aucun (Manuel)</option>
-                    <option value="cron">⏰ Planificateur Cron</option>
-                    <option value="event">📁 Observateur de Dossier (File Watcher)</option>
-                    <option value="webhook">🌐 Webhook API HTTP</option>
-                </select>
-            </div>
-            
-            <!-- Cron inputs -->
-            <div id="trigger-cron-fields" class="trigger-fields" style="display: none; margin-bottom: 16px;">
-                <div class="settings-input-group">
-                    <label>Expression Cron (ex: */5 * * * * pour toutes les 5 mins)</label>
-                    <input type="text" id="trigger-cron-expr" class="editor-input" value="*/5 * * * *">
-                </div>
-            </div>
-            
-            <!-- File Watcher inputs -->
-            <div id="trigger-event-fields" class="trigger-fields" style="display: none; margin-bottom: 16px;">
-                <div class="settings-input-group" style="margin-bottom: 10px;">
-                    <label>Dossier à surveiller (chemin local)</label>
-                    <input type="text" id="trigger-event-dir" class="editor-input" value="test_results/inbox">
-                </div>
-                <div class="settings-input-group">
-                    <label>Pattern de fichier (glob, ex: *.csv)</label>
-                    <input type="text" id="trigger-event-pattern" class="editor-input" value="*.csv">
-                </div>
-            </div>
-            
-            <!-- Webhook inputs -->
-            <div id="trigger-webhook-fields" class="trigger-fields" style="display: none; margin-bottom: 20px;">
-                <div class="settings-input-group">
-                    <label>URL du Webhook Local (Copier pour appeler)</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="trigger-webhook-url" class="editor-input" style="flex: 1; background: rgba(0,0,0,0.3); font-family: monospace; font-size: 0.8rem;" readonly>
-                        <button class="toggle-logs-btn" onclick="copyWebhookUrl()">📋 Copier</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-                <button class="toggle-logs-btn" onclick="closeTriggerModal()" style="border-color: transparent;">Annuler</button>
-                <button class="toggle-logs-btn" onclick="saveTriggerConfig()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let ws;
+let ws;
         let activeNodes = {};
         let currentRecipe = null;
         let activeEnv = 'dev';
@@ -1482,6 +44,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 this.style.top = this.getAttribute('y') + 'px';
                 this.style.position = 'absolute';
                 this.style.display = 'block';
+                this.style.cursor = 'grab';
                 
                 const mapBadge = primitive === 'data.clean' ? `<span class="node-edit-badge" title="AiMapper" style="background:rgba(0, 255, 102, 0.2); color:var(--success); border:1px solid rgba(0, 255, 102, 0.4);" onclick="event.stopPropagation(); openAiMapper(${step})">🗺️</span>` : '';
                 this.innerHTML = `
@@ -1496,10 +59,93 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                     <div class="node-primitive">${primitive}</div>
                 `;
                 
-                // Clicking the node card itself also opens the editor
+                // Double click to enter nested workflow
+                this.addEventListener('dblclick', () => {
+                    const prim = this.getAttribute('primitive');
+                    if (prim === 'core.sub_flow' || prim === 'core.loop') {
+                        drillDown(Number(step), label);
+                    }
+                });
+
+                // Clicking the node card itself also opens the editor and requests data preview
                 this.addEventListener('click', () => {
                     editNode(Number(step));
+                    requestDataPreview(Number(step));
                 });
+
+                // Drag & Drop logic
+                let isDragging = false;
+                let startX, startY;
+                let initialLeft, initialTop;
+
+                this.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.node-edit-badge') || e.target.closest('button') || e.target.closest('input')) return;
+                    
+                    isDragging = true;
+                    this.style.cursor = 'grabbing';
+                    this.style.transition = 'none';
+                    this.style.zIndex = '1000';
+
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialLeft = parseInt(this.style.left) || 0;
+                    initialTop = parseInt(this.style.top) || 0;
+
+                    e.preventDefault();
+                });
+
+                const onMouseMove = (e) => {
+                    if (!isDragging) return;
+                    
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    
+                    const newLeft = initialLeft + dx;
+                    const newTop = initialTop + dy;
+
+                    this.style.left = newLeft + 'px';
+                    this.style.top = newTop + 'px';
+                    
+                    if (currentRecipe && currentRecipe.steps) {
+                        const stepObj = currentRecipe.steps.find(s => s.step === Number(step));
+                        if (stepObj) {
+                            if (!stepObj.ui) stepObj.ui = {};
+                            stepObj.ui.position = { x: newLeft, y: newTop };
+                        }
+                    }
+
+                    drawConnections();
+                };
+
+                const onMouseUp = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    this.style.cursor = 'grab';
+                    this.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                    this.style.zIndex = '2';
+                    
+                    if (currentRecipe && ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'SAVE_WORKSPACE',
+                            recipe: currentRecipe
+                        }));
+                    }
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+
+                // Cleanup event listeners if element is removed from DOM
+                this._cleanupDrag = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+            }
+
+            disconnectedCallback() {
+                if (this._cleanupDrag) {
+                    this._cleanupDrag();
+                }
             }
         }
         customElements.define('workflow-node', WorkflowNode);
@@ -1515,6 +161,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                     statusDiv.style.color = 'var(--success)';
                 }
                 ws.send(JSON.stringify({ type: 'LIST_WORKSPACES' }));
+                ws.send(JSON.stringify({ type: 'GET_RUN_HISTORY' }));
             };
 
             ws.onclose = () => {
@@ -1561,6 +208,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                         steps: data.steps,
                         env: data.env || (currentRecipe ? currentRecipe.env : {}) || {}
                     };
+                    currentNavPath = [];
+                    updateBreadcrumb();
                     renderNodes(data.steps);
                     detectAndRenderEnvVars();
                 }
@@ -1578,6 +227,10 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 }
                 else if (data.type === 'PLAN_FINISHED') {
                     addLog(data.success ? 'Exécution du plan terminée avec SUCCÈS.' : 'Exécution du plan échouée.', data.success ? 'success' : 'error');
+                    // Request fresh run history upon completion of execution
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'GET_RUN_HISTORY' }));
+                    }
                 }
                 else if (data.type === 'WORKSPACES_LIST') {
                     updateWorkspacesList(data.active_workspace, data.workspaces);
@@ -1585,7 +238,150 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 else if (data.type === 'WORKSPACE_EXECUTION_STATE') {
                     updateWorkspaceExecutionState(data.workspace_id, data.state);
                 }
+                else if (data.type === 'RUN_HISTORY_RESULT') {
+                    renderRunHistoryTimeline(data.history);
+                }
+                else if (data.type === 'RUN_HISTORY_UPDATE') {
+                    addLog(`Nouvel enregistrement de télémétrie reçu pour : ${data.workspace_id}`, 'info');
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'GET_RUN_HISTORY' }));
+                    }
+                }
+                else if (data.type === 'DATA_PREVIEW_RESULT') {
+                    const contentDiv = document.getElementById('data-preview-content');
+                    if (data.error) {
+                        contentDiv.innerHTML = `
+                            <div style="color: var(--error); font-style: italic; text-align: center; padding: 15px; font-size: 0.85rem;">
+                                ⚠️ ${data.error}
+                            </div>
+                        `;
+                    } else if (!data.headers || data.headers.length === 0) {
+                        contentDiv.innerHTML = `
+                            <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 15px; font-size: 0.85rem;">
+                                Fichier vide ou format non pris en charge pour l'aperçu.
+                            </div>
+                        `;
+                    } else {
+                        let tableHtml = `<table class="preview-table"><thead><tr>`;
+                        data.headers.forEach(h => {
+                            tableHtml += `<th>${h}</th>`;
+                        });
+                        tableHtml += `</tr></thead><tbody>`;
+                        
+                        if (!data.rows || data.rows.length === 0) {
+                            tableHtml += `<tr><td colspan="${data.headers.length}" style="text-align: center; color: var(--text-muted); font-style: italic;">Aucune ligne de données.</td></tr>`;
+                        } else {
+                            data.rows.forEach(row => {
+                                tableHtml += `<tr>`;
+                                data.headers.forEach(h => {
+                                    const val = row[h] !== undefined ? row[h] : '';
+                                    tableHtml += `<td title="${val}">${val}</td>`;
+                                });
+                                tableHtml += `</tr>`;
+                            });
+                        }
+                        tableHtml += `</tbody></table>`;
+                        contentDiv.innerHTML = tableHtml;
+                    }
+                }
             };
+        }
+
+        // --- HISTORIQUE DES RUNS & PERFORMANCE TELEMETRY RENDERING ---
+        let currentRunHistory = [];
+        let selectedRunId = null;
+
+        function renderRunHistoryTimeline(history) {
+            currentRunHistory = history || [];
+            const container = document.getElementById('run-history-timeline');
+            if (!container) return;
+
+            container.innerHTML = '';
+            if (currentRunHistory.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-style: italic; font-size: 0.9rem; text-align: center; padding-top: 40px;">Aucun run enregistré</div>';
+                return;
+            }
+
+            currentRunHistory.forEach((run, idx) => {
+                const card = document.createElement('div');
+                const isSuccess = run.status === 'success';
+                card.className = `run-timeline-card ${isSuccess ? 'success' : 'error'}`;
+                if (run.run_id === selectedRunId || (selectedRunId === null && idx === 0)) {
+                    card.classList.add('active');
+                    if (selectedRunId === null) {
+                        selectedRunId = run.run_id;
+                    }
+                }
+
+                const date = new Date(run.timestamp);
+                const dateStr = date.toLocaleDateString();
+                const timeStr = date.toLocaleTimeString();
+
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="status-indicator"></span>
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text);">${run.workspace_id}</span>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">${dateStr} ${timeStr}</span>
+                        </div>
+                    </div>
+                    <div style="font-family: 'Roboto Mono', monospace; font-size: 0.8rem; font-weight: bold; color: ${isSuccess ? 'var(--success)' : 'var(--error)'};">
+                        ${run.duration_ms} ms
+                    </div>
+                `;
+
+                card.onclick = () => {
+                    document.querySelectorAll('.run-timeline-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    selectedRunId = run.run_id;
+                    displayRunPerformance(run);
+                };
+
+                container.appendChild(card);
+            });
+
+            // Auto-display performance metrics for the active selected run
+            const activeRun = currentRunHistory.find(r => r.run_id === selectedRunId) || currentRunHistory[0];
+            if (activeRun) {
+                displayRunPerformance(activeRun);
+            }
+        }
+
+        function displayRunPerformance(run) {
+            const metaDiv = document.getElementById('selected-run-meta');
+            const barsContainer = document.getElementById('run-performance-bars');
+            if (!metaDiv || !barsContainer) return;
+
+            metaDiv.innerText = `${run.workspace_id} | Total: ${run.duration_ms} ms`;
+            barsContainer.innerHTML = '';
+
+            const steps = run.steps || [];
+            if (steps.length === 0) {
+                barsContainer.innerHTML = '<div style="color: var(--text-muted); font-style: italic; font-size: 0.9rem; text-align: center; padding-top: 40px;">Aucune étape de performance enregistrée</div>';
+                return;
+            }
+
+            // Find the maximum step duration to determine relative width percentage
+            const maxDuration = Math.max(...steps.map(s => s.duration_ms), 1);
+
+            steps.forEach(step => {
+                const row = document.createElement('div');
+                row.className = 'performance-bar-row';
+
+                const percent = Math.max((step.duration_ms / maxDuration) * 100, 1);
+                const stepStatus = step.status || 'success';
+
+                row.innerHTML = `
+                    <div class="performance-bar-label">
+                        <span>Étape ${step.step} : ${step.label} (${stepStatus.toUpperCase()})</span>
+                        <span style="font-weight: bold;">${step.duration_ms} ms</span>
+                    </div>
+                    <div class="performance-bar-container">
+                        <div class="performance-bar-fill ${stepStatus}" style="width: ${percent}%;"></div>
+                    </div>
+                `;
+                barsContainer.appendChild(row);
+            });
         }
 
         function detectAndRenderEnvVars() {
@@ -1695,7 +491,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
 
         function editNode(stepNum) {
             selectedStepNum = stepNum;
-            const step = currentRecipe.steps.find(s => s.step === stepNum);
+            const currentSteps = getCurrentStepList();
+            const step = currentSteps.find(s => s.step === stepNum);
             if (!step) return;
 
             const panel = document.getElementById('node-editor-panel');
@@ -1725,7 +522,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                     <div style="display:flex; flex-direction:column; gap:6px;">
             `;
             
-            currentRecipe.steps.forEach(otherStep => {
+            currentSteps.forEach(otherStep => {
                 if (otherStep.step !== stepNum) {
                     const isChecked = (step.depends_on || []).includes(otherStep.step) ? 'checked' : '';
                     html += `
@@ -1736,7 +533,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                     `;
                 }
             });
-            if (currentRecipe.steps.length <= 1) {
+            if (currentSteps.length <= 1) {
                 html += `<div style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">Aucune autre étape disponible pour créer une dépendance.</div>`;
             }
             html += `</div></div>`;
@@ -1783,7 +580,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
 
         function saveNodeChanges() {
             if (selectedStepNum === null || !currentRecipe) return;
-            const step = currentRecipe.steps.find(s => s.step === selectedStepNum);
+            const currentSteps = getCurrentStepList();
+            const step = currentSteps.find(s => s.step === selectedStepNum);
             if (!step) return;
 
             // 1. Mettre à jour le Label
@@ -1798,7 +596,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
 
             // 2. Mettre à jour les dépendances
             const deps = [];
-            currentRecipe.steps.forEach(otherStep => {
+            currentSteps.forEach(otherStep => {
                 if (otherStep.step !== selectedStepNum) {
                     const chk = document.getElementById(`dep-${otherStep.step}`);
                     if (chk && chk.checked) {
@@ -1853,13 +651,68 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             }
         }
 
+        // Nested Drill-down navigation state
+        let currentNavPath = []; // Array of objects: { stepNum: number, label: string }
+
+        function getCurrentStepList() {
+            if (!currentRecipe || !currentRecipe.steps) return [];
+            let steps = currentRecipe.steps;
+            for (let i = 0; i < currentNavPath.length; i++) {
+                const targetStepNum = currentNavPath[i].stepNum;
+                const parentNode = steps.find(s => s.step === targetStepNum);
+                if (parentNode && parentNode.args && parentNode.args.steps) {
+                    steps = parentNode.args.steps;
+                } else {
+                    return [];
+                }
+            }
+            return steps;
+        }
+
+        function drillDown(stepNum, label) {
+            currentNavPath.push({ stepNum, label });
+            updateBreadcrumb();
+            const currentSteps = getCurrentStepList();
+            renderNodes(currentSteps);
+        }
+
+        function drillUp() {
+            if (currentNavPath.length > 0) {
+                currentNavPath.pop();
+                updateBreadcrumb();
+                const currentSteps = getCurrentStepList();
+                renderNodes(currentSteps);
+            }
+        }
+
+        function updateBreadcrumb() {
+            const container = document.getElementById('breadcrumb-items');
+            const upBtn = document.getElementById('nested-drillup-btn');
+            if (!container || !upBtn) return;
+
+            container.innerHTML = '';
+            if (currentNavPath.length === 0) {
+                upBtn.style.display = 'none';
+                return;
+            }
+
+            upBtn.style.display = 'inline-block';
+            currentNavPath.forEach((nav, idx) => {
+                const span = document.createElement('span');
+                span.style.color = '#c084fc';
+                span.innerText = ` ➔ ${nav.label}`;
+                container.appendChild(span);
+            });
+        }
+
         function drawConnections() {
             const svg = document.getElementById('connections-svg');
             svg.innerHTML = '';
             
-            if (!currentRecipe || !currentRecipe.steps) return;
+            const currentSteps = getCurrentStepList();
+            if (currentSteps.length === 0) return;
             
-            currentRecipe.steps.forEach(step => {
+            currentSteps.forEach(step => {
                 const stepNum = step.step;
                 const nodeB = activeNodes[stepNum];
                 if (!nodeB) return;
@@ -1893,10 +746,9 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             canvas.innerHTML = ''; // Clear canvas
             activeNodes = {};
 
-            // Avoid overlaps: space steps horizontally and wraps if too long
             const startX = 50;
             const startY = 80;
-            const horizontalSpacing = 360;
+            const horizontalSpacing = 420; // Increased spacing to prevent default overlaps
             const verticalSpacing = 200;
             const maxPerRow = 3;
 
@@ -1904,8 +756,16 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 const row = Math.floor(idx / maxPerRow);
                 const col = idx % maxPerRow;
                 
-                const finalX = startX + col * horizontalSpacing;
-                const finalY = startY + row * verticalSpacing;
+                let finalX = startX + col * horizontalSpacing;
+                let finalY = startY + row * verticalSpacing;
+
+                if (step.ui && step.ui.position && typeof step.ui.position.x === 'number') {
+                    finalX = step.ui.position.x;
+                    finalY = step.ui.position.y;
+                } else {
+                    if (!step.ui) step.ui = {};
+                    step.ui.position = { x: finalX, y: finalY };
+                }
 
                 const node = document.createElement('workflow-node');
                 node.setAttribute('step', step.step);
@@ -2305,7 +1165,12 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             
             if (tabName === 'workshop') {
                 setTimeout(() => {
-                    if (currentRecipe && currentRecipe.steps) {
+                    const currentSteps = getCurrentStepList();
+                    if (currentSteps && currentSteps.length > 0) {
+                        renderNodes(currentSteps);
+                    } else if (currentRecipe && currentRecipe.steps) {
+                        currentNavPath = [];
+                        updateBreadcrumb();
                         renderNodes(currentRecipe.steps);
                     }
                 }, 100);
@@ -2536,6 +1401,11 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             // Load existing mappings
             if (step.ui && step.ui.mappings) {
                 mapperMappings = JSON.parse(JSON.stringify(step.ui.mappings));
+                mapperMappings.forEach(m => {
+                    if (m.expression && !m.sourceCol) {
+                        m.sourceCol = m.expression;
+                    }
+                });
             } else {
                 mapperMappings = parseStepArgsToMappings(step);
             }
@@ -2590,7 +1460,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 let expression = derives[col] || "";
                 let defaultVal = fillnas[col] || "";
                 mappings.push({
-                    sourceCol: expression ? "" : sourceCol,
+                    sourceCol: expression ? expression : sourceCol,
                     expression: expression,
                     destCol: col,
                     defaultVal: defaultVal
@@ -2618,13 +1488,13 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 if (search && !header.toLowerCase().includes(search)) return;
 
                 const div = document.createElement('div');
-                div.style.cssText = 'padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; cursor:pointer; font-size:0.85rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
+                div.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
                 div.className = 'aimapper-source-item';
                 div.dataset.header = header;
                 
                 div.innerHTML = `
                     <span>${header}</span>
-                    <button class="toggle-logs-btn" style="padding:2px 6px; font-size:0.75rem; border-color:var(--accent); color:var(--accent);" onclick="event.stopPropagation(); quickMapSource('${header}')">➕</button>
+                    <button class="toggle-logs-btn" style="padding:1px 4px; font-size:0.7rem; border-color:var(--accent); color:var(--accent);" onclick="event.stopPropagation(); quickMapSource('${header}')">➕</button>
                 `;
 
                 div.addEventListener('click', () => {
@@ -2661,7 +1531,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             // Append variables to source items for quick insertion
             if (mapperVariables.length > 0) {
                 const sep = document.createElement('div');
-                sep.style.cssText = 'font-size:0.75rem; color:#c084fc; text-transform:uppercase; font-weight:800; padding:6px 4px; border-top:1px solid var(--border); margin-top:8px;';
+                sep.style.cssText = 'font-size:0.7rem; color:#c084fc; text-transform:uppercase; font-weight:800; padding:4px 4px; border-top:1px solid var(--border); margin-top:6px;';
                 sep.innerText = 'Variables';
                 container.appendChild(sep);
 
@@ -2670,7 +1540,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                     if (search && !v.name.toLowerCase().includes(search)) return;
 
                     const div = document.createElement('div');
-                    div.style.cssText = 'padding:8px 12px; background:rgba(192, 132, 252, 0.05); border:1px solid rgba(192, 132, 252, 0.2); border-radius:8px; cursor:pointer; font-size:0.8rem; font-family:"Roboto Mono", monospace; color:#c084fc; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
+                    div.style.cssText = 'padding:4px 8px; background:rgba(192, 132, 252, 0.05); border:1px solid rgba(192, 132, 252, 0.2); border-radius:6px; cursor:pointer; font-size:0.75rem; font-family:"Roboto Mono", monospace; color:#c084fc; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
                     div.innerHTML = `<span>${v.name}</span>`;
 
                     div.addEventListener('click', () => {
@@ -2690,16 +1560,34 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
         }
 
         function quickMapSource(header) {
-            if (mapperMappings.some(m => m.sourceCol === header && !m.expression)) {
+            if (mapperMappings.some(m => m.sourceCol === header)) {
                 return;
             }
             mapperMappings.push({
                 sourceCol: header,
-                expression: '',
                 destCol: header,
                 defaultVal: ''
             });
             renderMappingRows();
+        }
+
+        function populateDatalist() {
+            let dl = document.getElementById('aimapper-source-datalist');
+            if (!dl) {
+                dl = document.createElement('datalist');
+                dl.id = 'aimapper-source-datalist';
+                document.body.appendChild(dl);
+            }
+            let html = '';
+            mapperSourceHeaders.forEach(h => {
+                html += `<option value="${h}"></option>`;
+            });
+            mapperVariables.forEach(v => {
+                if (v.name) {
+                    html += `<option value="${v.name}"></option>`;
+                }
+            });
+            dl.innerHTML = html;
         }
 
         function renderMappingRows() {
@@ -2707,39 +1595,33 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             tbody.innerHTML = '';
 
             if (mapperMappings.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); font-style:italic; padding:20px;">Aucun mappage configuré. Cliquez sur une colonne source ou sur "Ajouter Colonne" pour commencer.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); font-style:italic; padding:20px;">Aucun mappage configuré. Cliquez sur une colonne source ou sur "Ajouter Colonne" pour commencer.</td></tr>';
                 renderDestList();
                 return;
             }
+
+            populateDatalist();
 
             mapperMappings.forEach((m, idx) => {
                 const tr = document.createElement('tr');
                 tr.className = 'aimapper-row';
                 tr.style.borderBottom = '1px solid var(--border)';
 
-                let optionsHtml = '<option value="">-- Formule / Fixe --</option>';
-                mapperSourceHeaders.forEach(header => {
-                    const selected = m.sourceCol === header ? 'selected' : '';
-                    optionsHtml += `<option value="${header}" ${selected}>${header}</option>`;
-                });
-
                 tr.innerHTML = `
-                    <td style="padding:10px;">
-                        <select class="settings-select aimapper-source-select" style="width:100%; font-family:'Roboto Mono', monospace;" onchange="updateMappingField(${idx}, 'sourceCol', this.value)">
-                            ${optionsHtml}
-                        </select>
+                    <td style="padding:4px;">
+                        <div style="display:flex; gap:4px; align-items:center;">
+                            <input type="text" list="aimapper-source-datalist" class="editor-input aimapper-source-input" style="flex:1; font-family:'Roboto Mono', monospace; font-size:0.78rem; padding:3px 6px; height:26px; border-radius:4px;" value="${m.sourceCol || ''}" placeholder="Sélectionner ou saisir une formule..." onfocus="lastFocusedInput = this" oninput="updateMappingField(${idx}, 'sourceCol', this.value)">
+                            <button class="toggle-logs-btn" style="padding:3px 6px; height:26px; font-size:0.72rem; border-color:var(--accent); color:var(--accent);" title="Ouvrir l'éditeur de formule" onclick="openFormulaEditor(${idx})">ƒx</button>
+                        </div>
                     </td>
-                    <td style="padding:10px;">
-                        <input type="text" class="editor-input aimapper-expr-input" style="width:100%; font-family:'Roboto Mono', monospace;" value="${m.expression || ''}" placeholder="Ex: qty * price ou IF age >= 18 THEN 'adulte' ELSE 'mineur'" onfocus="lastFocusedInput = this" oninput="updateMappingField(${idx}, 'expression', this.value)">
+                    <td style="padding:4px;">
+                        <input type="text" class="editor-input aimapper-dest-input" style="width:100%; font-family:'Roboto Mono', monospace; font-size:0.78rem; padding:3px 6px; height:26px; border-radius:4px;" value="${m.destCol || ''}" placeholder="Nom colonne de sortie" oninput="updateMappingField(${idx}, 'destCol', this.value)">
                     </td>
-                    <td style="padding:10px;">
-                        <input type="text" class="editor-input aimapper-dest-input" style="width:100%; font-family:'Roboto Mono', monospace;" value="${m.destCol || ''}" placeholder="Nom colonne de sortie" oninput="updateMappingField(${idx}, 'destCol', this.value)">
+                    <td style="padding:4px;">
+                        <input type="text" class="editor-input aimapper-default-input" style="width:100%; font-family:'Roboto Mono', monospace; font-size:0.78rem; padding:3px 6px; height:26px; border-radius:4px;" value="${m.defaultVal || ''}" placeholder="Valeur si vide" oninput="updateMappingField(${idx}, 'defaultVal', this.value)">
                     </td>
-                    <td style="padding:10px;">
-                        <input type="text" class="editor-input aimapper-default-input" style="width:100%; font-family:'Roboto Mono', monospace;" value="${m.defaultVal || ''}" placeholder="Valeur si vide" oninput="updateMappingField(${idx}, 'defaultVal', this.value)">
-                    </td>
-                    <td style="padding:10px; text-align:center;">
-                        <button class="toggle-logs-btn" style="padding:4px 8px; border-color:var(--error); color:var(--error); background:rgba(239,68,68,0.05);" onclick="deleteMappingRow(${idx})">🗑️</button>
+                    <td style="padding:4px; text-align:center;">
+                        <button class="toggle-logs-btn" style="padding:2px 6px; font-size:0.75rem; border-color:var(--error); color:var(--error); background:rgba(239,68,68,0.05);" onclick="deleteMappingRow(${idx})">🗑️</button>
                     </td>
                 `;
 
@@ -2753,18 +1635,12 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             if (mapperMappings[idx]) {
                 mapperMappings[idx][field] = value;
                 if (field === 'sourceCol' && value) {
-                    if (!mapperMappings[idx].destCol) {
+                    const isFormula = !mapperSourceHeaders.includes(value) || value.includes(" ") || value.includes("*") || value.includes("+") || value.includes("-") || value.includes("/") || value.includes("IF");
+                    if (!isFormula && !mapperMappings[idx].destCol) {
                         mapperMappings[idx].destCol = value;
                         const destInput = document.querySelectorAll('.aimapper-dest-input')[idx];
                         if (destInput) destInput.value = value;
                     }
-                    mapperMappings[idx].expression = '';
-                    const exprInput = document.querySelectorAll('.aimapper-expr-input')[idx];
-                    if (exprInput) exprInput.value = '';
-                } else if (field === 'expression' && value) {
-                    mapperMappings[idx].sourceCol = '';
-                    const select = document.querySelectorAll('.aimapper-source-select')[idx];
-                    if (select) select.value = '';
                 }
                 renderDestList();
             }
@@ -2778,7 +1654,6 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
         function addMappingRow() {
             mapperMappings.push({
                 sourceCol: '',
-                expression: '',
                 destCol: '',
                 defaultVal: ''
             });
@@ -2803,10 +1678,102 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
 
             uniqueDests.forEach(col => {
                 const div = document.createElement('div');
-                div.style.cssText = 'padding:10px 14px; background:rgba(0, 255, 102, 0.03); border:1px solid rgba(0, 255, 102, 0.15); border-radius:8px; font-size:0.85rem; font-family:"Roboto Mono", monospace; color:var(--success);';
+                div.style.cssText = 'padding:5px 8px; background:rgba(0, 255, 102, 0.03); border:1px solid rgba(0, 255, 102, 0.15); border-radius:6px; font-size:0.78rem; font-family:"Roboto Mono", monospace; color:var(--success);';
                 div.innerText = col;
                 container.appendChild(div);
             });
+        }
+
+        let activeFormulaRowIdx = null;
+
+        function openFormulaEditor(idx) {
+            activeFormulaRowIdx = idx;
+            const m = mapperMappings[idx];
+            if (!m) return;
+
+            const modal = document.getElementById('aimapper-formula-modal');
+            modal.style.display = 'flex';
+
+            document.getElementById('formula-editor-textarea').value = m.sourceCol || '';
+
+            // Populate source columns and variables in helper list
+            const container = document.getElementById('formula-editor-fields');
+            container.innerHTML = '';
+
+            mapperSourceHeaders.forEach(header => {
+                const btn = document.createElement('div');
+                btn.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+                btn.innerHTML = `<span>${header}</span> <span style="font-size:0.65rem; color:var(--text-muted);">colonne</span>`;
+                btn.onclick = () => insertTextAtCursor(header);
+                btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.05)';
+                btn.onmouseleave = () => btn.style.background = 'rgba(255,255,255,0.02)';
+                container.appendChild(btn);
+            });
+
+            mapperVariables.forEach(v => {
+                if (!v.name) return;
+                const btn = document.createElement('div');
+                btn.style.cssText = 'padding:4px 8px; background:rgba(192, 132, 252, 0.05); border:1px solid rgba(192, 132, 252, 0.2); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; color:#c084fc; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+                btn.innerHTML = `<span>${v.name}</span> <span style="font-size:0.65rem; color:#c084fc;">variable</span>`;
+                btn.onclick = () => insertTextAtCursor(v.name);
+                btn.onmouseenter = () => btn.style.background = 'rgba(192, 132, 252, 0.1)';
+                btn.onmouseleave = () => btn.style.background = 'rgba(192, 132, 252, 0.05)';
+                container.appendChild(btn);
+            });
+
+            const sysVars = [
+                { name: '${CURRENT_YEAR}', desc: 'Année courante (ex: 2026)' },
+                { name: '${TODAY}', desc: 'Date du jour (YYYY-MM-DD)' },
+                { name: '${NOW}', desc: 'Date et heure (YYYY-MM-DD HH:MM:SS)' },
+                { name: '${HOSTNAME}', desc: 'Nom de la machine' },
+                { name: '${USERNAME}', desc: 'Utilisateur système' },
+                { name: '${OS_NAME}', desc: 'Système d\'exploitation (windows/linux)' }
+            ];
+
+            sysVars.forEach(v => {
+                const btn = document.createElement('div');
+                btn.style.cssText = 'padding:4px 8px; background:rgba(0, 240, 255, 0.05); border:1px solid rgba(0, 240, 255, 0.2); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; color:#00f0ff; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+                btn.innerHTML = `<span>${v.name}</span> <span style="font-size:0.65rem; color:#00f0ff;" title="${v.desc}">système</span>`;
+                btn.onclick = () => insertTextAtCursor(v.name);
+                btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.15)';
+                btn.onmouseleave = () => btn.style.background = 'rgba(0, 240, 255, 0.05)';
+                container.appendChild(btn);
+            });
+        }
+
+        function closeFormulaEditor() {
+            document.getElementById('aimapper-formula-modal').style.display = 'none';
+            activeFormulaRowIdx = null;
+        }
+
+        function applyFormulaEditor() {
+            if (activeFormulaRowIdx === null) return;
+            const formula = document.getElementById('formula-editor-textarea').value;
+            
+            updateMappingField(activeFormulaRowIdx, 'sourceCol', formula);
+            
+            // Sync UI input field
+            const sourceInputs = document.querySelectorAll('.aimapper-source-input');
+            if (sourceInputs[activeFormulaRowIdx]) {
+                sourceInputs[activeFormulaRowIdx].value = formula;
+            }
+
+            closeFormulaEditor();
+        }
+
+        function insertTextAtCursor(text) {
+            const textarea = document.getElementById('formula-editor-textarea');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const currentVal = textarea.value;
+            textarea.value = currentVal.substring(0, start) + text + currentVal.substring(end);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + text.length;
+        }
+
+        function setFormulaText(text) {
+            document.getElementById('formula-editor-textarea').value = text;
+            document.getElementById('formula-editor-textarea').focus();
         }
 
         function closeAiMapper() {
@@ -2851,9 +1818,11 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 if (!m.destCol) return;
                 selectCols.push(m.destCol);
                 
-                // Compile expressions with local variables substitution
-                let expr = m.expression || "";
-                if (expr) {
+                let val = m.sourceCol || "";
+                let isFormula = val && (!mapperSourceHeaders.includes(val) || val.includes(" ") || val.includes("*") || val.includes("+") || val.includes("-") || val.includes("/") || val.includes("IF") || val.includes("<") || val.includes(">") || val.includes("="));
+                
+                if (isFormula) {
+                    let expr = val;
                     variables.forEach(v => {
                         if (v.name && v.name.trim()) {
                             let regex = new RegExp('\\b' + v.name.trim() + '\\b', 'g');
@@ -2861,8 +1830,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                         }
                     });
                     deriveCols.push(`${m.destCol}=${expr}`);
-                } else if (m.sourceCol && m.sourceCol !== m.destCol) {
-                    renameCols.push(`${m.sourceCol}:${m.destCol}`);
+                } else if (val && val !== m.destCol) {
+                    renameCols.push(`${val}:${m.destCol}`);
                 }
                 if (m.defaultVal) {
                     fillnaCols.push(`${m.destCol}:${m.defaultVal}`);
@@ -2933,6 +1902,73 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             initWebSocket();
             updateSettingsModelOptions();
         });
-    </script>
-</body>
-</html>
+
+        // Data Preview Functions
+        function requestDataPreview(stepNum) {
+            if (!currentRecipe || !currentRecipe.steps) return;
+            const step = currentRecipe.steps.find(s => s.step === stepNum);
+            if (!step) return;
+
+            let filepath = '';
+            const args = step.args || {};
+            if (args.destination) {
+                filepath = args.destination;
+            } else if (args.local_path) {
+                filepath = args.local_path;
+            } else if (args.file_path) {
+                filepath = args.file_path;
+            } else if (args.path) {
+                filepath = args.path;
+            } else if (args.source) {
+                filepath = args.source;
+            }
+
+            if (!filepath) {
+                document.getElementById('data-preview-filepath').innerText = "Aucun fichier associé à cette étape";
+                document.getElementById('data-preview-content').innerHTML = `
+                    <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 15px; font-size: 0.85rem;">
+                        L'étape "${step.ui.label}" (${step.primitive}) n'a pas de fichier de données associé.
+                    </div>
+                `;
+                document.getElementById('data-preview-panel').classList.remove('collapsed');
+                return;
+            }
+
+            // Resolve env placeholders
+            let resolvedPath = filepath;
+            const regex = /\${([^}]+)}/g;
+            let match;
+            regex.lastIndex = 0;
+            while ((match = regex.exec(filepath)) !== null) {
+                const varName = match[1];
+                let val = null;
+                if (currentRecipe.env && currentRecipe.env[activeEnv]) {
+                    val = currentRecipe.env[activeEnv][varName];
+                }
+                if (val === null || val === undefined) {
+                    val = '';
+                }
+                resolvedPath = resolvedPath.replace(`\${${varName}}`, val);
+            }
+
+            document.getElementById('data-preview-filepath').innerText = resolvedPath;
+            document.getElementById('data-preview-content').innerHTML = `
+                <div style="color: var(--accent); font-style: italic; text-align: center; padding: 15px; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span style="width:12px; height:12px; border:2px solid var(--accent); border-top-color:transparent; border-radius:50%; display:inline-block; animation:spin 1s linear infinite;"></span>
+                    Chargement de l'aperçu...
+                </div>
+            `;
+            
+            document.getElementById('data-preview-panel').classList.remove('collapsed');
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'GET_DATA_PREVIEW',
+                    filepath: resolvedPath
+                }));
+            }
+        }
+
+        function closeDataPreview() {
+            document.getElementById('data-preview-panel').classList.add('collapsed');
+        }

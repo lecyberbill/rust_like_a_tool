@@ -1,8 +1,9 @@
-// [WFGY] Zone: SAFE | λ: 0.3 | Action: Rust database connectors for SQLite, Postgres, MySQL, Snowflake and ODBC
+// [WFGY] Zone: TRANSIT | λ: 0.5 | Action: Optimize database inserts with chunked batch statements
 use sqlx::{SqlitePool, PgPool, MySqlPool, Row, Column};
 use serde_json::{Value, Map, Number};
 use std::fs::File;
 use std::path::Path;
+use std::collections::{HashMap, HashSet};
 
 /// Exécute une requête SQL SELECT sur n'importe quel moteur supporté et écrit dans un fichier CSV ou JSON
 pub async fn query_to_file(
@@ -62,6 +63,79 @@ pub async fn insert_from_file(
 // SQLx Engine Implementations
 // ==========================================
 
+fn infer_column_types(rows: &[Value], is_mysql: bool, is_sqlite: bool) -> HashMap<String, &'static str> {
+    let mut types = HashMap::new();
+    if rows.is_empty() {
+        return types;
+    }
+
+    let mut keys = HashSet::new();
+    for row in rows {
+        if let Some(obj) = row.as_object() {
+            for k in obj.keys() {
+                keys.insert(k.clone());
+            }
+        }
+    }
+
+    for key in keys {
+        let mut has_bool = false;
+        let mut has_int = false;
+        let mut has_float = false;
+        let mut has_string = false;
+
+        for row in rows {
+            if let Some(obj) = row.as_object() {
+                if let Some(val) = obj.get(&key) {
+                    match val {
+                        Value::Null => {},
+                        Value::Bool(_) => has_bool = true,
+                        Value::Number(n) => {
+                            if n.is_i64() {
+                                has_int = true;
+                            } else {
+                                has_float = true;
+                            }
+                        }
+                        Value::String(_) => has_string = true,
+                        _ => has_string = true,
+                    }
+                }
+            }
+        }
+
+        let sql_type = if has_string {
+            "TEXT"
+        } else if has_float {
+            if is_sqlite {
+                "REAL"
+            } else if is_mysql {
+                "DOUBLE"
+            } else {
+                "DOUBLE PRECISION"
+            }
+        } else if has_int {
+            if is_sqlite {
+                "INTEGER"
+            } else {
+                "BIGINT"
+            }
+        } else if has_bool {
+            if is_mysql {
+                "TINYINT(1)"
+            } else {
+                "BOOLEAN"
+            }
+        } else {
+            "TEXT"
+        };
+
+        types.insert(key, sql_type);
+    }
+
+    types
+}
+
 async fn query_sqlite(conn_str: &str, query: &str) -> Result<Vec<Value>, String> {
     let pool = SqlitePool::connect(conn_str).await.map_err(|e| format!("Sqlite connection error: {}", e))?;
     let sqlx_rows = sqlx::query(query).fetch_all(&pool).await.map_err(|e| format!("Sqlite query error: {}", e))?;
@@ -92,36 +166,78 @@ async fn query_sqlite(conn_str: &str, query: &str) -> Result<Vec<Value>, String>
 async fn insert_sqlite(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str) -> Result<(), String> {
     let pool = SqlitePool::connect(conn_str).await.map_err(|e| format!("Sqlite connection error: {}", e))?;
     
+    let inferred_types = infer_column_types(&rows, false, true);
+    if !rows.is_empty() {
+        let mut col_defs = Vec::new();
+        for (col_name, &col_type) in &inferred_types {
+            col_defs.push(format!("\"{}\" {}", col_name, col_type));
+        }
+        let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+        sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Sqlite create table error: {}", e))?;
+    }
+
     if mode.to_lowercase() == "replace" {
         sqlx::query(&format!("DELETE FROM {}", table)).execute(&pool).await.map_err(|e| format!("Sqlite truncate error: {}", e))?;
     }
 
-    for row_val in rows {
-        if let Some(obj) = row_val.as_object() {
-            let cols: Vec<String> = obj.keys().cloned().collect();
-            let placeholders: Vec<String> = (0..cols.len()).map(|_| "?".to_string()).collect();
-            let sql = format!("INSERT INTO {} ({}) VALUES ({})", table, cols.join(", "), placeholders.join(", "));
-            
-            let mut query_builder = sqlx::query(&sql);
+    let mut cols: Vec<String> = inferred_types.keys().cloned().collect();
+    cols.sort();
+
+    if cols.is_empty() {
+        return Ok(());
+    }
+
+    let num_cols = cols.len();
+    let batch_size = (999 / num_cols).max(1);
+
+    let mut tx = pool.begin().await.map_err(|e| format!("Sqlite transaction error: {}", e))?;
+
+    let quoted_cols: Vec<String> = cols.iter().map(|c| format!("\"{}\"", c)).collect();
+    let insert_prefix = format!("INSERT INTO {} ({}) VALUES ", table, quoted_cols.join(", "));
+
+    for chunk in rows.chunks(batch_size) {
+        let mut sql = insert_prefix.clone();
+        let mut placeholders = Vec::new();
+        for _ in 0..chunk.len() {
+            let row_placeholders = vec!["?".to_string(); num_cols];
+            placeholders.push(format!("({})", row_placeholders.join(", ")));
+        }
+        sql.push_str(&placeholders.join(", "));
+
+        let mut query_builder = sqlx::query(&sql);
+        for row_val in chunk {
+            let obj_empty = Map::new();
+            let obj = row_val.as_object().unwrap_or(&obj_empty);
             for col in &cols {
                 let val = obj.get(col).unwrap_or(&Value::Null);
-                query_builder = match val {
-                    Value::Null => query_builder.bind(None::<String>),
-                    Value::Bool(b) => query_builder.bind(*b),
-                    Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            query_builder.bind(i)
-                        } else {
-                            query_builder.bind(n.as_f64().unwrap_or(0.0))
-                        }
+                let col_type = inferred_types.get(col).copied().unwrap_or("TEXT");
+                
+                query_builder = if col_type == "TEXT" {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
                     }
-                    Value::String(s) => query_builder.bind(s.clone()),
-                    other => query_builder.bind(other.to_string()),
+                } else {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::Bool(b) => query_builder.bind(*b),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                query_builder.bind(i)
+                            } else {
+                                query_builder.bind(n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
                 };
             }
-            query_builder.execute(&pool).await.map_err(|e| format!("Sqlite insert row error: {}", e))?;
         }
+        query_builder.execute(&mut *tx).await.map_err(|e| format!("Sqlite insert batch error: {}", e))?;
     }
+    tx.commit().await.map_err(|e| format!("Sqlite commit error: {}", e))?;
     Ok(())
 }
 
@@ -155,36 +271,83 @@ async fn query_postgres(conn_str: &str, query: &str) -> Result<Vec<Value>, Strin
 async fn insert_postgres(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str) -> Result<(), String> {
     let pool = PgPool::connect(conn_str).await.map_err(|e| format!("Postgres connection error: {}", e))?;
     
+    let inferred_types = infer_column_types(&rows, false, false);
+    if !rows.is_empty() {
+        let mut col_defs = Vec::new();
+        for (col_name, &col_type) in &inferred_types {
+            col_defs.push(format!("\"{}\" {}", col_name, col_type));
+        }
+        let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+        sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Postgres create table error: {}", e))?;
+    }
+
     if mode.to_lowercase() == "replace" {
         sqlx::query(&format!("TRUNCATE TABLE {}", table)).execute(&pool).await.map_err(|e| format!("Postgres truncate error: {}", e))?;
     }
 
-    for row_val in rows {
-        if let Some(obj) = row_val.as_object() {
-            let cols: Vec<String> = obj.keys().cloned().collect();
-            let placeholders: Vec<String> = (1..=cols.len()).map(|i| format!("${}", i)).collect();
-            let sql = format!("INSERT INTO {} ({}) VALUES ({})", table, cols.join(", "), placeholders.join(", "));
-            
-            let mut query_builder = sqlx::query(&sql);
+    let mut cols: Vec<String> = inferred_types.keys().cloned().collect();
+    cols.sort();
+
+    if cols.is_empty() {
+        return Ok(());
+    }
+
+    let num_cols = cols.len();
+    let batch_size = (65000 / num_cols).min(5000).max(1);
+
+    let mut tx = pool.begin().await.map_err(|e| format!("Postgres transaction error: {}", e))?;
+
+    let quoted_cols: Vec<String> = cols.iter().map(|c| format!("\"{}\"", c)).collect();
+    let insert_prefix = format!("INSERT INTO {} ({}) VALUES ", table, quoted_cols.join(", "));
+
+    for chunk in rows.chunks(batch_size) {
+        let mut sql = insert_prefix.clone();
+        let mut placeholders = Vec::new();
+        let mut param_index = 1;
+        for _ in 0..chunk.len() {
+            let mut row_placeholders = Vec::new();
+            for _ in 0..num_cols {
+                row_placeholders.push(format!("${}", param_index));
+                param_index += 1;
+            }
+            placeholders.push(format!("({})", row_placeholders.join(", ")));
+        }
+        sql.push_str(&placeholders.join(", "));
+
+        let mut query_builder = sqlx::query(&sql);
+        for row_val in chunk {
+            let obj_empty = Map::new();
+            let obj = row_val.as_object().unwrap_or(&obj_empty);
             for col in &cols {
                 let val = obj.get(col).unwrap_or(&Value::Null);
-                query_builder = match val {
-                    Value::Null => query_builder.bind(None::<String>),
-                    Value::Bool(b) => query_builder.bind(*b),
-                    Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            query_builder.bind(i)
-                        } else {
-                            query_builder.bind(n.as_f64().unwrap_or(0.0))
-                        }
+                let col_type = inferred_types.get(col).copied().unwrap_or("TEXT");
+                
+                query_builder = if col_type == "TEXT" {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
                     }
-                    Value::String(s) => query_builder.bind(s.clone()),
-                    other => query_builder.bind(other.to_string()),
+                } else {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::Bool(b) => query_builder.bind(*b),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                query_builder.bind(i)
+                            } else {
+                                query_builder.bind(n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
                 };
             }
-            query_builder.execute(&pool).await.map_err(|e| format!("Postgres insert row error: {}", e))?;
         }
+        query_builder.execute(&mut *tx).await.map_err(|e| format!("Postgres insert batch error: {}", e))?;
     }
+    tx.commit().await.map_err(|e| format!("Postgres commit error: {}", e))?;
     Ok(())
 }
 
@@ -218,36 +381,78 @@ async fn query_mysql(conn_str: &str, query: &str) -> Result<Vec<Value>, String> 
 async fn insert_mysql(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str) -> Result<(), String> {
     let pool = MySqlPool::connect(conn_str).await.map_err(|e| format!("MySQL connection error: {}", e))?;
     
+    let inferred_types = infer_column_types(&rows, true, false);
+    if !rows.is_empty() {
+        let mut col_defs = Vec::new();
+        for (col_name, &col_type) in &inferred_types {
+            col_defs.push(format!("`{}` {}", col_name, col_type));
+        }
+        let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+        sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("MySQL create table error: {}", e))?;
+    }
+
     if mode.to_lowercase() == "replace" {
         sqlx::query(&format!("TRUNCATE TABLE {}", table)).execute(&pool).await.map_err(|e| format!("MySQL truncate error: {}", e))?;
     }
 
-    for row_val in rows {
-        if let Some(obj) = row_val.as_object() {
-            let cols: Vec<String> = obj.keys().cloned().collect();
-            let placeholders: Vec<String> = (0..cols.len()).map(|_| "?".to_string()).collect();
-            let sql = format!("INSERT INTO {} ({}) VALUES ({})", table, cols.join(", "), placeholders.join(", "));
-            
-            let mut query_builder = sqlx::query(&sql);
+    let mut cols: Vec<String> = inferred_types.keys().cloned().collect();
+    cols.sort();
+
+    if cols.is_empty() {
+        return Ok(());
+    }
+
+    let num_cols = cols.len();
+    let batch_size = (65000 / num_cols).min(5000).max(1);
+
+    let mut tx = pool.begin().await.map_err(|e| format!("MySQL transaction error: {}", e))?;
+
+    let quoted_cols: Vec<String> = cols.iter().map(|c| format!("`{}`", c)).collect();
+    let insert_prefix = format!("INSERT INTO {} ({}) VALUES ", table, quoted_cols.join(", "));
+
+    for chunk in rows.chunks(batch_size) {
+        let mut sql = insert_prefix.clone();
+        let mut placeholders = Vec::new();
+        for _ in 0..chunk.len() {
+            let row_placeholders = vec!["?".to_string(); num_cols];
+            placeholders.push(format!("({})", row_placeholders.join(", ")));
+        }
+        sql.push_str(&placeholders.join(", "));
+
+        let mut query_builder = sqlx::query(&sql);
+        for row_val in chunk {
+            let obj_empty = Map::new();
+            let obj = row_val.as_object().unwrap_or(&obj_empty);
             for col in &cols {
                 let val = obj.get(col).unwrap_or(&Value::Null);
-                query_builder = match val {
-                    Value::Null => query_builder.bind(None::<String>),
-                    Value::Bool(b) => query_builder.bind(*b),
-                    Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            query_builder.bind(i)
-                        } else {
-                            query_builder.bind(n.as_f64().unwrap_or(0.0))
-                        }
+                let col_type = inferred_types.get(col).copied().unwrap_or("TEXT");
+                
+                query_builder = if col_type == "TEXT" {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
                     }
-                    Value::String(s) => query_builder.bind(s.clone()),
-                    other => query_builder.bind(other.to_string()),
+                } else {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::Bool(b) => query_builder.bind(*b),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                query_builder.bind(i)
+                            } else {
+                                query_builder.bind(n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
                 };
             }
-            query_builder.execute(&pool).await.map_err(|e| format!("MySQL insert row error: {}", e))?;
         }
+        query_builder.execute(&mut *tx).await.map_err(|e| format!("MySQL insert batch error: {}", e))?;
     }
+    tx.commit().await.map_err(|e| format!("MySQL commit error: {}", e))?;
     Ok(())
 }
 
