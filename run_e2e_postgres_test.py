@@ -29,6 +29,9 @@ def cleanup():
     for f in [CSV_SRC, CSV_FILTERED, CSV_CLEAN, QUERY_OUT]:
         if f.exists():
             f.unlink()
+    checkpoint = Path(__file__).parent / "brain" / ".run_checkpoint.json"
+    if checkpoint.exists():
+        checkpoint.unlink()
 
 def generate_large_csv(filename, count=20000):
     print(f"[PREPARE] Generating {count} mock user rows in {filename}...")
@@ -51,8 +54,18 @@ async def run_e2e_test(pg_url):
     generate_large_csv(CSV_SRC, 20000)
     
     env_config = load_env("dev")
-    # Set the custom database URL in env configuration
+    # Set the custom database URL in env configuration and OS environment
     env_config["DATABASE_URL"] = pg_url
+    os.environ["DATABASE_URL"] = pg_url
+    os.environ["SECRET_POSTGRES_CONNECTION_STRING"] = pg_url
+    os.environ["POSTGRES_CONNECTION_STRING"] = pg_url
+    
+    # Auto-toggle to Gemini if API key is present in system environment
+    if os.environ.get("GEMINI_API_KEY"):
+        env_config["LLM_PROVIDER"] = "gemini"
+        env_config["LLM_MODEL"] = "gemini-2.5-flash"
+        env_config["LLM_API_KEY"] = os.environ.get("GEMINI_API_KEY")
+        print("[ENV] Detected GEMINI_API_KEY in environment. Switched provider to Google Gemini.")
     
     # Prompt representing the user intent
     prompt = (

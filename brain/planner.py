@@ -108,7 +108,7 @@ Si le plan requiert une transformation XML personnalisée (primitive `data.xml_t
 NESTED FLOWS AND LOOPS RULE:
 - Si la tâche requiert de répéter une opération sur une liste d'éléments (ex: des fichiers, des lignes de données ou des valeurs), tu dois utiliser la primitive `core.loop`. 
 - Pour `core.loop`, tu dois définir `loop_over` ("files", "rows" ou "variables"), `items_source` (le chemin d'accès au dossier/fichier ou les valeurs brutes) et le tableau `steps` contenant la sous-recette d'exécution.
-- Dans le sous-graphe `steps` de `core.loop`, tu dois référencer l'élément d'itération courant en utilisant le placeholder `${ITER_ITEM}` (ou des propriétés imbriquées comme `${ITER_ITEM.nom_colonne}` si `loop_over` est 'rows' sur un fichier structuré).
+- Dans le sous-graphe `steps` de `core.loop`, tu dois référencer l'élément d'itération courant en utilisant le placeholder `${{ITER_ITEM}}` (ou des propriétés imbriquées comme `${{ITER_ITEM.nom_colonne}}` si `loop_over` est 'rows' sur un fichier structuré).
 - Si la tâche requiert d'isoler une logique spécifique réutilisable ou d'organiser hiérarchiquement des étapes, utilise `core.sub_flow` avec son propre tableau d'étapes imbriquées dans `steps`.
 """
 
@@ -295,7 +295,8 @@ Tu dois intégrer cette nouvelle intention dans la recette actuelle. Modifie la 
 """
         
         print(f"[PLANNER] Phase 2 - Génération de la recette paramétrée...")
-        raw_response = self.client.generate_completion(phase2_sys, user_prompt_2, schema=self._get_recipe_schema())
+        schema_p2 = None if self.client.__class__.__name__ == "GeminiAPIClient" else self._get_recipe_schema()
+        raw_response = self.client.generate_completion(phase2_sys, user_prompt_2, schema=schema_p2)
         
         # Clean response if LLM wrapped it in markdown code blocks
         clean_response = raw_response.strip()
