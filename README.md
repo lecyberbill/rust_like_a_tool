@@ -18,8 +18,14 @@ The RLAT architecture is built on a strict segregation of concerns:
    - A high-performance compiled binary executing atomic steps (I/O, network requests, format conversions, SQL queries, S3 object transfers).
    - Communicates using standardized numeric exit codes, translated dynamically into localized error messages by the Python orchestrator.
 3. **The Vitrine (Vanilla HTML/CSS/JS)**:
-   - A sleek Tableau de Bord (Dashboard) for tracking active scheduler triggers.
+   - A sleek Tableau de Bord (Dashboard) for tracking active scheduler triggers, run logs, and execution performance telemetry timeline.
    - An interactive workbench interface for visualizing the real-time execution of steps via bi-directional WebSockets.
+   - **Visual Connection Handles**: Draw connections dynamically by dragging output handles to input handles.
+   - **Canvas Node Search**: Instantly filter and highlight workflow nodes by name on the fly.
+   - **Node Duplication**: Clone existing nodes with all their configured parameters.
+   - **Cycle Prevention**: Live topological DAG verification rejecting loops on link creation.
+   - **Undo/Redo Engine**: History state stack allowing structural modifications rollback (via toolbar or shortcuts `Ctrl+Z` / `Ctrl+Y`).
+   - **Zoom & Theme Controls**: Switch between dark and light modes, and adjust canvas scale (zoom in, out, reset to fit).
 
 ---
 
@@ -92,6 +98,8 @@ The Rust binary executes performance-critical tasks categorized by domain:
   - `data.deduplicate`: Eliminate duplicate rows based on subset keys (first/last strategy).
   - `data.to_xlsx`: Format and export JSON/CSV to Microsoft Excel using `openpyxl`.
   - `data.json_to_xml`: Structure datasets into formatted XML files.
+  - `data.delta`: Compare datasets on primary keys to calculate incremental changes (Change Data Capture) and synced results.
+  - `data.type_cast`: Convert and format column data types strictly (integer, float, boolean, string, date/datetime) with format parsing.
 - **AI & NLP (`ai.*`)**:
   - `ai.summarize` & `ai.extract`: Perform LLM summary and structural entity extraction (overriding models per step).
 - **Databases (`db.*`)**:
