@@ -225,6 +225,7 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - Invariant 46 [UTC Timezone Alignment SFTP Transfers]: SUCCESS (Implemented `net.sftp_download_filtered` using paramiko st_mtime epoch comparisons)
 - Invariant 47 [Visual Data Lineage Mode]: SUCCESS (Dotted curves drawn dynamically based on `GET_DATA_LINEAGE` payloads on SVG canvas, showing file basenames)
 - Invariant 48 [Immutable Audit Trail Logs]: SUCCESS (Audit JSON structures populated on run completion and displayed in UI list and details modals, verified via `test_observability_lot_b.py`)
+- Invariant 49 [AI Recipe Planner Stress Test Suite]: SUCCESS (Successfully executed all 5 scenario prompts covering simple pipelines, nested loops, AI inference, CDC delta syncs, and edge cases, validating schema compliance and DAG cycle prevention, and outputting the report to `test_results/stress_test_report.md`)
 
 ## Invariant 43 [Wait/Retention Sleep Primitive]
 - **Invariant 43 [Wait/Retention Sleep Primitive]:** System must support pausing flow execution for a configurable duration using flexible time formats (HH:MM:SS, MM:SS, or seconds) via `core.wait`.
@@ -244,6 +245,9 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 ## Invariant 48 [Immutable Audit Trail Logs]
 - **Invariant 48 [Immutable Audit Trail Logs]:** Saves metadata (timestamp, host, OS, status, steps, lineage) of executed jobs in `audit_trail.json` and renders in dedicated audit list and details modals.
 
+## Invariant 49 [AI Recipe Planner Stress Test Suite]
+- **Invariant 49 [AI Recipe Planner Stress Test Suite]:** System must provide a dedicated test script (`test_planner_stress.py`) to run and validate workflow generation using local or simulated LLM APIs, checking JSON schemas and ensuring dependency graphs do not contain cyclical execution loops.
+
 ## Changelog
 - **2026-05-31:** Initial ingestion of the modular ETL agent architecture (v2).
 - **2026-05-31:** Transitioned to V3. Added front-end workbench architectural specification and WebSocket real-time state streaming.
@@ -262,6 +266,8 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-07:** Implemented `core.wait` sleep primitive with flexible duration parser (HH:MM:SS), local folder loop filters (max_age_hours, min_size_mb, max_size_mb), and timezone-aligned remote filtered downloads (`net.ftp_download_filtered` and `net.sftp_download_filtered`) using UTC-aware epoch times.
 - **2026-06-07:** Implemented Lot B (Observability & Data Lineage): Added backend lineage solver and audit trail serialization, designed frontend visual lineage mode and details drawer modals, and validated all logic using automated test script `test_observability_lot_b.py`.
 - **2026-06-07:** Refactored the monolithic frontend `vitrine/js/app.js` (3000+ lines) by splitting visual rendering, mapping inputs (AiMapper), node settings editing, modal controllers, and outgoing WebSocket APIs into dedicated modular scripts (`canvas.js`, `aimapper.js`, `editor.js`, `modals.js`, `api.js`) loaded sequentially in `index.html`.
+- **2026-06-07:** Implemented a robust AI Planner stress test suite (`test_planner_stress.py`) validating 5 complex recipe scenarios including schema validation, nested structures, and cycle checking with offline simulation fallback.
+
 
 
 
