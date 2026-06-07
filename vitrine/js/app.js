@@ -1,18 +1,6 @@
 // [WFGY] Zone: SAFE | λ: 0.1 | Action: Main app core orchestrator and socket event loop
 
-let ws;
-let activeNodes = {};
-let currentRecipe = null;
-let activeEnv = 'dev';
-let selectedStepNum = null;
-let currentNavPath = [];
-let currentRunHistory = [];
-let selectedRunId = null;
-let currentAuditTrail = [];
-let studyOriginalIntent = '';
-let studyChatHistory = [];
-let promptHistory = [];
-let historyIndex = -1;
+
 
 try {
     promptHistory = JSON.parse(localStorage.getItem('prompt_history')) || [];
