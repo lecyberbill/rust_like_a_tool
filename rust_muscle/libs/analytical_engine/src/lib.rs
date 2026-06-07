@@ -567,6 +567,11 @@ pub fn clean(
         lf = lf.sort(&sort_col, sort_options);
     }
 
+    // Support streaming option
+    if std::env::var("POLARS_STREAMING").map(|v| v == "true").unwrap_or(false) {
+        lf = lf.with_streaming(true);
+    }
+
     let df = lf.collect().map_err(|e| format!("Erreur lors de la collection de nettoyage : {}", e))?;
     write_df(df, destination)?;
 
@@ -581,7 +586,8 @@ pub fn validate(
     quarantine: &str,
     rules_json: &str,
 ) -> Result<(), String> {
-    let lf = read_df(source)?;
+    let mut lf = read_df(source)?;
+
 
     let rules: serde_json::Value = serde_json::from_str(rules_json)
         .map_err(|e| format!("Erreur lors du parsing des regles JSON: {}", e))?;
@@ -708,13 +714,19 @@ pub fn validate(
     let filter_expr = combined_expr.ok_or_else(|| "Aucune regle de validation definie".to_string())?;
 
     // Filtrer les lignes valides
-    let valid_lf = lf.clone().filter(filter_expr.clone());
+    let mut valid_lf = lf.clone().filter(filter_expr.clone());
+    if std::env::var("POLARS_STREAMING").map(|v| v == "true").unwrap_or(false) {
+        valid_lf = valid_lf.with_streaming(true);
+    }
     let valid_df = valid_lf.collect().map_err(|e| format!("Erreur lors de la collection des lignes valides: {}", e))?;
     let valid_count = valid_df.height();
     write_df(valid_df, destination)?;
 
     // Filtrer les lignes rejetees (negation du filtre combiné)
-    let invalid_lf = lf.filter(filter_expr.not());
+    let mut invalid_lf = lf.filter(filter_expr.not());
+    if std::env::var("POLARS_STREAMING").map(|v| v == "true").unwrap_or(false) {
+        invalid_lf = invalid_lf.with_streaming(true);
+    }
     let invalid_df = invalid_lf.collect().map_err(|e| format!("Erreur lors de la collection des lignes rejetees: {}", e))?;
     let invalid_count = invalid_df.height();
     write_df(invalid_df, quarantine)?;
@@ -1039,6 +1051,343 @@ pub fn type_cast(
     println!("SUCCESS: Executed type_cast on '{}' -> '{}'", source, destination);
     Ok(())
 }
+
+fn read_rows(source: &str) -> Result<Vec<serde_json::Value>, String> {
+    let path = Path::new(source);
+    if !path.exists() {
+        return Err(format!("Fichier source introuvable : {}", source));
+    }
+    let ext = path.extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "csv".to_string());
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+
+    if ext == "json" {
+        let val: serde_json::Value = serde_json::from_reader(file).map_err(|e| e.to_string())?;
+        if let Some(arr) = val.as_array() {
+            Ok(arr.clone())
+        } else {
+            Ok(vec![val])
+        }
+    } else {
+        let mut reader = csv::Reader::from_reader(file);
+        let headers = reader.headers().map_err(|e| e.to_string())?.clone();
+        let mut results = Vec::new();
+        for result in reader.records() {
+            let record = result.map_err(|e| e.to_string())?;
+            let mut map = serde_json::Map::new();
+            for (i, h) in headers.iter().enumerate() {
+                let val_str = record.get(i).unwrap_or("");
+                let val = if val_str.is_empty() {
+                    serde_json::Value::Null
+                } else if let Ok(i_val) = val_str.parse::<i64>() {
+                    serde_json::Value::Number(i_val.into())
+                } else if let Ok(f_val) = val_str.parse::<f64>() {
+                    serde_json::Number::from_f64(f_val).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null)
+                } else if let Ok(b_val) = val_str.parse::<bool>() {
+                    serde_json::Value::Bool(b_val)
+                } else {
+                    serde_json::Value::String(val_str.to_string())
+                };
+                map.insert(h.to_string(), val);
+            }
+            results.push(serde_json::Value::Object(map));
+        }
+        Ok(results)
+    }
+}
+
+fn write_rows(rows: Vec<serde_json::Value>, destination: &str) -> Result<(), String> {
+    let path = Path::new(destination);
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    let ext = path.extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "csv".to_string());
+    let file = std::fs::File::create(path).map_err(|e| e.to_string())?;
+
+    if ext == "json" {
+        serde_json::to_writer_pretty(file, &rows).map_err(|e| e.to_string())?;
+    } else {
+        let mut writer = csv::Writer::from_writer(file);
+        if rows.is_empty() {
+            return Ok(());
+        }
+        if let Some(first_obj) = rows[0].as_object() {
+            let headers: Vec<String> = first_obj.keys().cloned().collect();
+            writer.write_record(&headers).map_err(|e| e.to_string())?;
+            for row_val in rows {
+                if let Some(obj) = row_val.as_object() {
+                    let record: Vec<String> = headers.iter().map(|h| {
+                        let v = obj.get(h).unwrap_or(&serde_json::Value::Null);
+                        match v {
+                            serde_json::Value::Null => "".to_string(),
+                            serde_json::Value::String(s) => s.clone(),
+                            other => other.to_string()
+                        }
+                    }).collect();
+                    writer.write_record(&record).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+        writer.flush().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Partitionne un jeu de données en plusieurs sous-fichiers selon les valeurs uniques de certaines colonnes
+pub fn partition(
+    source: &str,
+    destination_dir: &str,
+    by_columns: Vec<String>,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+    let _df = lf.clone().collect().map_err(|e| format!("Erreur lors de la collection de la source pour partition : {}", e))?;
+
+    // Sélectionner les colonnes de partition et obtenir les lignes uniques
+    let by_cols_expr: Vec<Expr> = by_columns.iter().map(|c| col(c)).collect();
+    let unique_groups = lf.clone().select(by_cols_expr).unique(None, UniqueKeepStrategy::First)
+        .collect()
+        .map_err(|e| format!("Erreur lors de la récupération des groupes de partition : {}", e))?;
+
+    let num_groups = unique_groups.height();
+    let num_cols = by_columns.len();
+
+    // Détecter l'extension du fichier source
+    let src_path = Path::new(source);
+    let ext = src_path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("csv");
+
+    for row_idx in 0..num_groups {
+        let mut filter_expr = lit(true);
+        let mut folder_parts = Vec::new();
+
+        for col_idx in 0..num_cols {
+            let col_name = &by_columns[col_idx];
+            let series = unique_groups.column(col_name)
+                .map_err(|e| format!("Colonne '{}' introuvable : {}", col_name, e))?;
+            let any_val = series.get(row_idx)
+                .map_err(|e| format!("Erreur de lecture de la valeur unique : {}", e))?;
+            let val_str = any_val.to_string().replace("\"", "");
+
+            filter_expr = filter_expr.and(col(col_name).eq(lit(val_str.clone())));
+            folder_parts.push(format!("{}={}", col_name, val_str));
+        }
+
+        // Filtrer la dataframe originale pour ce groupe
+        let filtered_lf = lf.clone().filter(filter_expr);
+        let filtered_df = filtered_lf.collect()
+            .map_err(|e| format!("Erreur lors du filtrage du groupe : {}", e))?;
+
+        // Construire le chemin de destination
+        let part_dir = Path::new(destination_dir);
+        let mut target_dir = part_dir.to_path_buf();
+        for part in &folder_parts {
+            target_dir = target_dir.join(part);
+        }
+
+        std::fs::create_dir_all(&target_dir)
+            .map_err(|e| format!("Impossible de créer le répertoire de partition : {}", e))?;
+
+        let dest_file = target_dir.join(format!("data.{}", ext));
+        let dest_file_str = dest_file.to_str().ok_or("Invalid path encoding")?;
+
+        write_df(filtered_df, dest_file_str)?;
+    }
+
+    println!("SUCCESS: Partitioned '{}' into '{}' by columns {:?}", source, destination_dir, by_columns);
+    Ok(())
+}
+
+/// Gère l'historisation Slowly Changing Dimensions (SCD Type 2)
+pub fn scd(
+    source: &str,
+    target: &str,
+    keys: Vec<String>,
+    compare_columns: Vec<String>,
+    destination: &str,
+    valid_from_col: &str,
+    valid_to_col: &str,
+    is_current_col: &str,
+    valid_from_value: &str,
+) -> Result<(), String> {
+    let source_rows = read_rows(source)?;
+    
+    // Si le fichier target n'existe pas, on initialise l'historique avec les lignes sources
+    let target_rows = if Path::new(target).exists() {
+        read_rows(target)?
+    } else {
+        Vec::new()
+    };
+
+    let mut active_target_rows = std::collections::HashMap::new();
+    let mut inactive_target_rows = Vec::new();
+
+    // Séparer les lignes actives et inactives de la cible
+    for mut row in target_rows {
+        if let Some(obj) = row.as_object_mut() {
+            let is_active = obj.get(is_current_col)
+                .and_then(|v| {
+                    if let Some(b) = v.as_bool() {
+                        Some(b)
+                    } else if let Some(s) = v.as_str() {
+                        Some(s == "true" || s == "1")
+                    } else if let Some(i) = v.as_i64() {
+                        Some(i == 1)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(true); // Par défaut actif si absent
+
+            if is_active {
+                // Générer la clé de recherche unique
+                let mut key_parts = Vec::new();
+                for k in &keys {
+                    let val = obj.get(k).cloned().unwrap_or(serde_json::Value::Null);
+                    key_parts.push(val.to_string());
+                }
+                let key_str = key_parts.join("|");
+                active_target_rows.insert(key_str, obj.clone());
+            } else {
+                inactive_target_rows.push(row);
+            }
+        }
+    }
+
+    let mut new_or_updated_rows = Vec::new();
+    let mut seen_keys = std::collections::HashSet::new();
+
+    // Parcourir le nouveau flux source
+    for row in source_rows {
+        if let Some(source_obj) = row.as_object() {
+            // Générer la clé
+            let mut key_parts = Vec::new();
+            for k in &keys {
+                let val = source_obj.get(k).cloned().unwrap_or(serde_json::Value::Null);
+                key_parts.push(val.to_string());
+            }
+            let key_str = key_parts.join("|");
+            seen_keys.insert(key_str.clone());
+
+            match active_target_rows.get_mut(&key_str) {
+                None => {
+                    // 1. Nouvelle ligne (n'existe pas dans active_target)
+                    let mut new_row = source_obj.clone();
+                    new_row.insert(valid_from_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+                    new_row.insert(valid_to_col.to_string(), serde_json::Value::Null);
+                    new_row.insert(is_current_col.to_string(), serde_json::Value::Bool(true));
+                    new_or_updated_rows.push(serde_json::Value::Object(new_row));
+                }
+                Some(active_row) => {
+                    // 2. Ligne existante : comparer les colonnes surveillées
+                    let cols_to_compare = if compare_columns.is_empty() {
+                        source_obj.keys().cloned().collect::<Vec<String>>()
+                    } else {
+                        compare_columns.clone()
+                    };
+
+                    let mut has_changes = false;
+                    for col in &cols_to_compare {
+                        let source_val = source_obj.get(col).unwrap_or(&serde_json::Value::Null);
+                        let target_val = active_row.get(col).unwrap_or(&serde_json::Value::Null);
+                        if source_val != target_val {
+                            has_changes = true;
+                            break;
+                        }
+                    }
+
+                    if has_changes {
+                        // a. Historiser l'ancienne ligne (is_current = false, valid_to = valid_from_value)
+                        active_row.insert(is_current_col.to_string(), serde_json::Value::Bool(false));
+                        active_row.insert(valid_to_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+                        new_or_updated_rows.push(serde_json::Value::Object(active_row.clone()));
+
+                        // b. Insérer la nouvelle version de la ligne
+                        let mut new_row = source_obj.clone();
+                        new_row.insert(valid_from_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+                        new_row.insert(valid_to_col.to_string(), serde_json::Value::Null);
+                        new_row.insert(is_current_col.to_string(), serde_json::Value::Bool(true));
+                        new_or_updated_rows.push(serde_json::Value::Object(new_row));
+                    } else {
+                        // Inchangée, on garde la ligne cible active
+                        new_or_updated_rows.push(serde_json::Value::Object(active_row.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Traiter les lignes supprimées : présentes dans active_target mais absentes de source
+    for (key_str, active_row) in &mut active_target_rows {
+        if !seen_keys.contains(key_str) {
+            // Clôturer l'historique
+            active_row.insert(is_current_col.to_string(), serde_json::Value::Bool(false));
+            active_row.insert(valid_to_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+            new_or_updated_rows.push(serde_json::Value::Object(active_row.clone()));
+        }
+    }
+
+    // Rassembler toutes les lignes
+    let mut final_rows = inactive_target_rows;
+    final_rows.extend(new_or_updated_rows);
+
+    write_rows(final_rows, destination)?;
+    println!("SUCCESS: Executed SCD Type 2 on '{}' and '{}' -> '{}'", source, target, destination);
+    Ok(())
+}
+
+/// Éclate les valeurs d'une colonne contenant des listes ou des chaînes sérialisées JSON vers des lignes distinctes (explode)
+pub fn split_out(
+    source: &str,
+    destination: &str,
+    column: &str,
+    delimiter: Option<&str>,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+
+    // On convertit les lignes de la DataFrame si nécessaire
+    // Si c'est un délimiteur de chaîne de caractères (ex: comma-separated values) :
+    let lf_result = if let Some(delim) = delimiter {
+        lf.with_column(
+            col(column)
+                .str()
+                .split(lit(delim))
+                .alias(column)
+        ).explode(vec![col(column)])
+    } else {
+        // Tenter de parser comme tableau JSON. Si Polars ne peut pas directement faire du lazy json parsing, 
+        // nous pouvons le mapper via des expressions ou en forçant le chargement en DataFrame et le parsing en mémoire.
+        // Pour rester robuste et compatible sans feature polars-json avancée, on éclate par défaut sur virgule 
+        // après nettoyage des crochets [] si c'est détecté comme chaîne JSON.
+        let parsed_expr = col(column)
+            .str()
+            .replace_all(lit("\\["), lit(""), false)
+            .str()
+            .replace_all(lit("\\]"), lit(""), false)
+            .str()
+            .replace_all(lit("\""), lit(""), false)
+            .str()
+            .split(lit(","))
+            .alias(column);
+        
+        lf.with_column(parsed_expr).explode(vec![col(column)])
+    };
+
+    let df_result = lf_result.collect()
+        .map_err(|e| format!("Erreur lors de l'exécution de split_out: {}", e))?;
+
+    write_df(df_result, destination)?;
+    println!("SUCCESS: Executed split_out on '{}' -> '{}' for column '{}'", source, destination, column);
+    Ok(())
+}
+
 
 
 

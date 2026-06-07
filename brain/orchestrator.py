@@ -4,6 +4,7 @@ import sys
 import json
 import asyncio
 import subprocess
+import time
 from pathlib import Path
 import websockets
 
@@ -224,6 +225,66 @@ class Orchestrator:
             "OS_NAME": "windows" if os.name == "nt" else "linux"
         }
 
+    def get_data_lineage(self, recipe_data: dict) -> dict:
+        """
+        Parses the recipe to build a data lineage map.
+        Identifies which step produces which file, and which steps consume it.
+        """
+        steps = recipe_data.get("steps", [])
+        lineage = {}  # file_path -> {"producer": step_num, "consumers": []}
+
+        # Helper to clean up file paths to make comparisons robust
+        def normalize_path(p):
+            if not p or not isinstance(p, str):
+                return None
+            p_clean = p.strip().replace("\\", "/").lower()
+            # Remove environment variables or placeholders for normalization if matching prefix/suffix
+            return p_clean
+
+        for step in steps:
+            step_num = step.get("step")
+            primitive = step.get("primitive")
+            args = step.get("args", {})
+
+            # List of arguments commonly acting as source (input)
+            inputs = []
+            # List of arguments commonly acting as destination (output)
+            outputs = []
+
+            for k, v in args.items():
+                if not isinstance(v, str):
+                    continue
+                k_lower = k.lower()
+                if "source" in k_lower or "src" in k_lower or "input" in k_lower or k_lower in ["path", "local_path", "file_path", "lookup_file", "target"]:
+                    # Distinguish input vs output based on naming
+                    if "destination" in k_lower or "dest" in k_lower or "output" in k_lower or k_lower == "quarantine":
+                        outputs.append(v)
+                    else:
+                        inputs.append(v)
+                elif "destination" in k_lower or "dest" in k_lower or "output" in k_lower or k_lower == "quarantine":
+                    outputs.append(v)
+
+            # Register producers
+            for out_file in outputs:
+                norm = normalize_path(out_file)
+                if norm:
+                    if norm not in lineage:
+                        lineage[norm] = {"file_path": out_file, "producer": step_num, "consumers": []}
+                    else:
+                        lineage[norm]["producer"] = step_num
+
+            # Register consumers
+            for in_file in inputs:
+                norm = normalize_path(in_file)
+                if norm:
+                    if norm not in lineage:
+                        lineage[norm] = {"file_path": in_file, "producer": None, "consumers": [step_num]}
+                    else:
+                        if step_num not in lineage[norm]["consumers"]:
+                            lineage[norm]["consumers"].append(step_num)
+
+        return lineage
+
     def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev") -> dict:
         resolved = {}
         if local_env is None:
@@ -313,16 +374,57 @@ class Orchestrator:
         step_events = {step.get("step"): asyncio.Event() for step in steps}
         failed_steps = set()
         completed_steps = set()
-
-        import time
-        run_start = time.perf_counter()
         step_performance = {}
+
+        # Charger le checkpoint s'il existe pour ce plan_id
+        checkpoint_path = Path(__file__).parent / ".run_checkpoint.json"
+        has_checkpoint = False
+        if checkpoint_path.exists():
+            try:
+                with open(checkpoint_path, "r", encoding="utf-8") as f:
+                    checkpoint_data = json.load(f)
+                if checkpoint_data.get("plan_id") == plan_id:
+                    completed_steps = set(checkpoint_data.get("completed_steps", []))
+                    step_performance = checkpoint_data.get("step_performance", {})
+                    # Charger également le contexte d'exécution
+                    self.execution_context.update(checkpoint_data.get("execution_context", {}))
+                    # Marquer les étapes complétées comme déjà terminées (Events set)
+                    for step_num in completed_steps:
+                        if step_num in step_events:
+                            step_events[step_num].set()
+                    has_checkpoint = True
+                    print(f"[ORCHESTRATOR] Reprise du flux depuis le checkpoint. Étapes complétées : {list(completed_steps)}")
+            except Exception as checkpoint_err:
+                print(f"[ORCHESTRATOR WARNING] Échec de lecture du checkpoint : {checkpoint_err}")
+
+        def save_current_checkpoint():
+            try:
+                # Filtrer les clés du contexte d'exécution pour ne pas inclure des objets non sérialisables
+                serializable_context = {k: v for k, v in self.execution_context.items() if isinstance(v, (str, int, float, bool))}
+                with open(checkpoint_path, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "plan_id": plan_id,
+                        "completed_steps": list(completed_steps),
+                        "step_performance": step_performance,
+                        "execution_context": serializable_context
+                    }, f, indent=2, ensure_ascii=False)
+            except Exception as save_err:
+                print(f"[ORCHESTRATOR WARNING] Échec de sauvegarde du checkpoint : {save_err}")
+
+        run_start = time.perf_counter()
 
         async def run_single_step(step_item):
             step_num = step_item.get("step")
             primitive = step_item.get("primitive")
             args = step_item.get("args", {})
             dep_list = parents.get(step_num, [])
+
+            if step_num in completed_steps:
+                print(f"[ORCHESTRATOR] Étape {step_num} déjà complétée avec succès (reprise). Passage à l'étape suivante.")
+                if status_callback:
+                    status_callback(step_num, "success", "Étape déjà complétée avec succès (reprise).")
+                step_events[step_num].set()
+                return True
 
             # Attente de tous les parents
             for pid in dep_list:
@@ -357,6 +459,49 @@ class Orchestrator:
                 status_callback(step_num, "running", f"Exécution de l'étape ({target_env.upper()})...")
 
             step_start = time.perf_counter()
+
+            # Gestion spécifique de core.wait (Primitive d'attente/rétention)
+            if primitive == "core.wait":
+                resolved_args = self.resolve_secrets(args, local_env, target_env)
+                duration_raw = resolved_args.get("duration", "0")
+                duration_seconds = 0
+                
+                # Parsing du format duration (HH:MM:SS, MM:SS, ou secondes brutes)
+                try:
+                    duration_str = str(duration_raw).strip()
+                    if ":" in duration_str:
+                        parts = duration_str.split(":")
+                        if len(parts) == 3:  # HH:MM:SS
+                            duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                        elif len(parts) == 2:  # MM:SS
+                            duration_seconds = int(parts[0]) * 60 + int(parts[1])
+                        else:
+                            raise ValueError("Format temporel invalide")
+                    else:
+                        duration_seconds = float(duration_str)
+                except Exception as wait_err:
+                    print(f"[ORCHESTRATOR ERROR] Durée de wait invalide : {duration_raw} ({wait_err}). Utilisation de 0s.")
+                    duration_seconds = 0
+                
+                print(f"[ORCHESTRATOR] Wait en cours pour {duration_seconds} secondes...")
+                if status_callback:
+                    status_callback(step_num, "running", f"Attente de {duration_seconds} secondes ({duration_raw})...")
+                
+                await asyncio.sleep(duration_seconds)
+                
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Attente {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": "success"
+                }
+                completed_steps.add(step_num)
+                save_current_checkpoint()
+                if status_callback:
+                    status_callback(step_num, "success", f"Attente terminée ({duration_seconds}s).")
+                step_events[step_num].set()
+                return True
 
             # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
@@ -410,6 +555,7 @@ class Orchestrator:
                     "status": "success"
                 }
                 completed_steps.add(step_num)
+                save_current_checkpoint()
                 step_events[step_num].set()
                 return True
 
@@ -439,6 +585,7 @@ class Orchestrator:
                 
                 if sub_success:
                     completed_steps.add(step_num)
+                    save_current_checkpoint()
                     if status_callback:
                         status_callback(step_num, "success", "Sous-flux exécuté avec succès.")
                 else:
@@ -448,6 +595,59 @@ class Orchestrator:
                         
                 step_events[step_num].set()
                 return sub_success
+
+            # Gestion spécifique de core.switch (Aiguillage dynamique)
+            if primitive == "core.switch":
+                switch_val_raw = args.get("value", "")
+                cases = args.get("cases", {})
+                
+                # Résoudre les placeholders/variables sur la valeur de switch
+                resolved_args = self.resolve_secrets({"val": switch_val_raw}, local_env, target_env)
+                resolved_val = resolved_args.get("val", "")
+                
+                print(f"[ORCHESTRATOR] Évaluation core.switch Étape {step_num} (Valeur résolue : '{resolved_val}')")
+                if status_callback:
+                    status_callback(step_num, "running", f"Évaluation de l'aiguillage switch = '{resolved_val}'...")
+
+                # Trouver les étapes associées à cette valeur
+                sub_steps = cases.get(resolved_val)
+                if sub_steps is None:
+                    # Tenter un cas par défaut "default" s'il est déclaré
+                    sub_steps = cases.get("default", [])
+                    print(f"[ORCHESTRATOR] Valeur '{resolved_val}' non trouvée dans les cas. Utilisation du cas par défaut.")
+                    
+                print(f"[ORCHESTRATOR] Exécution de la branche sélectionnée ({len(sub_steps)} étapes)...")
+                
+                sub_recipe = {
+                    "plan_id": f"{plan_id}_switch_{step_num}_{resolved_val}",
+                    "intent_analysis": f"Branche '{resolved_val}' de l'étape {step_num}",
+                    "steps": sub_steps,
+                    "env": local_env
+                }
+                switch_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                
+                step_end = time.perf_counter()
+                status_str = "success" if switch_success else "error"
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Aiguillage {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": status_str
+                }
+                
+                if switch_success:
+                    completed_steps.add(step_num)
+                    save_current_checkpoint()
+                    if status_callback:
+                        status_callback(step_num, "success", f"Branche '{resolved_val}' exécutée avec succès.")
+                else:
+                    failed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "error", f"La branche '{resolved_val}' a échoué.")
+                        
+                step_events[step_num].set()
+                return switch_success
+
 
             # Gestion spécifique de core.loop (Boucle d'exécution)
             if primitive == "core.loop":
@@ -471,7 +671,48 @@ class Orchestrator:
                     src_path = Path(items_source)
                     pattern = args.get("pattern", "*")
                     if src_path.exists() and src_path.is_dir():
-                        items = [str(f.resolve()) for f in src_path.glob(pattern) if f.is_file()]
+                        candidates = [f for f in src_path.glob(pattern) if f.is_file()]
+                        
+                        # Récupérer les filtres
+                        max_age_hours = args.get("max_age_hours")
+                        min_age_hours = args.get("min_age_hours")
+                        min_size_mb = args.get("min_size_mb")
+                        max_size_mb = args.get("max_size_mb")
+                        
+                        filtered_files = []
+                        now_ts = time.time()  # epoch timestamp locale (toujours comparée de manière homogène)
+                        
+                        for f in candidates:
+                            stat = f.stat()
+                            mtime = stat.st_mtime
+                            size_bytes = stat.st_size
+                            size_mb = size_bytes / (1024 * 1024)
+                            
+                            # Calcul de l'âge du fichier en heures
+                            age_hours = (now_ts - mtime) / 3600.0
+                            
+                            # Filtre âge maximal
+                            if max_age_hours is not None and max_age_hours != "" and str(max_age_hours).lower() != "none":
+                                if age_hours > float(max_age_hours):
+                                    continue
+                                    
+                            # Filtre âge minimal (ancienneté)
+                            if min_age_hours is not None and min_age_hours != "" and str(min_age_hours).lower() != "none":
+                                if age_hours < float(min_age_hours):
+                                    continue
+                                    
+                            # Filtre taille minimale
+                            if min_size_mb is not None and min_size_mb != "" and str(min_size_mb).lower() != "none":
+                                if size_mb < float(min_size_mb):
+                                    continue
+                                    
+                            # Filtre taille maximale
+                            if max_size_mb is not None and max_size_mb != "" and str(max_size_mb).lower() != "none":
+                                if size_mb > float(max_size_mb):
+                                    continue
+                                    
+                            filtered_files.append(str(f.resolve()))
+                        items = filtered_files
                     else:
                         print(f"[ORCHESTRATOR WARNING] Dossier source introuvable pour la boucle files : {items_source}")
                 elif loop_over == "rows":
@@ -561,6 +802,7 @@ class Orchestrator:
 
                 if loop_success:
                     completed_steps.add(step_num)
+                    save_current_checkpoint()
                     if status_callback:
                         status_callback(step_num, "success", f"Boucle terminée avec succès ({len(items)} itérations).")
                 else:
@@ -697,6 +939,7 @@ class Orchestrator:
                 status_callback(step_num, "success", stdout.strip())
 
             completed_steps.add(step_num)
+            save_current_checkpoint()
             step_events[step_num].set()
             return True
 
@@ -706,6 +949,15 @@ class Orchestrator:
 
         run_end = time.perf_counter()
         total_duration_ms = int((run_end - run_start) * 1000)
+
+        # Nettoyer le checkpoint si le run s'est terminé avec succès
+        if len(failed_steps) == 0:
+            if checkpoint_path.exists():
+                try:
+                    checkpoint_path.unlink()
+                    print(f"[ORCHESTRATOR] Checkpoint supprimé suite au succès de la recette '{plan_id}'.")
+                except Exception as unlink_err:
+                    print(f"[ORCHESTRATOR WARNING] Impossible de supprimer le checkpoint : {unlink_err}")
 
         # Enregistrement de l'historique des runs
         try:
@@ -734,11 +986,59 @@ class Orchestrator:
             with open(history_path, "w", encoding="utf-8") as f:
                 json.dump(history_data, f, indent=2, ensure_ascii=False)
 
+            # --- JOURNAL D'AUDIT IMMUABLE (LOT B) ---
+            audit_path = Path(__file__).parent / "audit_trail.json"
+            audit_data = []
+            if audit_path.exists():
+                try:
+                    with open(audit_path, "r", encoding="utf-8") as f:
+                        audit_data = json.load(f)
+                except Exception:
+                    audit_data = []
+
+            # Calcul du lineage pour le run courant
+            recipe_lineage = self.get_data_lineage(recipe_data)
+
+            audit_entry = {
+                "run_id": run_record["run_id"],
+                "workspace_id": plan_id,
+                "timestamp": run_record["timestamp"],
+                "username": self.execution_context.get("USERNAME", "unknown"),
+                "hostname": self.execution_context.get("HOSTNAME", "localhost"),
+                "os_name": self.execution_context.get("OS_NAME", "unknown"),
+                "status": run_record["status"],
+                "duration_ms": total_duration_ms,
+                "steps_executed": [
+                    {
+                        "step": step_perf.get("step"),
+                        "label": step_perf.get("label"),
+                        "status": step_perf.get("status"),
+                        "duration_ms": step_perf.get("duration_ms")
+                    } for step_perf in step_performance.values()
+                ],
+                "data_lineage": {
+                    f: {"producer": info["producer"], "consumers": info["consumers"]}
+                    for f, info in recipe_lineage.items()
+                }
+            }
+
+            audit_data.insert(0, audit_entry)
+            audit_data = audit_data[:200]  # Limite d'audit de 200 entrées historiques
+
+            with open(audit_path, "w", encoding="utf-8") as f:
+                json.dump(audit_data, f, indent=2, ensure_ascii=False)
+
             from registry import broadcast
             asyncio.create_task(broadcast(json.dumps({
                 "type": "RUN_HISTORY_UPDATE",
                 "workspace_id": plan_id,
                 "last_run": run_record
+            }, ensure_ascii=False)))
+            
+            # Diffuser la mise à jour de l'audit
+            asyncio.create_task(broadcast(json.dumps({
+                "type": "AUDIT_TRAIL_UPDATE",
+                "audit": audit_entry
             }, ensure_ascii=False)))
         except Exception as e:
             print(f"[ORCHESTRATOR WARNING] Failed to save run history: {e}")
@@ -855,6 +1155,32 @@ async def handler(websocket, path=None):
                 await websocket.send(json.dumps({
                     "type": "RUN_HISTORY_RESULT",
                     "history": history_data
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_AUDIT_TRAIL":
+                audit_path = Path(__file__).parent / "audit_trail.json"
+                audit_data = []
+                if audit_path.exists():
+                    try:
+                        with open(audit_path, "r", encoding="utf-8") as f:
+                            audit_data = json.load(f)
+                    except Exception as e:
+                        print(f"[WS SERVER] Failed to read audit trail: {e}")
+                await websocket.send(json.dumps({
+                    "type": "AUDIT_TRAIL_RESULT",
+                    "audit": audit_data
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_DATA_LINEAGE":
+                # Compute lineage dynamically for current_recipe if active
+                recipe_lineage = {}
+                if current_recipe:
+                    recipe_lineage = orchestrator.get_data_lineage(current_recipe)
+                await websocket.send(json.dumps({
+                    "type": "DATA_LINEAGE_RESULT",
+                    "lineage": recipe_lineage
                 }, ensure_ascii=False))
                 continue
 

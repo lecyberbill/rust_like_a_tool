@@ -5,5 +5,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-polars = { version = "0.37", features = ["lazy", "csv", "json", "parquet", "dtype-struct", "strings", "regex", "pivot", "temporal", "dtype-date", "dtype-datetime", "semi_anti_join"] }
+polars = { version = "0.37", features = ["lazy", "csv", "json", "parquet", "dtype-struct", "strings", "regex", "pivot", "temporal", "dtype-date", "dtype-datetime", "semi_anti_join", "streaming"] }
 serde_json = "1.0"
+csv = "1.3"
+

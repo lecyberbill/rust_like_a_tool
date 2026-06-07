@@ -25,6 +25,7 @@
         <!-- Workshop canvas control actions (visible only in Workshop view) -->
         <div id="workshop-actions" style="display: none; gap: 8px; align-items: center;">
             <button class="toggle-logs-btn" onclick="toggleCatalog()">🧩 Catalogue</button>
+            <button class="toggle-logs-btn" id="btn-toggle-lineage" onclick="toggleDataLineageMode()" style="color: var(--accent); border-color: var(--accent);">📊 Lignage (Lineage)</button>
             <button class="toggle-logs-btn" onclick="triggerUpload()">📂 Charger</button>
             <button class="toggle-logs-btn" onclick="downloadRecipe()">💾 Sauvegarder</button>
             <button class="toggle-logs-btn" onclick="clearRecipe()">🗑️ Effacer</button>
@@ -34,6 +35,7 @@
             <input type="file" id="recipe-upload" onchange="uploadRecipe(event)" style="display: none;" accept=".json">
         </div>
         <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
         </div>
     </header>
@@ -552,6 +554,50 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
                 <button class="toggle-logs-btn" onclick="closeTriggerModal()" style="border-color: transparent;">Annuler</button>
                 <button class="toggle-logs-btn" onclick="saveTriggerConfig()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Journal d'Audit (Lot B) -->
+    <div id="audit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 80vw; max-width: 1000px; height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: #c084fc; font-weight: 800; font-size: 1.3rem; margin: 0;">📜 Journal d'Audit Immuable (Audit Trail)</div>
+                <button class="toggle-logs-btn" onclick="closeAuditTrailModal()">✖ Fermer</button>
+            </div>
+            
+            <div style="flex: 1; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-weight: bold;">
+                            <th style="padding: 10px;">Horodatage</th>
+                            <th style="padding: 10px;">ID du Flux</th>
+                            <th style="padding: 10px;">Utilisateur</th>
+                            <th style="padding: 10px;">Hôte / OS</th>
+                            <th style="padding: 10px;">Statut</th>
+                            <th style="padding: 10px;">Durée (ms)</th>
+                            <th style="padding: 10px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">Chargement du journal d'audit...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails Audit (Lot B) -->
+    <div id="audit-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 105; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 550px; text-align: left; padding: 24px; background: rgba(15,15,30,0.98); border: 1px solid var(--border); border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">
+                <h4 style="color: var(--accent); margin: 0; font-weight: 800;">🔍 Détails de l'Audit d'Exécution</h4>
+                <button class="toggle-logs-btn" onclick="closeAuditDetailsModal()">✖</button>
+            </div>
+            <div id="audit-details-content" style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+                <!-- Rempli dynamiquement -->
             </div>
         </div>
     </div>

@@ -1050,3 +1050,141 @@ pub fn handle_mongodb_insert(args: &[String]) -> Result<(), MuscleError> {
 
     run_mongodb_helper("insert", connection_string, database, collection, source, &mode, None)
 }
+
+fn run_ftp_filter_helper(
+    proto: &str,
+    host: &str,
+    port: &str,
+    user: &str,
+    secret: &str,
+    key_passphrase: &str,
+    remote_dir: &str,
+    local_dir: &str,
+    max_age_hours: &str,
+    min_age_hours: &str,
+    min_size_mb: &str,
+    max_size_mb: &str,
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(windows) {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    println!("[RUST {} FILTER] Delegating to python ftp_filter_helper...", proto.to_uppercase());
+    let output = cmd
+        .arg("brain/ftp_filter_helper.py")
+        .arg(proto)
+        .arg(host)
+        .arg(port)
+        .arg(user)
+        .arg(secret)
+        .arg(key_passphrase)
+        .arg(remote_dir)
+        .arg(local_dir)
+        .arg(max_age_hours)
+        .arg(min_age_hours)
+        .arg(min_size_mb)
+        .arg(max_size_mb)
+        .output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python ftp_filter_helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("FTP/SFTP Filter execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_net_ftp_download_filtered(args: &[String]) -> Result<(), MuscleError> {
+    let mut host = None;
+    let mut port = String::from("21");
+    let mut user = None;
+    let mut password = None;
+    let mut remote_dir = None;
+    let mut local_dir = None;
+    let mut max_age_hours = String::from("None");
+    let mut min_age_hours = String::from("None");
+    let mut min_size_mb = String::from("None");
+    let mut max_size_mb = String::from("None");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--host" => { if i + 1 < args.len() { host = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --host".to_string())); } }
+            "--port" => { if i + 1 < args.len() { port = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --port".to_string())); } }
+            "--user" => { if i + 1 < args.len() { user = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --user".to_string())); } }
+            "--password" => { if i + 1 < args.len() { password = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --password".to_string())); } }
+            "--remote-dir" | "--remote_dir" => { if i + 1 < args.len() { remote_dir = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --remote-dir".to_string())); } }
+            "--local-dir" | "--local_dir" => { if i + 1 < args.len() { local_dir = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --local-dir".to_string())); } }
+            "--max-age-hours" | "--max_age_hours" => { if i + 1 < args.len() { max_age_hours = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --max-age-hours".to_string())); } }
+            "--min-age-hours" | "--min_age_hours" => { if i + 1 < args.len() { min_age_hours = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --min-age-hours".to_string())); } }
+            "--min-size-mb" | "--min_size_mb" => { if i + 1 < args.len() { min_size_mb = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --min-size-mb".to_string())); } }
+            "--max-size-mb" | "--max_size_mb" => { if i + 1 < args.len() { max_size_mb = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --max-size-mb".to_string())); } }
+            other => { return Err(MuscleError::Generic(format!("Unknown argument '{}'", other))); }
+        }
+    }
+
+    let host = host.ok_or_else(|| MuscleError::Generic("Missing required argument --host".to_string()))?;
+    let user = user.ok_or_else(|| MuscleError::Generic("Missing required argument --user".to_string()))?;
+    let password = password.ok_or_else(|| MuscleError::Generic("Missing required argument --password".to_string()))?;
+    let remote_dir = remote_dir.ok_or_else(|| MuscleError::Generic("Missing required argument --remote-dir".to_string()))?;
+    let local_dir = local_dir.ok_or_else(|| MuscleError::Generic("Missing required argument --local-dir".to_string()))?;
+
+    run_ftp_filter_helper("ftp", host, &port, user, password, "", remote_dir, local_dir, &max_age_hours, &min_age_hours, &min_size_mb, &max_size_mb)
+}
+
+pub fn handle_net_sftp_download_filtered(args: &[String]) -> Result<(), MuscleError> {
+    let mut host = None;
+    let mut port = String::from("22");
+    let mut user = None;
+    let mut password = String::from("");
+    let mut key_path = String::from("");
+    let mut key_passphrase = String::from("");
+    let mut remote_dir = None;
+    let mut local_dir = None;
+    let mut max_age_hours = String::from("None");
+    let mut min_age_hours = String::from("None");
+    let mut min_size_mb = String::from("None");
+    let mut max_size_mb = String::from("None");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--host" => { if i + 1 < args.len() { host = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --host".to_string())); } }
+            "--port" => { if i + 1 < args.len() { port = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --port".to_string())); } }
+            "--user" => { if i + 1 < args.len() { user = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --user".to_string())); } }
+            "--password" => { if i + 1 < args.len() { password = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --password".to_string())); } }
+            "--key-path" | "--key_path" => { if i + 1 < args.len() { key_path = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --key-path".to_string())); } }
+            "--key-passphrase" | "--key_passphrase" => { if i + 1 < args.len() { key_passphrase = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --key-passphrase".to_string())); } }
+            "--remote-dir" | "--remote_dir" => { if i + 1 < args.len() { remote_dir = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --remote-dir".to_string())); } }
+            "--local-dir" | "--local_dir" => { if i + 1 < args.len() { local_dir = Some(&args[i+1]); i += 2; } else { return Err(MuscleError::Generic("Missing value for --local-dir".to_string())); } }
+            "--max-age-hours" | "--max_age_hours" => { if i + 1 < args.len() { max_age_hours = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --max-age-hours".to_string())); } }
+            "--min-age-hours" | "--min_age_hours" => { if i + 1 < args.len() { min_age_hours = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --min-age-hours".to_string())); } }
+            "--min-size-mb" | "--min_size_mb" => { if i + 1 < args.len() { min_size_mb = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --min-size-mb".to_string())); } }
+            "--max-size-mb" | "--max_size_mb" => { if i + 1 < args.len() { max_size_mb = args[i+1].clone(); i += 2; } else { return Err(MuscleError::Generic("Missing value for --max-size-mb".to_string())); } }
+            other => { return Err(MuscleError::Generic(format!("Unknown argument '{}'", other))); }
+        }
+    }
+
+    let host = host.ok_or_else(|| MuscleError::Generic("Missing required argument --host".to_string()))?;
+    let user = user.ok_or_else(|| MuscleError::Generic("Missing required argument --user".to_string()))?;
+    let remote_dir = remote_dir.ok_or_else(|| MuscleError::Generic("Missing required argument --remote-dir".to_string()))?;
+    let local_dir = local_dir.ok_or_else(|| MuscleError::Generic("Missing required argument --local-dir".to_string()))?;
+
+    let secret = if !key_path.is_empty() { key_path } else { password };
+    if secret.is_empty() {
+        return Err(MuscleError::Generic("Either --password or --key-path must be specified".to_string()));
+    }
+
+    run_ftp_filter_helper("sftp", host, &port, user, &secret, &key_passphrase, remote_dir, local_dir, &max_age_hours, &min_age_hours, &min_size_mb, &max_size_mb)
+}

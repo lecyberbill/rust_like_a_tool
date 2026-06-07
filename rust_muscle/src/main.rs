@@ -25,13 +25,17 @@ fn main() {
         "io.delete" => primitives::io::handle_io_delete(&args[2..]),
         "io.metadata" => primitives::io::handle_io_metadata(&args[2..]),
         "io.write_file" => primitives::io::handle_io_write_file(&args[2..]),
+        "data.zip" => primitives::io::handle_io_zip(&args[2..]),
+        "data.unzip" => primitives::io::handle_io_unzip(&args[2..]),
 
         // net
         "net.download" => primitives::net::handle_net_download(&args[2..]),
         "net.upload" => primitives::net::handle_net_upload(&args[2..]),
         "net.ftp_download" => primitives::net::handle_net_ftp_download(&args[2..]),
+        "net.ftp_download_filtered" => primitives::net::handle_net_ftp_download_filtered(&args[2..]),
         "net.ftp_upload" => primitives::net::handle_net_ftp_upload(&args[2..]),
         "net.sftp_download" => primitives::net::handle_net_sftp_download(&args[2..]),
+        "net.sftp_download_filtered" => primitives::net::handle_net_sftp_download_filtered(&args[2..]),
         "net.sftp_upload" => primitives::net::handle_net_sftp_upload(&args[2..]),
         "google.sheets_read" => primitives::net::handle_google_sheets_read(&args[2..]),
         "google.sheets_write" => primitives::net::handle_google_sheets_write(&args[2..]),
@@ -66,10 +70,14 @@ fn main() {
         "data.unpivot" => primitives::analytical::handle_data_unpivot(&args[2..]),
         "data.delta" => primitives::analytical::handle_data_delta(&args[2..]),
         "data.type_cast" => primitives::analytical::handle_data_type_cast(&args[2..]),
+        "data.scd" => primitives::analytical::handle_data_scd(&args[2..]),
+        "data.partition" => primitives::analytical::handle_data_partition(&args[2..]),
+        "data.split_out" => primitives::analytical::handle_data_split_out(&args[2..]),
 
         // db
         "db.query" => primitives::db::handle_db_query(&args[2..]),
         "db.insert" => primitives::db::handle_db_insert(&args[2..]),
+        "db.upsert" => primitives::db::handle_db_upsert(&args[2..]),
 
         // mongodb
         "mongodb.find" => primitives::net::handle_mongodb_find(&args[2..]),

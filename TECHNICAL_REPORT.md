@@ -215,9 +215,52 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - Invariant 36 [Topological Loop Verification & Undo/Redo State Engine]: SUCCESS (Topological graph traversal successfully rejects cycles, and Undo/Redo state actions restore flow states correctly)
 - Invariant 37 [Incremental Data Delta Sync]: SUCCESS (Validated via `test_advanced_etl.py` executing the Rust Muscle binary)
 - Invariant 38 [Advanced Type Casting]: SUCCESS (Validated via `test_advanced_etl.py` executing type casting with date parsing format constraints)
+- Invariant 39 [Idempotent DB Upsert]: SUCCESS (Implemented SQLite, Postgres, and MySQL batch upserts in `db.upsert` with conflict key handling, verified via `test_n8n_features.py`)
+- Invariant 40 [JSON/String Array Explode]: SUCCESS (Implemented Polars-based list and array exploding in `data.split_out`, verified via `test_n8n_features.py`)
+- Invariant 41 [File Archive Compression]: SUCCESS (Implemented zip/unzip operations in `data.zip`/`data.unzip` delegating to python archive helper, verified via `test_n8n_features.py`)
+- Invariant 42 [Conditional Dynamic Switch Routing]: SUCCESS (Implemented conditional multi-branch routing in `core.switch` inside orchestrator executing case sub-graphs, verified via `test_n8n_features.py`)
+- Invariant 43 [Wait/Retention Sleep Primitive]: SUCCESS (Implemented `core.wait` handling flexible duration notation like HH:MM:SS or raw seconds directly in python orchestrator asynchronously)
+- Invariant 44 [Local File Loop Age and Size Filters]: SUCCESS (Integrated metadata age and size validation inside `core.loop` file iterations)
+- Invariant 45 [UTC Timezone Alignment FTP Transfers]: SUCCESS (Implemented `net.ftp_download_filtered` with timezone-aware UTC comparison and fallback options)
+- Invariant 46 [UTC Timezone Alignment SFTP Transfers]: SUCCESS (Implemented `net.sftp_download_filtered` using paramiko st_mtime epoch comparisons)
+- Invariant 47 [Visual Data Lineage Mode]: SUCCESS (Dotted curves drawn dynamically based on `GET_DATA_LINEAGE` payloads on SVG canvas, showing file basenames)
+- Invariant 48 [Immutable Audit Trail Logs]: SUCCESS (Audit JSON structures populated on run completion and displayed in UI list and details modals, verified via `test_observability_lot_b.py`)
 
+## Invariant 43 [Wait/Retention Sleep Primitive]
+- **Invariant 43 [Wait/Retention Sleep Primitive]:** System must support pausing flow execution for a configurable duration using flexible time formats (HH:MM:SS, MM:SS, or seconds) via `core.wait`.
 
+## Invariant 44 [Local File Loop Age and Size Filters]
+- **Invariant 44 [Local File Loop Age and Size Filters]:** System must support filtering local files in directory loops based on maximum file age and minimum/maximum size limits via `core.loop`.
 
+## Invariant 45 [UTC Timezone Alignment FTP Transfers]
+- **Invariant 45 [UTC Timezone Alignment FTP Transfers]:** System must support downloading filtered files from remote FTP servers using timezone-aware UTC modification time and size constraints via `net.ftp_download_filtered`.
+
+## Invariant 46 [UTC Timezone Alignment SFTP Transfers]
+- **Invariant 46 [UTC Timezone Alignment SFTP Transfers]:** System must support downloading filtered files from remote SFTP servers using timezone-aware UTC modification time and size constraints via `net.sftp_download_filtered`.
+
+## Invariant 47 [Visual Data Lineage Mode]
+- **Invariant 47 [Visual Data Lineage Mode]:** Highlights physical data flow paths (file production/consumption links) on SVG canvas using cyan dashed lines and shows file names.
+
+## Invariant 48 [Immutable Audit Trail Logs]
+- **Invariant 48 [Immutable Audit Trail Logs]:** Saves metadata (timestamp, host, OS, status, steps, lineage) of executed jobs in `audit_trail.json` and renders in dedicated audit list and details modals.
+
+## Changelog
+- **2026-05-31:** Initial ingestion of the modular ETL agent architecture (v2).
+- **2026-05-31:** Transitioned to V3. Added front-end workbench architectural specification and WebSocket real-time state streaming.
+- **2026-05-31:** Implemented LLM integration architecture (llm_client, planner) supporting local OpenAI-compatible and Gemini API.
+- **2026-05-31:** Added recipe saving/loading (persistence), progressive incremental workflow modification, and secure vault credentials resolution.
+- **2026-06-01:** Established modules roadmap ([ROADMAP_MODULES.md](file:///d:/image_to_text/RUST_LIKE_A_TOOL/ROADMAP_MODULES.md)) categorizing core, intermediate, and specialized components.
+- **2026-06-01:** Added recursive and fallback folder management capabilities (`io.move` cross-disk fallback, `io.delete` secure retention, `io.metadata` retrieval, and base `net.download`).
+- **2026-06-02:** Restructured the Rust tool into a Cargo Workspace by isolating library logic under `libs/analytical_engine` and adding multi-format (CSV, JSON, Parquet) support using Polars for relation join and groupby aggregations.
+- **2026-06-03:** Refactored the monolithic `rust_muscle/src/main.rs` by splitting all core primitives into dedicated modules under `src/primitives/`.
+- **2026-06-04:** Refactored the orchestrator.py script into 5 single-responsibility submodules (vault.py, worker_bridge.py, schema_validator.py, registry.py, scheduler.py).
+- **2026-06-05:** Optimized AiMapper visual overlay layout to make it resizable and significantly denser. Added Formula Editor Modal.
+- **2026-06-06:** Implemented Visual Node Link Drawing, Modern Light Theme switch, and Zoom controls.
+- **2026-06-07:** Implemented visual node duplication, search, topological cycle validation, and global Undo/Redo stack.
+- **2026-06-07:** Implemented advanced ETL primitives `data.delta` and `data.type_cast`.
+- **2026-06-07:** Implemented n8n-inspired ETL components: `db.upsert`, `data.split_out`, `data.zip`/`data.unzip`, and `core.switch`. Verified all components with `test_n8n_features.py`.
+- **2026-06-07:** Implemented `core.wait` sleep primitive with flexible duration parser (HH:MM:SS), local folder loop filters (max_age_hours, min_size_mb, max_size_mb), and timezone-aligned remote filtered downloads (`net.ftp_download_filtered` and `net.sftp_download_filtered`) using UTC-aware epoch times.
+- **2026-06-07:** Implemented Lot B (Observability & Data Lineage): Added backend lineage solver and audit trail serialization, designed frontend visual lineage mode and details drawer modals, and validated all logic using automated test script `test_observability_lot_b.py`.
 
 
 

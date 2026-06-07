@@ -646,5 +646,174 @@ pub fn handle_data_type_cast(args: &[String]) -> Result<(), MuscleError> {
         .map_err(|e| MuscleError::Generic(e))
 }
 
+pub fn handle_data_partition(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination_dir = None;
+    let mut by_columns = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--destination-dir" | "--destination_dir" => {
+                if i + 1 < args.len() { destination_dir = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination-dir".to_string())); }
+            }
+            "--by-columns" | "--by_columns" => {
+                if i + 1 < args.len() { by_columns = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --by-columns".to_string())); }
+            }
+            other => return Err(MuscleError::Generic(format!("Unknown argument '{}'", other))),
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let dest_dir = destination_dir.ok_or_else(|| MuscleError::Generic("Missing argument --destination-dir".to_string()))?;
+    let by_cols_str = by_columns.ok_or_else(|| MuscleError::Generic("Missing argument --by-columns".to_string()))?;
+
+    let by_cols_vec: Vec<String> = by_cols_str.split(',').map(|s| s.trim().to_string()).collect();
+
+    analytical_engine::partition(source, dest_dir, by_cols_vec)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+pub fn handle_data_scd(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut target = None;
+    let mut keys = None;
+    let mut compare_columns = None;
+    let mut destination = None;
+    let mut valid_from_col = String::from("valid_from");
+    let mut valid_to_col = String::from("valid_to");
+    let mut is_current_col = String::from("is_current");
+    let mut valid_from_value = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--target" => {
+                if i + 1 < args.len() { target = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --target".to_string())); }
+            }
+            "--keys" => {
+                if i + 1 < args.len() { keys = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --keys".to_string())); }
+            }
+            "--compare-columns" | "--compare_columns" => {
+                if i + 1 < args.len() { compare_columns = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --compare-columns".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination".to_string())); }
+            }
+            "--valid-from-col" | "--valid_from_col" => {
+                if i + 1 < args.len() { valid_from_col = args[i + 1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --valid-from-col".to_string())); }
+            }
+            "--valid-to-col" | "--valid_to_col" => {
+                if i + 1 < args.len() { valid_to_col = args[i + 1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --valid-to-col".to_string())); }
+            }
+            "--is-current-col" | "--is_current_col" => {
+                if i + 1 < args.len() { is_current_col = args[i + 1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --is-current-col".to_string())); }
+            }
+            "--valid-from-value" | "--valid_from_value" => {
+                if i + 1 < args.len() { valid_from_value = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --valid-from-value".to_string())); }
+            }
+            other => return Err(MuscleError::Generic(format!("Unknown argument '{}'", other))),
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let target = target.ok_or_else(|| MuscleError::Generic("Missing argument --target".to_string()))?;
+    let keys_str = keys.ok_or_else(|| MuscleError::Generic("Missing argument --keys".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let valid_from_val = valid_from_value.ok_or_else(|| MuscleError::Generic("Missing argument --valid-from-value".to_string()))?;
+
+    let keys_vec: Vec<String> = keys_str.split(',').map(|s| s.trim().to_string()).collect();
+    let compare_vec: Vec<String> = match compare_columns {
+        Some(s) => s.split(',').map(|c| c.trim().to_string()).collect(),
+        None => Vec::new(),
+    };
+
+    analytical_engine::scd(
+        source,
+        target,
+        keys_vec,
+        compare_vec,
+        destination,
+        &valid_from_col,
+        &valid_to_col,
+        &is_current_col,
+        valid_from_val,
+    ).map_err(|e| MuscleError::Generic(e))
+}
+
+pub fn handle_data_split_out(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut column = None;
+    let mut delimiter = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            "--column" => {
+                if i + 1 < args.len() {
+                    column = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --column".to_string()));
+                }
+            }
+            "--delimiter" => {
+                if i + 1 < args.len() {
+                    delimiter = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --delimiter".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let column = column.ok_or_else(|| MuscleError::Generic("Missing argument --column".to_string()))?;
+
+    analytical_engine::split_out(source, destination, column, delimiter.map(|s| s.as_str()))
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+
 
 

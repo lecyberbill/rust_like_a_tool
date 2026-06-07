@@ -35,6 +35,7 @@ pub async fn insert_from_file(
     table_name: &str,
     source_file: &str,
     mode: &str,
+    schema_drift: bool,
 ) -> Result<(), String> {
     let rows = read_rows_from_file(source_file)?;
     if rows.is_empty() {
@@ -43,11 +44,11 @@ pub async fn insert_from_file(
     }
 
     if connection_string.starts_with("sqlite:") {
-        insert_sqlite(connection_string, table_name, rows, mode).await?
+        insert_sqlite(connection_string, table_name, rows, mode, schema_drift).await?
     } else if connection_string.starts_with("postgresql:") || connection_string.starts_with("postgres:") {
-        insert_postgres(connection_string, table_name, rows, mode).await?
+        insert_postgres(connection_string, table_name, rows, mode, schema_drift).await?
     } else if connection_string.starts_with("mysql:") {
-        insert_mysql(connection_string, table_name, rows, mode).await?
+        insert_mysql(connection_string, table_name, rows, mode, schema_drift).await?
     } else if connection_string.starts_with("snowflake:") {
         insert_snowflake(connection_string, table_name, rows, mode).await?
     } else if connection_string.starts_with("odbc:") {
@@ -58,6 +59,34 @@ pub async fn insert_from_file(
 
     Ok(())
 }
+
+/// Upsert les données d'un fichier CSV ou JSON dans une table cible sur clés de conflit
+pub async fn upsert_from_file(
+    connection_string: &str,
+    table_name: &str,
+    source_file: &str,
+    keys: &str,
+    schema_drift: bool,
+) -> Result<(), String> {
+    let rows = read_rows_from_file(source_file)?;
+    if rows.is_empty() {
+        println!("[DB] Le fichier source est vide. Aucun upsert à effectuer.");
+        return Ok(());
+    }
+
+    if connection_string.starts_with("sqlite:") {
+        upsert_sqlite(connection_string, table_name, rows, keys, schema_drift).await?
+    } else if connection_string.starts_with("postgresql:") || connection_string.starts_with("postgres:") {
+        upsert_postgres(connection_string, table_name, rows, keys, schema_drift).await?
+    } else if connection_string.starts_with("mysql:") {
+        upsert_mysql(connection_string, table_name, rows, keys, schema_drift).await?
+    } else {
+        return Err(format!("Upsert non supporté pour ce protocole : {}", connection_string));
+    };
+
+    Ok(())
+}
+
 
 // ==========================================
 // SQLx Engine Implementations
@@ -163,17 +192,52 @@ async fn query_sqlite(conn_str: &str, query: &str) -> Result<Vec<Value>, String>
     Ok(results)
 }
 
-async fn insert_sqlite(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str) -> Result<(), String> {
+async fn insert_sqlite(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str, schema_drift: bool) -> Result<(), String> {
     let pool = SqlitePool::connect(conn_str).await.map_err(|e| format!("Sqlite connection error: {}", e))?;
     
     let inferred_types = infer_column_types(&rows, false, true);
     if !rows.is_empty() {
-        let mut col_defs = Vec::new();
-        for (col_name, &col_type) in &inferred_types {
-            col_defs.push(format!("\"{}\" {}", col_name, col_type));
+        if schema_drift {
+            let table_exists = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+                .bind(table)
+                .fetch_optional(&pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .is_some();
+
+            if table_exists {
+                let table_info = sqlx::query(&format!("PRAGMA table_info({})", table))
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let mut db_cols = HashSet::new();
+                for col_row in table_info {
+                    let col_name: String = col_row.try_get("name").map_err(|e| e.to_string())?;
+                    db_cols.insert(col_name);
+                }
+                for (col_name, col_type) in &inferred_types {
+                    if !db_cols.contains(col_name) {
+                        println!("[SQLITE DRIFT] Adding column '{}' of type '{}' to table '{}'", col_name, col_type, table);
+                        let alter_sql = format!("ALTER TABLE {} ADD COLUMN \"{}\" {}", table, col_name, col_type);
+                        sqlx::query(&alter_sql).execute(&pool).await.map_err(|e| format!("Failed to alter SQLite table: {}", e))?;
+                    }
+                }
+            } else {
+                let mut col_defs = Vec::new();
+                for (col_name, &col_type) in &inferred_types {
+                    col_defs.push(format!("\"{}\" {}", col_name, col_type));
+                }
+                let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+                sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Sqlite create table error: {}", e))?;
+            }
+        } else {
+            let mut col_defs = Vec::new();
+            for (col_name, &col_type) in &inferred_types {
+                col_defs.push(format!("\"{}\" {}", col_name, col_type));
+            }
+            let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+            sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Sqlite create table error: {}", e))?;
         }
-        let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
-        sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Sqlite create table error: {}", e))?;
     }
 
     if mode.to_lowercase() == "replace" {
@@ -268,17 +332,53 @@ async fn query_postgres(conn_str: &str, query: &str) -> Result<Vec<Value>, Strin
     Ok(results)
 }
 
-async fn insert_postgres(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str) -> Result<(), String> {
+async fn insert_postgres(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str, schema_drift: bool) -> Result<(), String> {
     let pool = PgPool::connect(conn_str).await.map_err(|e| format!("Postgres connection error: {}", e))?;
     
     let inferred_types = infer_column_types(&rows, false, false);
     if !rows.is_empty() {
-        let mut col_defs = Vec::new();
-        for (col_name, &col_type) in &inferred_types {
-            col_defs.push(format!("\"{}\" {}", col_name, col_type));
+        if schema_drift {
+            let table_exists = sqlx::query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)")
+                .bind(table)
+                .fetch_one(&pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .get::<bool, _>(0);
+
+            if table_exists {
+                let columns_rows = sqlx::query("SELECT column_name FROM information_schema.columns WHERE table_name = $1")
+                    .bind(table)
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let mut db_cols = HashSet::new();
+                for col_row in columns_rows {
+                    let col_name: String = col_row.try_get("column_name").map_err(|e| e.to_string())?;
+                    db_cols.insert(col_name);
+                }
+                for (col_name, col_type) in &inferred_types {
+                    if !db_cols.contains(col_name) {
+                        println!("[POSTGRES DRIFT] Adding column '{}' of type '{}' to table '{}'", col_name, col_type, table);
+                        let alter_sql = format!("ALTER TABLE {} ADD COLUMN \"{}\" {}", table, col_name, col_type);
+                        sqlx::query(&alter_sql).execute(&pool).await.map_err(|e| format!("Failed to alter Postgres table: {}", e))?;
+                    }
+                }
+            } else {
+                let mut col_defs = Vec::new();
+                for (col_name, &col_type) in &inferred_types {
+                    col_defs.push(format!("\"{}\" {}", col_name, col_type));
+                }
+                let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+                sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Postgres create table error: {}", e))?;
+            }
+        } else {
+            let mut col_defs = Vec::new();
+            for (col_name, &col_type) in &inferred_types {
+                col_defs.push(format!("\"{}\" {}", col_name, col_type));
+            }
+            let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+            sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Postgres create table error: {}", e))?;
         }
-        let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
-        sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Postgres create table error: {}", e))?;
     }
 
     if mode.to_lowercase() == "replace" {
@@ -378,17 +478,53 @@ async fn query_mysql(conn_str: &str, query: &str) -> Result<Vec<Value>, String> 
     Ok(results)
 }
 
-async fn insert_mysql(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str) -> Result<(), String> {
+async fn insert_mysql(conn_str: &str, table: &str, rows: Vec<Value>, mode: &str, schema_drift: bool) -> Result<(), String> {
     let pool = MySqlPool::connect(conn_str).await.map_err(|e| format!("MySQL connection error: {}", e))?;
     
     let inferred_types = infer_column_types(&rows, true, false);
     if !rows.is_empty() {
-        let mut col_defs = Vec::new();
-        for (col_name, &col_type) in &inferred_types {
-            col_defs.push(format!("`{}` {}", col_name, col_type));
+        if schema_drift {
+            let table_exists = sqlx::query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?")
+                .bind(table)
+                .fetch_one(&pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .get::<i64, _>(0) > 0;
+
+            if table_exists {
+                let columns_rows = sqlx::query("SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?")
+                    .bind(table)
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let mut db_cols = HashSet::new();
+                for col_row in columns_rows {
+                    let col_name: String = col_row.try_get("column_name").map_err(|e| e.to_string())?;
+                    db_cols.insert(col_name);
+                }
+                for (col_name, col_type) in &inferred_types {
+                    if !db_cols.contains(col_name) {
+                        println!("[MYSQL DRIFT] Adding column '{}' of type '{}' to table '{}'", col_name, col_type, table);
+                        let alter_sql = format!("ALTER TABLE {} ADD COLUMN `{}` {}", table, col_name, col_type);
+                        sqlx::query(&alter_sql).execute(&pool).await.map_err(|e| format!("Failed to alter MySQL table: {}", e))?;
+                    }
+                }
+            } else {
+                let mut col_defs = Vec::new();
+                for (col_name, &col_type) in &inferred_types {
+                    col_defs.push(format!("`{}` {}", col_name, col_type));
+                }
+                let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+                sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("MySQL create table error: {}", e))?;
+            }
+        } else {
+            let mut col_defs = Vec::new();
+            for (col_name, &col_type) in &inferred_types {
+                col_defs.push(format!("`{}` {}", col_name, col_type));
+            }
+            let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+            sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("MySQL create table error: {}", e))?;
         }
-        let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
-        sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("MySQL create table error: {}", e))?;
     }
 
     if mode.to_lowercase() == "replace" {
@@ -690,3 +826,364 @@ fn read_rows_from_file(source: &str) -> Result<Vec<Value>, String> {
         Ok(results)
     }
 }
+
+async fn upsert_sqlite(conn_str: &str, table: &str, rows: Vec<Value>, keys: &str, schema_drift: bool) -> Result<(), String> {
+    let pool = SqlitePool::connect(conn_str).await.map_err(|e| format!("Sqlite connection error: {}", e))?;
+    let inferred_types = infer_column_types(&rows, false, true);
+    
+    if !rows.is_empty() {
+        if schema_drift {
+            let table_exists = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+                .bind(table)
+                .fetch_optional(&pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .is_some();
+
+            if table_exists {
+                let table_info = sqlx::query(&format!("PRAGMA table_info({})", table))
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let mut db_cols = HashSet::new();
+                for col_row in table_info {
+                    let col_name: String = col_row.try_get("name").map_err(|e| e.to_string())?;
+                    db_cols.insert(col_name);
+                }
+                for (col_name, col_type) in &inferred_types {
+                    if !db_cols.contains(col_name) {
+                        let alter_sql = format!("ALTER TABLE {} ADD COLUMN \"{}\" {}", table, col_name, col_type);
+                        sqlx::query(&alter_sql).execute(&pool).await.map_err(|e| format!("Failed to alter SQLite table: {}", e))?;
+                    }
+                }
+            } else {
+                let mut col_defs = Vec::new();
+                for (col_name, &col_type) in &inferred_types {
+                    col_defs.push(format!("\"{}\" {}", col_name, col_type));
+                }
+                let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+                sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Sqlite create table error: {}", e))?;
+            }
+        } else {
+            let mut col_defs = Vec::new();
+            for (col_name, &col_type) in &inferred_types {
+                col_defs.push(format!("\"{}\" {}", col_name, col_type));
+            }
+            let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+            sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Sqlite create table error: {}", e))?;
+        }
+    }
+
+    let mut cols: Vec<String> = inferred_types.keys().cloned().collect();
+    cols.sort();
+    if cols.is_empty() { return Ok(()); }
+
+    let key_list: Vec<String> = keys.split(',').map(|k| k.trim().to_string()).collect();
+    let update_cols: Vec<String> = cols.iter().filter(|c| !key_list.contains(c)).cloned().collect();
+
+    let quoted_cols: Vec<String> = cols.iter().map(|c| format!("\"{}\"", c)).collect();
+    let key_placeholders: Vec<String> = key_list.iter().map(|k| format!("\"{}\"", k)).collect();
+
+    let upsert_prefix = if update_cols.is_empty() {
+        format!("INSERT OR IGNORE INTO {} ({}) VALUES ", table, quoted_cols.join(", "))
+    } else {
+        let update_stmt = update_cols.iter().map(|c| format!("\"{}\"=excluded.\"{}\"", c, c)).collect::<Vec<String>>().join(", ");
+        format!("INSERT INTO {} ({}) VALUES ", table, quoted_cols.join(", ")) + " "
+    };
+
+    let num_cols = cols.len();
+    let batch_size = (999 / num_cols).max(1);
+
+    let mut tx = pool.begin().await.map_err(|e| format!("Sqlite transaction error: {}", e))?;
+
+    for chunk in rows.chunks(batch_size) {
+        let mut sql = if update_cols.is_empty() {
+            upsert_prefix.clone()
+        } else {
+            let mut placeholders = Vec::new();
+            for _ in 0..chunk.len() {
+                let row_placeholders = vec!["?".to_string(); num_cols];
+                placeholders.push(format!("({})", row_placeholders.join(", ")));
+            }
+            let update_stmt = update_cols.iter().map(|c| format!("\"{}\"=excluded.\"{}\"", c, c)).collect::<Vec<String>>().join(", ");
+            format!("INSERT INTO {} ({}) VALUES {} ON CONFLICT({}) DO UPDATE SET {}", table, quoted_cols.join(", "), placeholders.join(", "), key_placeholders.join(", "), update_stmt)
+        };
+
+        if update_cols.is_empty() {
+            let mut placeholders = Vec::new();
+            for _ in 0..chunk.len() {
+                let row_placeholders = vec!["?".to_string(); num_cols];
+                placeholders.push(format!("({})", row_placeholders.join(", ")));
+            }
+            sql.push_str(&placeholders.join(", "));
+        }
+
+        let mut query_builder = sqlx::query(&sql);
+        for row_val in chunk {
+            let obj_empty = Map::new();
+            let obj = row_val.as_object().unwrap_or(&obj_empty);
+            for col in &cols {
+                let val = obj.get(col).unwrap_or(&Value::Null);
+                let col_type = inferred_types.get(col).copied().unwrap_or("TEXT");
+                
+                query_builder = if col_type == "TEXT" {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
+                } else {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::Bool(b) => query_builder.bind(*b),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                query_builder.bind(i)
+                            } else {
+                                query_builder.bind(n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
+                };
+            }
+        }
+        query_builder.execute(&mut *tx).await.map_err(|e| format!("Sqlite upsert batch error: {}", e))?;
+    }
+    tx.commit().await.map_err(|e| format!("Sqlite commit error: {}", e))?;
+    Ok(())
+}
+
+async fn upsert_postgres(conn_str: &str, table: &str, rows: Vec<Value>, keys: &str, schema_drift: bool) -> Result<(), String> {
+    let pool = PgPool::connect(conn_str).await.map_err(|e| format!("Postgres connection error: {}", e))?;
+    let inferred_types = infer_column_types(&rows, false, false);
+
+    if !rows.is_empty() {
+        if schema_drift {
+            let table_exists = sqlx::query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)")
+                .bind(table)
+                .fetch_one(&pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .get::<bool, _>(0);
+
+            if table_exists {
+                let columns_rows = sqlx::query("SELECT column_name FROM information_schema.columns WHERE table_name = $1")
+                    .bind(table)
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let mut db_cols = HashSet::new();
+                for col_row in columns_rows {
+                    let col_name: String = col_row.try_get("column_name").map_err(|e| e.to_string())?;
+                    db_cols.insert(col_name);
+                }
+                for (col_name, col_type) in &inferred_types {
+                    if !db_cols.contains(col_name) {
+                        let alter_sql = format!("ALTER TABLE {} ADD COLUMN \"{}\" {}", table, col_name, col_type);
+                        sqlx::query(&alter_sql).execute(&pool).await.map_err(|e| format!("Failed to alter Postgres table: {}", e))?;
+                    }
+                }
+            } else {
+                let mut col_defs = Vec::new();
+                for (col_name, &col_type) in &inferred_types {
+                    col_defs.push(format!("\"{}\" {}", col_name, col_type));
+                }
+                let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+                sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Postgres create table error: {}", e))?;
+            }
+        } else {
+            let mut col_defs = Vec::new();
+            for (col_name, &col_type) in &inferred_types {
+                col_defs.push(format!("\"{}\" {}", col_name, col_type));
+            }
+            let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+            sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("Postgres create table error: {}", e))?;
+        }
+    }
+
+    let mut cols: Vec<String> = inferred_types.keys().cloned().collect();
+    cols.sort();
+    if cols.is_empty() { return Ok(()); }
+
+    let key_list: Vec<String> = keys.split(',').map(|k| k.trim().to_string()).collect();
+    let update_cols: Vec<String> = cols.iter().filter(|c| !key_list.contains(c)).cloned().collect();
+
+    let quoted_cols: Vec<String> = cols.iter().map(|c| format!("\"{}\"", c)).collect();
+    let key_placeholders: Vec<String> = key_list.iter().map(|k| format!("\"{}\"", k)).collect();
+
+    let num_cols = cols.len();
+    let batch_size = (65000 / num_cols).min(5000).max(1);
+
+    let mut tx = pool.begin().await.map_err(|e| format!("Postgres transaction error: {}", e))?;
+
+    for chunk in rows.chunks(batch_size) {
+        let mut placeholders = Vec::new();
+        let mut param_index = 1;
+        for _ in 0..chunk.len() {
+            let mut row_placeholders = Vec::new();
+            for _ in 0..num_cols {
+                row_placeholders.push(format!("${}", param_index));
+                param_index += 1;
+            }
+            placeholders.push(format!("({})", row_placeholders.join(", ")));
+        }
+
+        let sql = if update_cols.is_empty() {
+            format!("INSERT INTO {} ({}) VALUES {} ON CONFLICT ({}) DO NOTHING", table, quoted_cols.join(", "), placeholders.join(", "), key_placeholders.join(", "))
+        } else {
+            let update_stmt = update_cols.iter().map(|c| format!("\"{}\"=EXCLUDED.\"{}\"", c, c)).collect::<Vec<String>>().join(", ");
+            format!("INSERT INTO {} ({}) VALUES {} ON CONFLICT ({}) DO UPDATE SET {}", table, quoted_cols.join(", "), placeholders.join(", "), key_placeholders.join(", "), update_stmt)
+        };
+
+        let mut query_builder = sqlx::query(&sql);
+        for row_val in chunk {
+            let obj_empty = Map::new();
+            let obj = row_val.as_object().unwrap_or(&obj_empty);
+            for col in &cols {
+                let val = obj.get(col).unwrap_or(&Value::Null);
+                let col_type = inferred_types.get(col).copied().unwrap_or("TEXT");
+                
+                query_builder = if col_type == "TEXT" {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
+                } else {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::Bool(b) => query_builder.bind(*b),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                query_builder.bind(i)
+                            } else {
+                                query_builder.bind(n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
+                };
+            }
+        }
+        query_builder.execute(&mut *tx).await.map_err(|e| format!("Postgres upsert batch error: {}", e))?;
+    }
+    tx.commit().await.map_err(|e| format!("Postgres commit error: {}", e))?;
+    Ok(())
+}
+
+async fn upsert_mysql(conn_str: &str, table: &str, rows: Vec<Value>, keys: &str, schema_drift: bool) -> Result<(), String> {
+    let pool = MySqlPool::connect(conn_str).await.map_err(|e| format!("MySQL connection error: {}", e))?;
+    let inferred_types = infer_column_types(&rows, true, false);
+
+    if !rows.is_empty() {
+        if schema_drift {
+            let table_exists = sqlx::query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?")
+                .bind(table)
+                .fetch_one(&pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .get::<i64, _>(0) > 0;
+
+            if table_exists {
+                let columns_rows = sqlx::query("SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?")
+                    .bind(table)
+                    .fetch_all(&pool)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let mut db_cols = HashSet::new();
+                for col_row in columns_rows {
+                    let col_name: String = col_row.try_get("column_name").map_err(|e| e.to_string())?;
+                    db_cols.insert(col_name);
+                }
+                for (col_name, col_type) in &inferred_types {
+                    if !db_cols.contains(col_name) {
+                        let alter_sql = format!("ALTER TABLE {} ADD COLUMN `{}` {}", table, col_name, col_type);
+                        sqlx::query(&alter_sql).execute(&pool).await.map_err(|e| format!("Failed to alter MySQL table: {}", e))?;
+                    }
+                }
+            } else {
+                let mut col_defs = Vec::new();
+                for (col_name, &col_type) in &inferred_types {
+                    col_defs.push(format!("`{}` {}", col_name, col_type));
+                }
+                let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+                sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("MySQL create table error: {}", e))?;
+            }
+        } else {
+            let mut col_defs = Vec::new();
+            for (col_name, &col_type) in &inferred_types {
+                col_defs.push(format!("`{}` {}", col_name, col_type));
+            }
+            let create_sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", table, col_defs.join(", "));
+            sqlx::query(&create_sql).execute(&pool).await.map_err(|e| format!("MySQL create table error: {}", e))?;
+        }
+    }
+
+    let mut cols: Vec<String> = inferred_types.keys().cloned().collect();
+    cols.sort();
+    if cols.is_empty() { return Ok(()); }
+
+    let key_list: Vec<String> = keys.split(',').map(|k| k.trim().to_string()).collect();
+    let update_cols: Vec<String> = cols.iter().filter(|c| !key_list.contains(c)).cloned().collect();
+
+    let quoted_cols: Vec<String> = cols.iter().map(|c| format!("`{}`", c)).collect();
+
+    let num_cols = cols.len();
+    let batch_size = (65000 / num_cols).min(5000).max(1);
+
+    let mut tx = pool.begin().await.map_err(|e| format!("MySQL transaction error: {}", e))?;
+
+    for chunk in rows.chunks(batch_size) {
+        let mut placeholders = Vec::new();
+        for _ in 0..chunk.len() {
+            let row_placeholders = vec!["?".to_string(); num_cols];
+            placeholders.push(format!("({})", row_placeholders.join(", ")));
+        }
+
+        let sql = if update_cols.is_empty() {
+            format!("INSERT IGNORE INTO {} ({}) VALUES {}", table, quoted_cols.join(", "), placeholders.join(", "))
+        } else {
+            let update_stmt = update_cols.iter().map(|c| format!("`{}`=VALUES(`{}`)", c, c)).collect::<Vec<String>>().join(", ");
+            format!("INSERT INTO {} ({}) VALUES {} ON DUPLICATE KEY UPDATE {}", table, quoted_cols.join(", "), placeholders.join(", "), update_stmt)
+        };
+
+        let mut query_builder = sqlx::query(&sql);
+        for row_val in chunk {
+            let obj_empty = Map::new();
+            let obj = row_val.as_object().unwrap_or(&obj_empty);
+            for col in &cols {
+                let val = obj.get(col).unwrap_or(&Value::Null);
+                let col_type = inferred_types.get(col).copied().unwrap_or("TEXT");
+                
+                query_builder = if col_type == "TEXT" {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
+                } else {
+                    match val {
+                        Value::Null => query_builder.bind(None::<String>),
+                        Value::Bool(b) => query_builder.bind(*b),
+                        Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                query_builder.bind(i)
+                            } else {
+                                query_builder.bind(n.as_f64().unwrap_or(0.0))
+                            }
+                        }
+                        Value::String(s) => query_builder.bind(s.clone()),
+                        other => query_builder.bind(other.to_string()),
+                    }
+                };
+            }
+        }
+        query_builder.execute(&mut *tx).await.map_err(|e| format!("MySQL upsert batch error: {}", e))?;
+    }
+    tx.commit().await.map_err(|e| format!("MySQL commit error: {}", e))?;
+    Ok(())
+}
+

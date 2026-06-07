@@ -530,3 +530,96 @@ pub fn handle_io_metadata(args: &[String]) -> Result<(), MuscleError> {
 
     Ok(())
 }
+
+pub fn handle_io_zip(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+
+    run_archive_helper("zip", source, destination)
+}
+
+pub fn handle_io_unzip(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+
+    run_archive_helper("unzip", source, destination)
+}
+
+fn run_archive_helper(mode: &str, source: &str, destination: &str) -> Result<(), MuscleError> {
+    use std::process::Command;
+    let py_path = if cfg!(windows) { ".venv\\Scripts\\python.exe" } else { ".venv/bin/python" };
+    let helper_path = "brain/archive_helper.py";
+
+    let mut cmd = Command::new(py_path);
+    cmd.arg(helper_path).arg(mode).arg(source).arg(destination);
+
+    let output = cmd.output().map_err(|e| {
+        MuscleError::Generic(format!("Failed to execute Python archive helper: {}", e))
+    })?;
+
+    if !output.status.success() {
+        let err_msg = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(MuscleError::Generic(format!("Archive helper failed: {}", err_msg)));
+    }
+
+    let stdout_msg = String::from_utf8_lossy(&output.stdout).to_string();
+    print!("{}", stdout_msg);
+    Ok(())
+}
+

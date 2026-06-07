@@ -22,3 +22,5 @@ test_results/*.csv
 test_results/*.xlsx
 test_results/*.xml
 brain/run_history.json
+brain/audit_trail.json
+

@@ -217,6 +217,46 @@
         "required": ["host", "user", "password", "remote_path", "local_path"]
       }
     },
+    "net.ftp_download_filtered": {
+      "description": "Télécharge sélectivement des fichiers depuis FTP selon l'âge et la taille (UTC).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": { "type": "string", "description": "Hôte du serveur FTP." },
+          "port": { "type": "string", "default": "21", "description": "Port FTP." },
+          "user": { "type": "string", "description": "Identifiant FTP." },
+          "password": { "type": "string", "description": "Mot de passe FTP." },
+          "remote_dir": { "type": "string", "description": "Dossier distant contenant les fichiers." },
+          "local_dir": { "type": "string", "description": "Dossier local de destination." },
+          "max_age_hours": { "type": "string", "description": "Optionnel: âge maximal des fichiers en heures (ex: '24' pour modifier dans les dernières 24h)" },
+          "min_age_hours": { "type": "string", "description": "Optionnel: âge minimal / ancienneté en heures (ex: '72' pour exiger 3 jours d'ancienneté)" },
+          "min_size_mb": { "type": "string", "description": "Optionnel: taille minimale en Mo (ex: '0.1')" },
+          "max_size_mb": { "type": "string", "description": "Optionnel: taille maximale en Mo (ex: '50')" }
+        },
+        "required": ["host", "user", "password", "remote_dir", "local_dir"]
+      }
+    },
+    "net.sftp_download_filtered": {
+      "description": "Télécharge sélectivement des fichiers depuis SFTP selon l'âge et la taille (UTC).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": { "type": "string", "description": "Hôte du serveur SFTP." },
+          "port": { "type": "string", "default": "22", "description": "Port SSH/SFTP." },
+          "user": { "type": "string", "description": "Identifiant SSH." },
+          "password": { "type": "string", "description": "Mot de passe SSH (ou clé)." },
+          "key_path": { "type": "string", "description": "Optionnel: chemin clé privée SSH." },
+          "key_passphrase": { "type": "string", "description": "Optionnel: passphrase de clé privée." },
+          "remote_dir": { "type": "string", "description": "Dossier distant contenant les fichiers." },
+          "local_dir": { "type": "string", "description": "Dossier local de destination." },
+          "max_age_hours": { "type": "string", "description": "Optionnel: âge maximal des fichiers en heures (ex: '24')" },
+          "min_age_hours": { "type": "string", "description": "Optionnel: âge minimal / ancienneté en heures (ex: '72')" },
+          "min_size_mb": { "type": "string", "description": "Optionnel: taille minimale en Mo (ex: '0.1')" },
+          "max_size_mb": { "type": "string", "description": "Optionnel: taille maximale en Mo (ex: '50')" }
+        },
+        "required": ["host", "user", "remote_dir", "local_dir"]
+      }
+    },
     "net.sftp_download": {
       "description": "Télécharge un fichier depuis un serveur SFTP sécurisé (SSH).",
       "parameters": {
@@ -826,6 +866,11 @@
             "enum": ["left", "inner", "outer"],
             "default": "left",
             "description": "Optionnel : Le type de jointure relationnelle."
+          },
+          "streaming": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Activer l'exécution en flux (streaming) dans Polars pour optimiser la mémoire RAM."
           }
         },
         "required": ["source", "destination"]
@@ -851,6 +896,11 @@
           "rules": {
             "type": "string",
             "description": "Tableau JSON de règles d'assertions. Ex: [{\"column\": \"age\", \"operator\": \">=\", \"value\": 0}, {\"column\": \"email\", \"operator\": \"matches\", \"value\": \"^[^@]+@[^@]+\\\\.[^@]+$\"}]"
+          },
+          "streaming": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Activer l'exécution en flux (streaming) dans Polars pour optimiser la mémoire RAM."
           }
         },
         "required": ["source", "destination", "quarantine", "rules"]
@@ -899,6 +949,11 @@
             "enum": ["insert", "replace"],
             "default": "insert",
             "description": "Mode d'insertion : insert (ajout simple) ou replace (remplacement complet)."
+          },
+          "schema_drift": {
+            "type": "boolean",
+            "default": false,
+            "description": "Activer la dérive de schéma automatique pour ajouter les colonnes manquantes dans la base."
           }
         },
         "required": ["connection_string", "table_name", "source"]
@@ -1376,6 +1431,168 @@
           }
         },
         "required": ["source", "destination", "casts"]
+      }
+    },
+    "db.upsert": {
+      "description": "Upsert (mise à jour ou insertion) idempotent des lignes d'un fichier dans une table SQL sur clés primaires de conflit.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "Chaîne de connexion de la base de données (ex: sqlite://db.sqlite)."
+          },
+          "table_name": {
+            "type": "string",
+            "description": "Le nom de la table cible."
+          },
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Clé(s) primaire(s) pour détecter les doublons et faire la mise à jour, séparées par virgules (ex: id)."
+          },
+          "schema_drift": {
+            "type": "boolean",
+            "default": false,
+            "description": "Activer la dérive de schéma automatique pour ajouter les colonnes manquantes dans la base."
+          }
+        },
+        "required": ["connection_string", "table_name", "source", "keys"]
+      }
+    },
+    "data.split_out": {
+      "description": "Éclate les colonnes contenant des listes ou des chaînes sérialisées JSON vers des lignes distinctes (explode).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de destination propre éclaté."
+          },
+          "column": {
+            "type": "string",
+            "description": "Le nom de la colonne à éclater."
+          },
+          "delimiter": {
+            "type": "string",
+            "description": "Optionnel: Délimiteur de texte pour éclater si ce n'est pas un tableau JSON direct (ex: virgule)."
+          }
+        },
+        "required": ["source", "destination", "column"]
+      }
+    },
+    "data.zip": {
+      "description": "Compresse un dossier ou un fichier dans une archive ZIP.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Chemin du fichier ou dossier source à compresser."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Chemin de l'archive ZIP destination à générer."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.unzip": {
+      "description": "Décompresse une archive ZIP dans un dossier de destination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Chemin de l'archive ZIP source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Dossier cible pour extraire le contenu."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "core.wait": {
+      "description": "Met en pause l'exécution du workflow pendant une durée spécifiée (secondes ou HH:MM:SS).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "duration": {
+            "type": "string",
+            "description": "Durée de l'attente. Exemples: '5' (5 secondes), '02:30' (2 min 30 s), '01:00:00' (1 heure)."
+          }
+        },
+        "required": ["duration"]
+      }
+    },
+    "core.loop": {
+      "description": "Itère l'exécution d'une liste d'étapes sur des variables, des lignes de fichier ou des chemins de fichiers filtrés.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "loop_over": {
+            "type": "string",
+            "enum": ["variables", "files", "rows"],
+            "description": "Type d'éléments à parcourir."
+          },
+          "items_source": {
+            "type": "string",
+            "description": "Source des éléments (valeurs séparées par des virgules, chemin d'accès au dossier ou fichier)."
+          },
+          "pattern": {
+            "type": "string",
+            "default": "*",
+            "description": "Optionnel (pour files) : Filtre de motif de glob (ex: *.csv)."
+          },
+          "max_age_hours": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Âge maximum du fichier en heures (ex: '24' pour les fichiers modifiés dans les dernières 24h)."
+          },
+          "min_age_hours": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Âge minimum / ancienneté en heures (ex: '72' pour exiger au moins 3 jours d'ancienneté)."
+          },
+          "min_size_mb": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Taille minimale du fichier en Mo (ex: '0.5')."
+          },
+          "max_size_mb": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Taille maximale du fichier en Mo (ex: '10')."
+          },
+          "steps": {
+            "type": "array",
+            "description": "Liste d'étapes enfants à exécuter à chaque itération."
+          }
+        },
+        "required": ["loop_over", "items_source", "steps"]
+      }
+    },
+    "core.switch": {
+      "description": "Primitive d'orchestration logique. Route l'exécution vers différents sous-graphes selon la valeur d'une clé ou d'un paramètre.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "La valeur ou variable à tester (ex: ${ENV_MODE} ou ${STATUS})."
+          },
+          "cases": {
+            "type": "object",
+            "description": "Dictionnaire associant des valeurs de cas à des listes d'étapes d'exécution (ex: {\"dev\": [...], \"prod\": [...]})."
+          }
+        },
+        "required": ["value", "cases"]
       }
     }
   }

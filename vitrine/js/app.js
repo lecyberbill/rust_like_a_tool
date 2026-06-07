@@ -1,4 +1,4 @@
-// [WFGY] Zone: SAFE | λ: 0.1 | Action: Extracted javascript application logic
+// [WFGY] Zone: SAFE | λ: 0.4 | Action: Implement Data Lineage UI & Audit Trail
 
 let ws;
         let activeNodes = {};
@@ -263,6 +263,20 @@ let ws;
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({ type: 'GET_RUN_HISTORY' }));
                     }
+                }
+                else if (data.type === 'AUDIT_TRAIL_RESULT') {
+                    renderAuditTrailList(data.audit);
+                }
+                else if (data.type === 'AUDIT_TRAIL_UPDATE') {
+                    addLog(`Nouvel audit immuable enregistré pour le run : ${data.audit.run_id}`, 'info');
+                    if (document.getElementById('audit-modal').style.display === 'flex') {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'GET_AUDIT_TRAIL' }));
+                        }
+                    }
+                }
+                else if (data.type === 'DATA_LINEAGE_RESULT') {
+                    renderDataLineageOverlays(data.lineage);
                 }
                 else if (data.type === 'DATA_PREVIEW_RESULT') {
                     const contentDiv = document.getElementById('data-preview-content');
@@ -894,12 +908,50 @@ let ws;
             modal.style.display = 'flex';
         }
 
+        let dataLineageMode = false;
+        let cachedLineage = null;
+
+        function toggleDataLineageMode() {
+            dataLineageMode = !dataLineageMode;
+            const btn = document.getElementById('btn-toggle-lineage');
+            if (btn) {
+                if (dataLineageMode) {
+                    btn.classList.add('active');
+                    btn.style.background = 'rgba(0, 240, 255, 0.1)';
+                    btn.style.boxShadow = '0 0 10px var(--accent-glow)';
+                    addLog("Mode Lignage de Données (Lineage) activé.", "info");
+                    // Request dynamic lineage computation
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'GET_DATA_LINEAGE' }));
+                    }
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.background = '';
+                    btn.style.boxShadow = '';
+                    cachedLineage = null;
+                    addLog("Mode Lignage désactivé (Affichage des dépendances d'exécution).", "info");
+                    drawConnections();
+                }
+            }
+        }
+
         function drawConnections() {
             const svg = document.getElementById('connections-svg');
             svg.innerHTML = '';
             
             const currentSteps = getCurrentStepList();
             if (currentSteps.length === 0) return;
+
+            if (dataLineageMode) {
+                if (cachedLineage) {
+                    renderDataLineageOverlays(cachedLineage);
+                } else {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'GET_DATA_LINEAGE' }));
+                    }
+                }
+                return;
+            }
             
             currentSteps.forEach(step => {
                 const stepNum = step.step;
@@ -2384,14 +2436,18 @@ let ws;
                 { name: "io.move", label: "Déplacer des fichiers", args: { source: "", destination: "", overwrite: true } },
                 { name: "io.delete", label: "Supprimer des fichiers", args: { path: "", secure_retention: true } },
                 { name: "io.metadata", label: "Obtenir les métadonnées", args: { path: "", destination: "" } },
-                { name: "io.write_file", label: "Écrire un fichier", args: { content: "", destination: "" } }
+                { name: "io.write_file", label: "Écrire un fichier", args: { content: "", destination: "" } },
+                { name: "data.zip", label: "Compresser en ZIP", args: { source: "", destination: "" } },
+                { name: "data.unzip", label: "Décompresser un ZIP", args: { source: "", destination: "" } }
             ],
             "Réseau & Services": [
                 { name: "net.download", label: "Télécharger par HTTP", args: { url: "", destination: "" } },
                 { name: "net.upload", label: "Téléverser par HTTP", args: { file_path: "", url: "", method: "POST", headers: "" } },
                 { name: "net.ftp_download", label: "Télécharger FTP", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
+                { name: "net.ftp_download_filtered", label: "Télécharger FTP Filtré", args: { host: "", port: "21", user: "", password: "", remote_dir: "", local_dir: "", max_age_hours: "", min_size_mb: "", max_size_mb: "" } },
                 { name: "net.ftp_upload", label: "Téléverser FTP", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
                 { name: "net.sftp_download", label: "Télécharger SFTP", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
+                { name: "net.sftp_download_filtered", label: "Télécharger SFTP Filtré", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_dir: "", local_dir: "", max_age_hours: "", min_size_mb: "", max_size_mb: "" } },
                 { name: "net.sftp_upload", label: "Téléverser SFTP", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
                 { name: "google.sheets_read", label: "Lire Google Sheets", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "" } },
                 { name: "google.sheets_write", label: "Écrire Google Sheets", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "", clear_sheet: true } },
@@ -2408,11 +2464,13 @@ let ws;
                 { name: "data.json_to_xml", label: "Exporter en XML", args: { source: "", destination: "", root_element: "root", row_element: "row" } },
                 { name: "data.to_xlsx", label: "Exporter en Excel XLSX", args: { source: "", destination: "", sheet_name: "Sheet1" } },
                 { name: "data.delta", label: "Réconciliation Delta CDC", args: { source: "", target: "", keys: "", destination_upsert: "", destination_delete: "", destination_sync: "" } },
-                { name: "data.type_cast", label: "Typage strict de schéma", args: { source: "", destination: "", casts: "{}" } }
+                { name: "data.type_cast", label: "Typage strict de schéma", args: { source: "", destination: "", casts: "{}" } },
+                { name: "data.split_out", label: "Séparation Split Out (Explode)", args: { source: "", destination: "", column: "", delimiter: "" } }
             ],
             "Bases de Données": [
                 { name: "db.query", label: "Requête SQL SELECT", args: { connection_string: "", query: "", destination: "" } },
                 { name: "db.insert", label: "Insertion SQL", args: { connection_string: "", table_name: "", source: "", mode: "insert" } },
+                { name: "db.upsert", label: "Upsert SQL Idempotent", args: { connection_string: "", table_name: "", source: "", keys: "", schema_drift: false } },
                 { name: "mongodb.find", label: "Recherche MongoDB", args: { connection_string: "", database: "", collection: "", filter: "{}", projection: "", destination: "" } },
                 { name: "mongodb.insert", label: "Insertion MongoDB", args: { connection_string: "", database: "", collection: "", source: "", mode: "insert" } }
             ],
@@ -2430,8 +2488,10 @@ let ws;
                 { name: "ai.extract", label: "Extraction d'entités NLP", args: { source: "", destination: "", text_column: "", schema: "{}", model_provider: "", model_id: "", base_url: "" } }
             ],
             "Contrôle": [
+                { name: "core.wait", label: "Attente (Retention Wait)", args: { duration: "10" } },
                 { name: "core.sub_flow", label: "Sous-flux de traitement", args: { steps: [] } },
-                { name: "core.loop", label: "Boucle d'itération", args: { type: "variables", list: "", steps: [] } }
+                { name: "core.loop", label: "Boucle d'itération", args: { loop_over: "variables", items_source: "", pattern: "*", max_age_hours: "", min_size_mb: "", max_size_mb: "", steps: [] } },
+                { name: "core.switch", label: "Aiguillage Switch", args: { value: "", cases: {} } }
             ]
         };
 
@@ -2740,4 +2800,202 @@ let ws;
                 renderNodes(steps);
                 saveActiveWorkspace();
             }
+        }
+
+        // --- DYNAMIC DATA LINEAGE & IMMUTABLE AUDIT TRAIL (LOT B) ---
+        let currentAuditTrail = [];
+
+        function renderDataLineageOverlays(lineage) {
+            cachedLineage = lineage;
+            const svg = document.getElementById('connections-svg');
+            if (!svg) return;
+            svg.innerHTML = '';
+            
+            if (!lineage) return;
+            
+            Object.keys(lineage).forEach(fileKey => {
+                const info = lineage[fileKey];
+                const producer = info.producer;
+                const consumers = info.consumers || [];
+                
+                if (producer && activeNodes[producer]) {
+                    consumers.forEach(consumer => {
+                        if (activeNodes[consumer]) {
+                            const nodeA = activeNodes[producer];
+                            const nodeB = activeNodes[consumer];
+                            
+                            const rectA = nodeA.getBoundingClientRect();
+                            const rectB = nodeB.getBoundingClientRect();
+                            const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+                            
+                            const x1 = (rectA.left - canvasRect.left + rectA.width) / canvasZoom;
+                            const y1 = (rectA.top - canvasRect.top + rectA.height / 2) / canvasZoom;
+                            
+                            const x2 = (rectB.left - canvasRect.left) / canvasZoom;
+                            const y2 = (rectB.top - canvasRect.top + rectB.height / 2) / canvasZoom;
+                            
+                            const controlX = x1 + (x2 - x1) / 2;
+                            const pathD = `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`;
+                            
+                            // Cyan dotted line
+                            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            path.setAttribute('d', pathD);
+                            path.setAttribute('fill', 'none');
+                            path.setAttribute('stroke', '#00f0ff');
+                            path.setAttribute('stroke-width', '2.5');
+                            path.setAttribute('stroke-dasharray', '6,4');
+                            path.style.filter = 'drop-shadow(0 0 3px rgba(0, 240, 255, 0.4))';
+                            
+                            svg.appendChild(path);
+                            
+                            // Render file name label
+                            const filename = info.file_path.split('/').pop().split('\\').pop();
+                            if (filename) {
+                                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                                
+                                // Estimate midpoint on cubic Bezier curve
+                                const midX = (x1 + 3 * controlX + 3 * controlX + x2) / 8;
+                                const midY = (y1 + 3 * y1 + 3 * y2 + y2) / 8;
+                                
+                                text.setAttribute('x', midX);
+                                text.setAttribute('y', midY - 8); // Slightly offset vertically
+                                text.setAttribute('text-anchor', 'middle');
+                                text.setAttribute('fill', '#00f0ff');
+                                text.setAttribute('font-size', '0.72rem');
+                                text.setAttribute('font-weight', 'bold');
+                                text.style.fontFamily = 'monospace';
+                                text.style.pointerEvents = 'none';
+                                text.textContent = filename;
+                                
+                                svg.appendChild(text);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        function openAuditTrailModal() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'GET_AUDIT_TRAIL' }));
+            }
+            document.getElementById('audit-modal').style.display = 'flex';
+        }
+
+        function closeAuditTrailModal() {
+            document.getElementById('audit-modal').style.display = 'none';
+        }
+
+        function renderAuditTrailList(auditRecords) {
+            currentAuditTrail = auditRecords || [];
+            const tbody = document.getElementById('audit-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            if (currentAuditTrail.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">Aucun enregistrement d\'audit disponible.</td></tr>';
+                return;
+            }
+            
+            currentAuditTrail.forEach(record => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border)';
+                
+                const date = new Date(record.timestamp);
+                const dateStr = date.toLocaleString();
+                const isSuccess = record.status === 'success';
+                const statusBadge = `<span class="status-badge" style="background: ${isSuccess ? 'rgba(0,255,102,0.1)' : 'rgba(239,68,68,0.1)'}; color: ${isSuccess ? 'var(--success)' : 'var(--error)'}; border: 1px solid ${isSuccess ? 'var(--success)' : 'var(--error)'}; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${record.status.toUpperCase()}</span>`;
+                
+                tr.innerHTML = `
+                    <td style="padding: 10px;">${dateStr}</td>
+                    <td style="padding: 10px; font-weight: bold; color: var(--accent);">${record.workspace_id}</td>
+                    <td style="padding: 10px;">${record.username}</td>
+                    <td style="padding: 10px; font-family: 'Roboto Mono', monospace; font-size: 0.8rem;">${record.hostname} (${record.os_name})</td>
+                    <td style="padding: 10px;">${statusBadge}</td>
+                    <td style="padding: 10px; font-family: 'Roboto Mono', monospace; font-weight: bold;">${record.duration_ms} ms</td>
+                    <td style="padding: 10px; text-align: right;">
+                        <button class="toggle-logs-btn" onclick="openAuditDetailsModal('${record.run_id}')" style="background: rgba(192, 132, 252, 0.05); color: #c084fc; border-color: rgba(192, 132, 252, 0.2);">🔍 Voir détails</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openAuditDetailsModal(runId) {
+            const record = currentAuditTrail.find(r => r.run_id === runId);
+            if (!record) return;
+            
+            const container = document.getElementById('audit-details-content');
+            if (!container) return;
+            
+            let stepsHtml = '';
+            const steps = record.steps_executed || [];
+            steps.forEach(s => {
+                const isSuccess = s.status === 'success';
+                const color = isSuccess ? 'var(--success)' : (s.status === 'skipped' ? 'var(--text-muted)' : 'var(--error)');
+                stepsHtml += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;">
+                        <div>
+                            <span style="font-weight: bold; color: ${color};">Étape ${s.step}</span> : ${s.label}
+                        </div>
+                        <div style="font-family: 'Roboto Mono', monospace; font-size: 0.8rem;">
+                            <span style="color: ${color}; font-weight: bold;">${s.status.toUpperCase()}</span> (${s.duration_ms} ms)
+                        </div>
+                    </div>
+                `;
+            });
+            
+            let lineageHtml = '';
+            const lineage = record.data_lineage || {};
+            const lineageKeys = Object.keys(lineage);
+            if (lineageKeys.length === 0) {
+                lineageHtml = '<div style="color: var(--text-muted); font-style: italic;">Aucun lignage de données enregistré.</div>';
+            } else {
+                lineageKeys.forEach(filePath => {
+                    const info = lineage[filePath];
+                    const consumersStr = info.consumers && info.consumers.length > 0 ? info.consumers.join(', ') : 'Aucun';
+                    lineageHtml += `
+                        <div style="padding: 8px; background: rgba(0, 240, 255, 0.02); border: 1px solid rgba(0, 240, 255, 0.1); border-radius: 6px; margin-bottom: 8px; font-family: 'Roboto Mono', monospace; font-size: 0.78rem; word-break: break-all;">
+                            <div style="font-weight: bold; color: var(--accent); margin-bottom: 4px;">📄 ${filePath}</div>
+                            <div style="display: flex; flex-direction: column; gap: 2px; padding-left: 10px; color: var(--text-muted);">
+                                <div>Produit par : Étape ${info.producer || 'Externe / Inconnu'}</div>
+                                <div>Consommé par : Étapes [${consumersStr}]</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">ID du Flux</div>
+                        <div style="font-weight: bold; font-size: 1rem; color: var(--text);">${record.workspace_id}</div>
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-top: 10px;">ID Exécution</div>
+                        <div style="font-family: 'Roboto Mono', monospace; font-size: 0.85rem;">${record.run_id}</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">Date / Heure</div>
+                        <div>${new Date(record.timestamp).toLocaleString()}</div>
+                        <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-top: 10px;">Environnement</div>
+                        <div>Hôte: ${record.hostname} (${record.os_name})<br>User: ${record.username}</div>
+                    </div>
+                </div>
+                
+                <h5 style="margin-top: 0; margin-bottom: 8px; color: var(--success); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px;">📋 Étapes exécutées</h5>
+                <div style="margin-bottom: 16px;">
+                    ${stepsHtml || '<div style="color: var(--text-muted); font-style: italic;">Aucune étape exécutée.</div>'}
+                </div>
+                
+                <h5 style="margin-top: 0; margin-bottom: 8px; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px;">🔗 Lignage des Fichiers (Data Lineage)</h5>
+                <div>
+                    ${lineageHtml}
+                </div>
+            `;
+            
+            document.getElementById('audit-details-modal').style.display = 'flex';
+        }
+
+        function closeAuditDetailsModal() {
+            document.getElementById('audit-details-modal').style.display = 'none';
         }

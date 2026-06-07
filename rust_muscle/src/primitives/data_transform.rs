@@ -552,6 +552,19 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     return Err(MuscleError::Generic("Missing value for --how-join".to_string()));
                 }
             }
+            "--streaming" => {
+                if i + 1 < args.len() {
+                    let streaming_val = args[i + 1].parse::<bool>().unwrap_or(false);
+                    if streaming_val {
+                        unsafe {
+                            std::env::set_var("POLARS_STREAMING", "true");
+                        }
+                    }
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --streaming".to_string()));
+                }
+            }
             other => {
                 return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
             }
@@ -604,6 +617,19 @@ pub fn handle_data_validate(args: &[String]) -> Result<(), MuscleError> {
             "--rules" => {
                 if i + 1 < args.len() { rules = Some(&args[i+1]); i += 2; }
                 else { return Err(MuscleError::Generic("Missing value for --rules".to_string())); }
+            }
+            "--streaming" => {
+                if i + 1 < args.len() {
+                    let streaming_val = args[i + 1].parse::<bool>().unwrap_or(false);
+                    if streaming_val {
+                        unsafe {
+                            std::env::set_var("POLARS_STREAMING", "true");
+                        }
+                    }
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --streaming".to_string()));
+                }
             }
             other => {
                 return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
