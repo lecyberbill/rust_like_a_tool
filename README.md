@@ -56,7 +56,13 @@ The workspace is organized into clean, dedicated directories to keep the root di
 ├── vitrine/                      <-- The Vitrine (Frontend Client modularized)
 │   ├── index.html                <-- UI Entrypoint served on port 8766
 │   ├── css/style.css             <-- Premium Glassmorphism styling sheets
-│   └── js/app.js                 <-- WebSocket client and workbench flow graph logic
+│   └── js/                       <-- Frontend JavaScript modules
+│       ├── canvas.js             <-- Canvas drawing, zoom, themes, and cycles
+│       ├── aimapper.js           <-- Schema mapping and formula popup logic
+│       ├── editor.js             <-- Node parameters sidebar configuration
+│       ├── modals.js             <-- Modal popups and audit view controllers
+│       ├── api.js                <-- WebSocket outgoing client API commands
+│       └── app.js                <-- Global states, custom element, and routing
 ├── rust_muscle/                  <-- The Muscle (Rust Primitives Engine)
 │   ├── Cargo.toml
 │   ├── src/
