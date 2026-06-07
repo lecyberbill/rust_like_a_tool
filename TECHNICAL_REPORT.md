@@ -261,6 +261,8 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-07:** Implemented n8n-inspired ETL components: `db.upsert`, `data.split_out`, `data.zip`/`data.unzip`, and `core.switch`. Verified all components with `test_n8n_features.py`.
 - **2026-06-07:** Implemented `core.wait` sleep primitive with flexible duration parser (HH:MM:SS), local folder loop filters (max_age_hours, min_size_mb, max_size_mb), and timezone-aligned remote filtered downloads (`net.ftp_download_filtered` and `net.sftp_download_filtered`) using UTC-aware epoch times.
 - **2026-06-07:** Implemented Lot B (Observability & Data Lineage): Added backend lineage solver and audit trail serialization, designed frontend visual lineage mode and details drawer modals, and validated all logic using automated test script `test_observability_lot_b.py`.
+- **2026-06-07:** Refactored the monolithic frontend `vitrine/js/app.js` (3000+ lines) by splitting visual rendering, mapping inputs (AiMapper), node settings editing, modal controllers, and outgoing WebSocket APIs into dedicated modular scripts (`canvas.js`, `aimapper.js`, `editor.js`, `modals.js`, `api.js`) loaded sequentially in `index.html`.
+
 
 
 
