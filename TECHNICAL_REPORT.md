@@ -267,6 +267,8 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-07:** Implemented Lot B (Observability & Data Lineage): Added backend lineage solver and audit trail serialization, designed frontend visual lineage mode and details drawer modals, and validated all logic using automated test script `test_observability_lot_b.py`.
 - **2026-06-07:** Refactored the monolithic frontend `vitrine/js/app.js` (3000+ lines) by splitting visual rendering, mapping inputs (AiMapper), node settings editing, modal controllers, and outgoing WebSocket APIs into dedicated modular scripts (`canvas.js`, `aimapper.js`, `editor.js`, `modals.js`, `api.js`) loaded sequentially in `index.html`.
 - **2026-06-07:** Implemented a robust AI Planner stress test suite (`test_planner_stress.py`) validating 5 complex recipe scenarios including schema validation, nested structures, and cycle checking with offline simulation fallback.
+- **2026-06-07:** Created `run_e2e_postgres_test.py` for end-to-end stress testing of 20,000 lines processing, filtering, masking, and inserting into PostgreSQL.
+
 
 
 
