@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>WFGY Workbench</title>
+    <title>RLT Workbench</title>
     <!-- Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,15 +13,18 @@
 <body>
     <header id="app-header">
         <div style="display: flex; align-items: center; gap: 24px;">
-            <div class="logo-title">WFGY Core v3</div>
+            <div class="logo-title">RLT (Rust Like A Tool)</div>
             <div class="nav-tabs">
                 <button class="nav-tab active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">📊 Tableau de Bord</button>
                 <button class="nav-tab" id="tab-btn-workshop" onclick="switchTab('workshop')">Atelier (Conception)</button>
             </div>
+            <!-- Theme Toggle Button -->
+            <button class="toggle-logs-btn" onclick="toggleTheme()" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">🌗 Thème</button>
         </div>
         
         <!-- Workshop canvas control actions (visible only in Workshop view) -->
         <div id="workshop-actions" style="display: none; gap: 8px; align-items: center;">
+            <button class="toggle-logs-btn" onclick="toggleCatalog()">🧩 Catalogue</button>
             <button class="toggle-logs-btn" onclick="triggerUpload()">📂 Charger</button>
             <button class="toggle-logs-btn" onclick="downloadRecipe()">💾 Sauvegarder</button>
             <button class="toggle-logs-btn" onclick="clearRecipe()">🗑️ Effacer</button>
@@ -65,15 +68,15 @@
         <!-- Section Historique des Runs et Télémétrie de Performance -->
         <div id="dashboard-run-history" style="margin-top: 30px; display: grid; grid-template-columns: 350px 1fr; gap: 24px; min-height: 300px;">
             <!-- Colonne Gauche: Timeline des Exécutions -->
-            <div style="background: rgba(10, 10, 25, 0.5); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column;">
+            <div class="dashboard-panel" style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column;">
                 <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--accent); margin-top: 0; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;">📜 Historique des Exécutions</h3>
                 <div id="run-history-timeline" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; max-height: 400px; padding-right: 6px;">
                     <div style="color: var(--text-muted); font-style: italic; font-size: 0.9rem; text-align: center; padding-top: 40px;">Aucun run enregistré</div>
                 </div>
             </div>
-
+ 
             <!-- Colonne Droite: Analyse de Performance par Étape -->
-            <div style="background: rgba(10, 10, 25, 0.5); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column;">
+            <div class="dashboard-panel" style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--success); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Télémétrie de Performance (DAG ms)</h3>
                     <div id="selected-run-meta" style="font-size: 0.85rem; color: var(--text-muted); font-family: 'Roboto Mono', monospace;">Sélectionnez un run</div>
@@ -88,17 +91,51 @@
     <!-- SECTION 2: WORKSHOP VIEW -->
     <div id="workshop-view" class="view-section" style="flex: 1; display: none; flex-direction: column; overflow: hidden; position: relative;">
         <div id="main-container">
-        <div id="canvas-wrapper">
-            <!-- Drill-down Navigation Breadcrumb -->
-            <div id="nested-nav-breadcrumb" style="position: absolute; top: 16px; left: 16px; z-index: 80; display: flex; align-items: center; gap: 8px; background: rgba(10, 10, 25, 0.85); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.8rem; font-family: 'Roboto Mono', monospace;">
-                <span style="color: var(--accent); font-weight: bold;">📍 Flux Principal</span>
-                <span id="breadcrumb-items" style="display: flex; align-items: center; gap: 6px;"></span>
-                <button id="nested-drillup-btn" class="toggle-logs-btn" style="display: none; padding: 2px 8px; font-size: 0.75rem; border-color: var(--success); color: var(--success); background: rgba(0, 255, 102, 0.05);" onclick="drillUp()">⬆ Remonter</button>
+            <!-- Catalogue de Primitives (Gauche) -->
+            <aside id="primitives-catalog" class="collapsed">
+                <div class="panel-header">
+                    <h3 style="margin: 0; font-size: 0.85rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">🧩 Catalogue</h3>
+                    <button class="toggle-logs-btn" onclick="toggleCatalog()">✖</button>
+                </div>
+                <div class="panel-desc">
+                    Cliquer sur une fonction pour l'ajouter au flux courant.
+                </div>
+                <div id="primitives-list-container" style="flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Groupes de primitives injectés dynamiquement -->
+                </div>
+            </aside>
+            <div id="canvas-wrapper">
+            <!-- Drill-down Navigation Breadcrumb, search box and undo/redo controls -->
+            <div id="nested-nav-breadcrumb" style="position: absolute; top: 16px; left: 16px; right: 16px; z-index: 80; display: flex; align-items: center; justify-content: space-between; background: rgba(10, 10, 25, 0.85); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.8rem; font-family: 'Roboto Mono', monospace; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--accent); font-weight: bold;">📍 Flux Principal</span>
+                    <span id="breadcrumb-items" style="display: flex; align-items: center; gap: 6px;"></span>
+                    <button id="nested-drillup-btn" class="toggle-logs-btn" style="display: none; padding: 2px 8px; font-size: 0.75rem; border-color: var(--success); color: var(--success); background: rgba(0, 255, 102, 0.05);" onclick="drillUp()">⬆ Remonter</button>
+                </div>
+                <!-- Search and Undo/Redo tools -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="text" id="canvas-node-search" placeholder="Rechercher nœud..." oninput="searchCanvasNodes(this.value)" style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: var(--text); font-size: 0.75rem; width: 160px; outline: none;">
+                        <button class="toggle-logs-btn" onclick="clearCanvasNodeSearch()" style="padding: 4px 8px; font-size: 0.75rem;">✖</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; border-left: 1px solid var(--border); padding-left: 10px;">
+                        <button class="toggle-logs-btn" onclick="undoAction()" title="Annuler (Ctrl+Z)" style="padding: 4px 8px; font-size: 0.75rem;">↩️ Annuler</button>
+                        <button class="toggle-logs-btn" onclick="redoAction()" title="Rétablir (Ctrl+Y)" style="padding: 4px 8px; font-size: 0.75rem;">↪️ Rétablir</button>
+                    </div>
+                </div>
             </div>
             
             <svg id="connections-svg"></svg>
             <div id="canvas">
                 <!-- Workflow Nodes will be injected here -->
+            </div>
+
+            <!-- Zoom and Magnify tool controls -->
+            <div id="zoom-controls">
+                <button class="zoom-btn" onclick="zoomOut()" title="Zoom Arrière">➖</button>
+                <span class="zoom-level" id="zoom-level-val">100%</span>
+                <button class="zoom-btn" onclick="zoomIn()" title="Zoom Avant">➕</button>
+                <button class="zoom-btn" onclick="zoomReset()" title="Ajuster l'Écran">🔍</button>
             </div>
             
             <!-- Data Preview Panel (Bottom Docked) -->
@@ -219,7 +256,7 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             </div>
         </aside>
         
-        <aside id="log-panel">
+        <aside id="log-panel" class="collapsed">
             <div class="panel-header">
                 <h3>Console Moteur</h3>
                 <button class="toggle-logs-btn" onclick="toggleLogs()">✖</button>
@@ -239,6 +276,22 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 <div>
                     <h2 style="font-weight: 800; font-size: 1.25rem; background: linear-gradient(90deg, var(--accent), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">🗺️ AiMapper (tMapping Visuel)</h2>
                     <div id="aimapper-source-path" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; font-family: 'Roboto Mono', monospace;">Source : -</div>
+                </div>
+                <!-- Relation Join Configuration -->
+                <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; font-size: 0.75rem;">
+                    <span style="color: var(--accent); font-weight: bold;">🔗 Jointure :</span>
+                    <input type="text" id="aimapper-join-right-source" placeholder="Table droite..." style="width: 140px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;" oninput="onJoinRightSourceChanged()">
+                    <select id="aimapper-join-type" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                        <option value="left">LEFT</option>
+                        <option value="inner">INNER</option>
+                        <option value="outer">OUTER</option>
+                    </select>
+                    <select id="aimapper-join-left-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                        <option value="">Clé Gauche</option>
+                    </select>
+                    <select id="aimapper-join-right-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                        <option value="">Clé Droite</option>
+                    </select>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="toggle-logs-btn" onclick="closeAiMapper()" style="border-color: transparent; padding: 6px 14px; font-size: 0.8rem;">Annuler</button>
@@ -386,6 +439,30 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
                 <button class="toggle-logs-btn" onclick="closeFormulaEditor()" style="border-color: transparent; padding: 6px 14px; font-size: 0.8rem;">Annuler</button>
                 <button class="toggle-logs-btn" onclick="applyFormulaEditor()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem;">💾 Valider la Formule</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de configuration de connexion (Liaison) -->
+    <div id="connection-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(10px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 480px; text-align: left;">
+            <div class="modal-title" style="color: var(--accent); font-weight: 800; margin-bottom: 20px;">🔗 Configurer la liaison</div>
+            
+            <div id="connection-modal-desc" style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4;">
+                <!-- Description dynamique -->
+            </div>
+            
+            <div class="settings-input-group" style="margin-bottom: 20px;">
+                <label>Nom ou Label de la liaison</label>
+                <input type="text" id="connection-modal-label" class="editor-input" placeholder="Ex: Fichiers filtrés..." style="width: 100%;">
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+                <button class="toggle-logs-btn" id="connection-modal-delete-btn" style="background: rgba(239, 68, 68, 0.1); color: var(--error); border-color: rgba(239, 68, 68, 0.3);">🗑️ Supprimer la liaison</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="toggle-logs-btn" onclick="closeConnectionModal()" style="border-color: transparent;">Annuler</button>
+                    <button class="toggle-logs-btn" id="connection-modal-save-btn" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800;">💾 Appliquer</button>
+                </div>
             </div>
         </div>
     </div>

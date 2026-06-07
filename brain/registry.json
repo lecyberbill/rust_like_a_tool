@@ -217,6 +217,90 @@
         "required": ["host", "user", "password", "remote_path", "local_path"]
       }
     },
+    "net.sftp_download": {
+      "description": "Télécharge un fichier depuis un serveur SFTP sécurisé (SSH).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "L'adresse IP ou nom d'hôte du serveur SFTP."
+          },
+          "port": {
+            "type": "string",
+            "default": "22",
+            "description": "Le port SSH/SFTP (défaut 22)."
+          },
+          "user": {
+            "type": "string",
+            "description": "L'identifiant de connexion SSH."
+          },
+          "password": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clé privée n'est fournie)."
+          },
+          "key_path": {
+            "type": "string",
+            "description": "Optionnel : Le chemin local vers le fichier de clé privée SSH (ex: ~/.ssh/id_rsa)."
+          },
+          "key_passphrase": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe/passphrase déverrouillant la clé privée SSH si nécessaire."
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Le chemin du fichier distant sur le serveur SFTP."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Le chemin local de destination pour enregistrer le fichier."
+          }
+        },
+        "required": ["host", "user", "remote_path", "local_path"]
+      }
+    },
+    "net.sftp_upload": {
+      "description": "Téléverse un fichier local vers un serveur SFTP sécurisé (SSH).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "L'adresse IP ou nom d'hôte du serveur SFTP."
+          },
+          "port": {
+            "type": "string",
+            "default": "22",
+            "description": "Le port SSH/SFTP (défaut 22)."
+          },
+          "user": {
+            "type": "string",
+            "description": "L'identifiant de connexion SSH."
+          },
+          "password": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clé privée n'est fournie)."
+          },
+          "key_path": {
+            "type": "string",
+            "description": "Optionnel : Le chemin local vers le fichier de clé privée SSH (ex: ~/.ssh/id_rsa)."
+          },
+          "key_passphrase": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe/passphrase déverrouillant la clé privée SSH si nécessaire."
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Le chemin de destination sur le serveur SFTP."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Le chemin du fichier local à téléverser."
+          }
+        },
+        "required": ["host", "user", "remote_path", "local_path"]
+      }
+    },
     "net.notify": {
       "description": "Envoie une alerte de notification par Email (SMTP) ou par Webhook (HTTP POST).",
       "parameters": {
@@ -724,6 +808,24 @@
           "derive_columns": {
             "type": "string",
             "description": "Optionnel : Création de colonnes calculées ou conditionnelles séparées par des virgules au format col_nouvelle=EXPRESSION. L'expression supporte : 1. Opérateurs mathématiques (+, -, *, /) ex: total = qty * price. 2. Concaténations textuelles (+ et guillemets) ex: nom_complet = prenom + ' ' + nom. 3. Conditions IF-THEN-ELSE avec opérateurs (==, !=, >, >=, <, <=) ex: statut = IF age >= 18 THEN 'adulte' ELSE 'mineur'."
+          },
+          "right_source": {
+            "type": "string",
+            "description": "Optionnel : Le chemin du second fichier à joindre."
+          },
+          "left_on": {
+            "type": "string",
+            "description": "Optionnel : La colonne clé de jointure du fichier source principal."
+          },
+          "right_on": {
+            "type": "string",
+            "description": "Optionnel : La colonne clé de jointure du second fichier."
+          },
+          "how_join": {
+            "type": "string",
+            "enum": ["left", "inner", "outer"],
+            "default": "left",
+            "description": "Optionnel : Le type de jointure relationnelle."
           }
         },
         "required": ["source", "destination"]
@@ -800,6 +902,70 @@
           }
         },
         "required": ["connection_string", "table_name", "source"]
+      }
+    },
+    "mongodb.find": {
+      "description": "Extrait des documents depuis une collection MongoDB et les sauvegarde au format JSON.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "URI de connexion MongoDB (ex: mongodb://localhost:27017)."
+          },
+          "database": {
+            "type": "string",
+            "description": "Nom de la base de données."
+          },
+          "collection": {
+            "type": "string",
+            "description": "Nom de la collection."
+          },
+          "filter": {
+            "type": "string",
+            "description": "Chaîne JSON représentant le filtre de recherche (par défaut {})."
+          },
+          "projection": {
+            "type": "string",
+            "description": "Chaîne JSON représentant la projection des champs."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Fichier JSON de destination."
+          }
+        },
+        "required": ["connection_string", "database", "collection", "destination"]
+      }
+    },
+    "mongodb.insert": {
+      "description": "Importe les données d'un fichier (CSV ou JSON) dans une collection MongoDB.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "URI de connexion MongoDB."
+          },
+          "database": {
+            "type": "string",
+            "description": "Nom de la base de données."
+          },
+          "collection": {
+            "type": "string",
+            "description": "Nom de la collection."
+          },
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["insert", "replace"],
+            "default": "insert",
+            "description": "Mode d'insertion : insert (ajout simple) ou replace (vide la collection avant insertion)."
+          }
+        },
+        "required": ["connection_string", "database", "collection", "source"]
       }
     },
     "s3.upload": {
@@ -1156,6 +1322,60 @@
           }
         },
         "required": ["source", "destination", "index"]
+      }
+    },
+    "data.delta": {
+      "description": "Compare deux jeux de données (CSV, JSON, Parquet) sur clés primaires pour calculer les différences incrémentales (upserts, deletes et optionnellement synchronisation complète).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source le plus récent."
+          },
+          "target": {
+            "type": "string",
+            "description": "Le fichier de données cible de référence (historique)."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Nom(s) de la ou des clés primaires séparées par des virgules (ex: id,code)."
+          },
+          "destination_upsert": {
+            "type": "string",
+            "description": "Fichier pour enregistrer les nouvelles lignes et les lignes mises à jour (inserts + updates)."
+          },
+          "destination_delete": {
+            "type": "string",
+            "description": "Fichier pour enregistrer les lignes supprimées."
+          },
+          "destination_sync": {
+            "type": "string",
+            "description": "Optionnel: Fichier pour enregistrer le jeu de données consolidé et entièrement synchronisé."
+          }
+        },
+        "required": ["source", "target", "keys", "destination_upsert", "destination_delete"]
+      }
+    },
+    "data.type_cast": {
+      "description": "Convertit et formate les colonnes d'un jeu de données selon des types cibles stricts (integer, float, boolean, string, date).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre avec les colonnes typées."
+          },
+          "casts": {
+            "type": "string",
+            "description": "Chaîne au format JSON définissant le type des colonnes à convertir (ex: {\"id\": \"int\", \"price\": \"float\", \"date\": \"date:%Y-%m-%d\"})."
+          }
+        },
+        "required": ["source", "destination", "casts"]
       }
     }
   }

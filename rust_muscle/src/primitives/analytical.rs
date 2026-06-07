@@ -563,5 +563,88 @@ pub fn handle_data_unpivot(args: &[String]) -> Result<(), MuscleError> {
         .map_err(|e| MuscleError::Generic(e))
 }
 
+pub fn handle_data_delta(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut target = None;
+    let mut keys = None;
+    let mut destination_upsert = None;
+    let mut destination_delete = None;
+    let mut destination_sync = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--target" => {
+                if i + 1 < args.len() { target = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --target".to_string())); }
+            }
+            "--keys" => {
+                if i + 1 < args.len() { keys = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --keys".to_string())); }
+            }
+            "--destination-upsert" | "--destination_upsert" => {
+                if i + 1 < args.len() { destination_upsert = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination-upsert".to_string())); }
+            }
+            "--destination-delete" | "--destination_delete" => {
+                if i + 1 < args.len() { destination_delete = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination-delete".to_string())); }
+            }
+            "--destination-sync" | "--destination_sync" => {
+                if i + 1 < args.len() { destination_sync = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination-sync".to_string())); }
+            }
+            other => return Err(MuscleError::Generic(format!("Unknown argument '{}'", other))),
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let target = target.ok_or_else(|| MuscleError::Generic("Missing argument --target".to_string()))?;
+    let keys_str = keys.ok_or_else(|| MuscleError::Generic("Missing argument --keys".to_string()))?;
+    let dest_upsert = destination_upsert.ok_or_else(|| MuscleError::Generic("Missing argument --destination-upsert".to_string()))?;
+    let dest_delete = destination_delete.ok_or_else(|| MuscleError::Generic("Missing argument --destination-delete".to_string()))?;
+
+    let keys_vec: Vec<String> = keys_str.split(',').map(|s| s.trim().to_string()).collect();
+
+    analytical_engine::delta(source, target, keys_vec, dest_upsert, dest_delete, destination_sync.map(|s| s.as_str()))
+        .map_err(|e| MuscleError::Generic(e))
+}
+
+pub fn handle_data_type_cast(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut casts = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination".to_string())); }
+            }
+            "--casts" => {
+                if i + 1 < args.len() { casts = Some(&args[i + 1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --casts".to_string())); }
+            }
+            other => return Err(MuscleError::Generic(format!("Unknown argument '{}'", other))),
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let casts_str = casts.ok_or_else(|| MuscleError::Generic("Missing argument --casts".to_string()))?;
+
+    analytical_engine::type_cast(source, destination, casts_str)
+        .map_err(|e| MuscleError::Generic(e))
+}
+
 
 

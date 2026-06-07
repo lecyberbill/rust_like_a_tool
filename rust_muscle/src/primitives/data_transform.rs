@@ -384,6 +384,10 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
     let mut fill_na = None;
     let mut drop_na = false;
     let mut derive_columns = None;
+    let mut right_source = None;
+    let mut left_on = None;
+    let mut right_on = None;
+    let mut how_join = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -500,7 +504,6 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     let pairs: Vec<(String, String)> = args[i + 1]
                         .split(',')
                         .filter_map(|pair| {
-                            // Find the first '=' character to split the column name and the expression
                             let eq_idx = pair.find('=');
                             if let Some(idx) = eq_idx {
                                 let col_name = pair[..idx].trim().to_string();
@@ -515,6 +518,38 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     i += 2;
                 } else {
                     return Err(MuscleError::Generic("Missing value for --derive-columns".to_string()));
+                }
+            }
+            "--right-source" | "--right_source" => {
+                if i + 1 < args.len() {
+                    right_source = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --right-source".to_string()));
+                }
+            }
+            "--left-on" | "--left_on" => {
+                if i + 1 < args.len() {
+                    left_on = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --left-on".to_string()));
+                }
+            }
+            "--right-on" | "--right_on" => {
+                if i + 1 < args.len() {
+                    right_on = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --right-on".to_string()));
+                }
+            }
+            "--how-join" | "--how_join" => {
+                if i + 1 < args.len() {
+                    how_join = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --how-join".to_string()));
                 }
             }
             other => {
@@ -537,7 +572,11 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
         rename_columns,
         fill_na,
         drop_na,
-        derive_columns
+        derive_columns,
+        right_source,
+        left_on,
+        right_on,
+        how_join
     ).map_err(|e| MuscleError::Generic(e))
 }
 

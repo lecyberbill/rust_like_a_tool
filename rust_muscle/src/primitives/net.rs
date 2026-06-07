@@ -492,6 +492,303 @@ pub fn handle_net_ftp_upload(args: &[String]) -> Result<(), MuscleError> {
     run_ftp_helper("upload", host, &port, user, password, remote_path, local_path)
 }
 
+fn run_sftp_helper(
+    action: &str,
+    host: &str,
+    port: &str,
+    user: &str,
+    password: &str,
+    remote_path: &str,
+    local_path: &str,
+    key_path: &str,
+    key_passphrase: &str,
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(windows) {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    println!("[RUST SFTP] Delegating {} to python sftp_helper...", action);
+    let output = cmd
+        .arg("brain/sftp_helper.py")
+        .arg(action)
+        .arg(host)
+        .arg(port)
+        .arg(user)
+        .arg(password)
+        .arg(remote_path)
+        .arg(local_path)
+        .arg(key_path)
+        .arg(key_passphrase)
+        .output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python sftp_helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("SFTP helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_net_sftp_download(args: &[String]) -> Result<(), MuscleError> {
+    let mut host = None;
+    let mut port = String::from("22");
+    let mut user = None;
+    let mut password = String::from("");
+    let mut remote_path = None;
+    let mut local_path = None;
+    let mut key_path = String::from("");
+    let mut key_passphrase = String::from("");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--host" => {
+                if i + 1 < args.len() { host = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --host".to_string())); }
+            }
+            "--port" => {
+                if i + 1 < args.len() { port = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --port".to_string())); }
+            }
+            "--user" => {
+                if i + 1 < args.len() { user = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --user".to_string())); }
+            }
+            "--password" => {
+                if i + 1 < args.len() { password = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --password".to_string())); }
+            }
+            "--remote-path" | "--remote_path" => {
+                if i + 1 < args.len() { remote_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --remote-path".to_string())); }
+            }
+            "--local-path" | "--local_path" => {
+                if i + 1 < args.len() { local_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --local-path".to_string())); }
+            }
+            "--key-path" | "--key_path" => {
+                if i + 1 < args.len() { key_path = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --key-path".to_string())); }
+            }
+            "--key-passphrase" | "--key_passphrase" => {
+                if i + 1 < args.len() { key_passphrase = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --key-passphrase".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let host = host.ok_or_else(|| MuscleError::Generic("Missing required argument --host".to_string()))?;
+    let user = user.ok_or_else(|| MuscleError::Generic("Missing required argument --user".to_string()))?;
+    let remote_path = remote_path.ok_or_else(|| MuscleError::Generic("Missing required argument --remote-path".to_string()))?;
+    let local_path = local_path.ok_or_else(|| MuscleError::Generic("Missing required argument --local-path".to_string()))?;
+
+    if password.is_empty() && key_path.is_empty() {
+        return Err(MuscleError::Generic("Either --password or --key-path must be provided for SFTP authentication".to_string()));
+    }
+
+    run_sftp_helper("download", host, &port, user, &password, remote_path, local_path, &key_path, &key_passphrase)
+}
+
+pub fn handle_net_sftp_upload(args: &[String]) -> Result<(), MuscleError> {
+    let mut host = None;
+    let mut port = String::from("22");
+    let mut user = None;
+    let mut password = String::from("");
+    let mut remote_path = None;
+    let mut local_path = None;
+    let mut key_path = String::from("");
+    let mut key_passphrase = String::from("");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--host" => {
+                if i + 1 < args.len() { host = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --host".to_string())); }
+            }
+            "--port" => {
+                if i + 1 < args.len() { port = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --port".to_string())); }
+            }
+            "--user" => {
+                if i + 1 < args.len() { user = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --user".to_string())); }
+            }
+            "--password" => {
+                if i + 1 < args.len() { password = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --password".to_string())); }
+            }
+            "--remote-path" | "--remote_path" => {
+                if i + 1 < args.len() { remote_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --remote-path".to_string())); }
+            }
+            "--local-path" | "--local_path" => {
+                if i + 1 < args.len() { local_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --local-path".to_string())); }
+            }
+            "--key-path" | "--key_path" => {
+                if i + 1 < args.len() { key_path = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --key-path".to_string())); }
+            }
+            "--key-passphrase" | "--key_passphrase" => {
+                if i + 1 < args.len() { key_passphrase = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --key-passphrase".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let host = host.ok_or_else(|| MuscleError::Generic("Missing required argument --host".to_string()))?;
+    let user = user.ok_or_else(|| MuscleError::Generic("Missing required argument --user".to_string()))?;
+    let remote_path = remote_path.ok_or_else(|| MuscleError::Generic("Missing required argument --remote-path".to_string()))?;
+    let local_path = local_path.ok_or_else(|| MuscleError::Generic("Missing required argument --local-path".to_string()))?;
+
+    run_sftp_helper("upload", host, &port, user, &password, remote_path, local_path, &key_path, &key_passphrase)
+}
+
+fn run_google_sheets_helper(
+    action: &str,
+    credentials: &str,
+    spreadsheet_id: &str,
+    worksheet_title: &str,
+    local_path: &str,
+    clear_sheet: bool,
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(windows) {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    println!("[RUST GOOGLE SHEETS] Delegating {} to python google_sheets_helper...", action);
+    let output = cmd
+        .arg("brain/google_sheets_helper.py")
+        .arg(action)
+        .arg(credentials)
+        .arg(spreadsheet_id)
+        .arg(worksheet_title)
+        .arg(local_path)
+        .arg(if clear_sheet { "true" } else { "false" })
+        .output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python google_sheets_helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("Google Sheets helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_google_sheets_read(args: &[String]) -> Result<(), MuscleError> {
+    let mut credentials = None;
+    let mut spreadsheet_id = None;
+    let mut worksheet_title = String::from("");
+    let mut local_path = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--credentials" => {
+                if i + 1 < args.len() { credentials = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --credentials".to_string())); }
+            }
+            "--spreadsheet-id" | "--spreadsheet_id" => {
+                if i + 1 < args.len() { spreadsheet_id = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --spreadsheet-id".to_string())); }
+            }
+            "--worksheet-title" | "--worksheet_title" => {
+                if i + 1 < args.len() { worksheet_title = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --worksheet-title".to_string())); }
+            }
+            "--local-path" | "--local_path" => {
+                if i + 1 < args.len() { local_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --local-path".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let credentials = credentials.ok_or_else(|| MuscleError::Generic("Missing required argument --credentials".to_string()))?;
+    let spreadsheet_id = spreadsheet_id.ok_or_else(|| MuscleError::Generic("Missing required argument --spreadsheet-id".to_string()))?;
+    let local_path = local_path.ok_or_else(|| MuscleError::Generic("Missing required argument --local-path".to_string()))?;
+
+    run_google_sheets_helper("read", credentials, spreadsheet_id, &worksheet_title, local_path, false)
+}
+
+pub fn handle_google_sheets_write(args: &[String]) -> Result<(), MuscleError> {
+    let mut credentials = None;
+    let mut spreadsheet_id = None;
+    let mut worksheet_title = String::from("");
+    let mut local_path = None;
+    let mut clear_sheet = true;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--credentials" => {
+                if i + 1 < args.len() { credentials = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --credentials".to_string())); }
+            }
+            "--spreadsheet-id" | "--spreadsheet_id" => {
+                if i + 1 < args.len() { spreadsheet_id = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --spreadsheet-id".to_string())); }
+            }
+            "--worksheet-title" | "--worksheet_title" => {
+                if i + 1 < args.len() { worksheet_title = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --worksheet-title".to_string())); }
+            }
+            "--local-path" | "--local_path" => {
+                if i + 1 < args.len() { local_path = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --local-path".to_string())); }
+            }
+            "--clear-sheet" | "--clear_sheet" => {
+                if i + 1 < args.len() {
+                    clear_sheet = args[i+1].parse::<bool>().unwrap_or(true);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::Generic("Missing value for --clear-sheet".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let credentials = credentials.ok_or_else(|| MuscleError::Generic("Missing required argument --credentials".to_string()))?;
+    let spreadsheet_id = spreadsheet_id.ok_or_else(|| MuscleError::Generic("Missing required argument --spreadsheet-id".to_string()))?;
+    let local_path = local_path.ok_or_else(|| MuscleError::Generic("Missing required argument --local-path".to_string()))?;
+
+    run_google_sheets_helper("write", credentials, spreadsheet_id, &worksheet_title, local_path, clear_sheet)
+}
+
 fn run_notify_helper(
     action: &str,
     args: &[&str],
@@ -610,4 +907,146 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
         }
         other => Err(MuscleError::Generic(format!("Unsupported notification type '{}'", other)))
     }
+}
+
+fn run_mongodb_helper(
+    action: &str,
+    connection_string: &str,
+    database: &str,
+    collection: &str,
+    arg5: &str,
+    arg6: &str,
+    arg7: Option<&str>,
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(windows) {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    println!("[RUST MONGO] Delegating {} to python mongodb_helper...", action);
+    let mut command_builder = cmd
+        .arg("brain/mongodb_helper.py")
+        .arg(action)
+        .arg(connection_string)
+        .arg(database)
+        .arg(collection)
+        .arg(arg5)
+        .arg(arg6);
+
+    if let Some(a7) = arg7 {
+        command_builder = command_builder.arg(a7);
+    }
+
+    let output = command_builder
+        .output()
+        .map_err(|e| MuscleError::Generic(format!("Failed to start Python mongodb_helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::Generic(format!("MongoDB helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_mongodb_find(args: &[String]) -> Result<(), MuscleError> {
+    let mut connection_string = None;
+    let mut database = None;
+    let mut collection = None;
+    let mut filter = String::from("{}");
+    let mut projection = String::from("");
+    let mut destination = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--connection-string" | "--connection_string" => {
+                if i + 1 < args.len() { connection_string = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --connection-string".to_string())); }
+            }
+            "--database" => {
+                if i + 1 < args.len() { database = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --database".to_string())); }
+            }
+            "--collection" => {
+                if i + 1 < args.len() { collection = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --collection".to_string())); }
+            }
+            "--filter" => {
+                if i + 1 < args.len() { filter = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --filter".to_string())); }
+            }
+            "--projection" => {
+                if i + 1 < args.len() { projection = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --projection".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --destination".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let connection_string = connection_string.ok_or_else(|| MuscleError::Generic("Missing required argument --connection-string".to_string()))?;
+    let database = database.ok_or_else(|| MuscleError::Generic("Missing required argument --database".to_string()))?;
+    let collection = collection.ok_or_else(|| MuscleError::Generic("Missing required argument --collection".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+
+    run_mongodb_helper("find", connection_string, database, collection, &filter, &projection, Some(destination))
+}
+
+pub fn handle_mongodb_insert(args: &[String]) -> Result<(), MuscleError> {
+    let mut connection_string = None;
+    let mut database = None;
+    let mut collection = None;
+    let mut source = None;
+    let mut mode = String::from("insert");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--connection-string" | "--connection_string" => {
+                if i + 1 < args.len() { connection_string = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --connection-string".to_string())); }
+            }
+            "--database" => {
+                if i + 1 < args.len() { database = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --database".to_string())); }
+            }
+            "--collection" => {
+                if i + 1 < args.len() { collection = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --collection".to_string())); }
+            }
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --source".to_string())); }
+            }
+            "--mode" => {
+                if i + 1 < args.len() { mode = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::Generic("Missing value for --mode".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let connection_string = connection_string.ok_or_else(|| MuscleError::Generic("Missing required argument --connection-string".to_string()))?;
+    let database = database.ok_or_else(|| MuscleError::Generic("Missing required argument --database".to_string()))?;
+    let collection = collection.ok_or_else(|| MuscleError::Generic("Missing required argument --collection".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
+
+    run_mongodb_helper("insert", connection_string, database, collection, source, &mode, None)
 }

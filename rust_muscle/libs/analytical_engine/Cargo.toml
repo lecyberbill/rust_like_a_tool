@@ -1,8 +1,9 @@
+# [WFGY] Zone: SAFE | λ: 0.2 | Action: Activer les features temporelles de Polars
 [package]
 name = "analytical_engine"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-polars = { version = "0.37", features = ["lazy", "csv", "json", "parquet", "dtype-struct", "strings", "regex", "pivot"] }
+polars = { version = "0.37", features = ["lazy", "csv", "json", "parquet", "dtype-struct", "strings", "regex", "pivot", "temporal", "dtype-date", "dtype-datetime", "semi_anti_join"] }
 serde_json = "1.0"

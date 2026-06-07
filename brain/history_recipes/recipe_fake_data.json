@@ -10,8 +10,8 @@
         "label": "Nettoyage & Calcul Majorité",
         "color": "#4A90E2",
         "position": {
-          "x": 133,
-          "y": 121
+          "x": 54,
+          "y": 96
         },
         "mappings": [
           {
@@ -84,14 +84,19 @@
       "step": 2,
       "primitive": "data.filter",
       "depends_on": [
-        1
+        1,
+        4
       ],
       "ui": {
         "label": "Filtrer les Mineurs",
         "color": "#F5A623",
         "position": {
-          "x": 592,
-          "y": 74
+          "x": 576,
+          "y": 236
+        },
+        "connection_labels": {
+          "1": "test",
+          "4": ""
         }
       },
       "args": {
@@ -122,6 +127,23 @@
         "table_name": "mineurs",
         "source": "C:\\Users\\lecyb\\Downloads\\minors.csv",
         "mode": "replace"
+      }
+    },
+    {
+      "step": 4,
+      "primitive": "io.copy",
+      "depends_on": [],
+      "args": {
+        "source": "",
+        "destination": "",
+        "overwrite": true
+      },
+      "ui": {
+        "label": "Copier des fichiers (4)",
+        "position": {
+          "x": 101,
+          "y": 419
+        }
       }
     }
   ],

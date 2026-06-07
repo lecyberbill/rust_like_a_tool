@@ -31,6 +31,10 @@ fn main() {
         "net.upload" => primitives::net::handle_net_upload(&args[2..]),
         "net.ftp_download" => primitives::net::handle_net_ftp_download(&args[2..]),
         "net.ftp_upload" => primitives::net::handle_net_ftp_upload(&args[2..]),
+        "net.sftp_download" => primitives::net::handle_net_sftp_download(&args[2..]),
+        "net.sftp_upload" => primitives::net::handle_net_sftp_upload(&args[2..]),
+        "google.sheets_read" => primitives::net::handle_google_sheets_read(&args[2..]),
+        "google.sheets_write" => primitives::net::handle_google_sheets_write(&args[2..]),
         "net.http_request" => primitives::net::handle_net_http_request(&args[2..]),
         "net.notify" => primitives::net::handle_net_notify(&args[2..]),
         "net.download_images" => Err(MuscleError::Generic("Deprecated: use net.http_request".to_string())),
@@ -60,10 +64,16 @@ fn main() {
         "data.anonymize" => primitives::analytical::handle_data_anonymize(&args[2..]),
         "data.pivot" => primitives::analytical::handle_data_pivot(&args[2..]),
         "data.unpivot" => primitives::analytical::handle_data_unpivot(&args[2..]),
+        "data.delta" => primitives::analytical::handle_data_delta(&args[2..]),
+        "data.type_cast" => primitives::analytical::handle_data_type_cast(&args[2..]),
 
         // db
         "db.query" => primitives::db::handle_db_query(&args[2..]),
         "db.insert" => primitives::db::handle_db_insert(&args[2..]),
+
+        // mongodb
+        "mongodb.find" => primitives::net::handle_mongodb_find(&args[2..]),
+        "mongodb.insert" => primitives::net::handle_mongodb_insert(&args[2..]),
 
         // ai
         "ai.summarize" => primitives::ai::handle_ai_summarize(&args[2..]),

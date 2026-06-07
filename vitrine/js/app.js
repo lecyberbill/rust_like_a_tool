@@ -48,16 +48,28 @@ let ws;
                 
                 const mapBadge = primitive === 'data.clean' ? `<span class="node-edit-badge" title="AiMapper" style="background:rgba(0, 255, 102, 0.2); color:var(--success); border:1px solid rgba(0, 255, 102, 0.4);" onclick="event.stopPropagation(); openAiMapper(${step})">🗺️</span>` : '';
                 this.innerHTML = `
+                    <div class="node-input-handle" data-step="${step}"></div>
                     <div class="node-header">
                         <span>${label}</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${mapBadge}
-                            <span class="node-edit-badge" onclick="event.stopPropagation(); editNode(${step})">✏️</span>
+                            <span class="node-edit-badge" title="Dupliquer" onclick="event.stopPropagation(); duplicateNode(${step})">📋</span>
+                            <span class="node-edit-badge" title="Éditer" onclick="event.stopPropagation(); editNode(${step})">✏️</span>
                             <span class="status-badge"></span>
                         </div>
                     </div>
                     <div class="node-primitive">${primitive}</div>
+                    <div class="node-output-handle" data-step="${step}"></div>
                 `;
+
+                const outputHandle = this.querySelector('.node-output-handle');
+                if (outputHandle) {
+                    outputHandle.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        startDrawingConnection(Number(step), e);
+                    });
+                }
                 
                 // Double click to enter nested workflow
                 this.addEventListener('dblclick', () => {
@@ -67,9 +79,8 @@ let ws;
                     }
                 });
 
-                // Clicking the node card itself also opens the editor and requests data preview
+                // Clicking the node card itself only requests data preview (without opening the editor sidebar)
                 this.addEventListener('click', () => {
-                    editNode(Number(step));
                     requestDataPreview(Number(step));
                 });
 
@@ -151,7 +162,8 @@ let ws;
         customElements.define('workflow-node', WorkflowNode);
 
         function initWebSocket() {
-            ws = new WebSocket('ws://localhost:8765');
+            const wsHost = window.location.hostname || '127.0.0.1';
+            ws = new WebSocket(`ws://${wsHost}:8765`);
             
             ws.onopen = () => {
                 addLog('Connecté au serveur d\'orchestration Python.', 'success');
@@ -187,8 +199,12 @@ let ws;
                 }
                 else if (data.type === 'SCHEMA_DETAILS') {
                     if (mapperStepNum !== null) {
-                        renderSourceColumns(data.headers);
-                        renderMappingRows();
+                        const step = currentRecipe.steps.find(s => s.step === mapperStepNum);
+                        if (step) {
+                            const isRight = step.args.right_source === data.filepath || document.getElementById('aimapper-join-right-source').value.trim() === data.filepath;
+                            renderSourceColumns(data.headers, isRight);
+                            renderMappingRows();
+                        }
                     }
                 }
                 else if (data.type === 'VAULT_SECRETS') {
@@ -210,6 +226,7 @@ let ws;
                     };
                     currentNavPath = [];
                     updateBreadcrumb();
+                    saveHistoryState(); // Initial state capture
                     renderNodes(data.steps);
                     detectAndRenderEnvVars();
                 }
@@ -570,6 +587,13 @@ let ws;
                 }
             }
             html += `</div>`;
+
+            // Delete Step Button
+            html += `
+                <div class="editor-section" style="display:flex; justify-content:center; padding:16px 20px;">
+                    <button class="save-secrets-btn" style="background:linear-gradient(135deg, var(--error) 0%, rgba(239,68,68,0.6) 100%); color:#fff; border:none; box-shadow: 0 4px 12px rgba(239,68,68,0.3); font-weight:800; width:100%;" onclick="deleteStepNode(${stepNum})">🗑️ Supprimer l'étape</button>
+                </div>
+            `;
             container.innerHTML = html;
         }
 
@@ -583,6 +607,7 @@ let ws;
             const currentSteps = getCurrentStepList();
             const step = currentSteps.find(s => s.step === selectedStepNum);
             if (!step) return;
+            saveHistoryState(); // Record parameter adjustments
 
             // 1. Mettre à jour le Label
             const labelInput = document.getElementById('edit-node-label');
@@ -705,6 +730,170 @@ let ws;
             });
         }
 
+        // Global connection drawing state
+        let isDrawingConnection = false;
+        let connectionSourceStep = null;
+        let tempLineSvg = null;
+
+        function startDrawingConnection(stepNum, event) {
+            isDrawingConnection = true;
+            connectionSourceStep = stepNum;
+            
+            const svg = document.getElementById('connections-svg');
+            
+            // Create temporary dashed curve for active dragging
+            tempLineSvg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            tempLineSvg.setAttribute('class', 'connection-line temp');
+            svg.appendChild(tempLineSvg);
+            
+            updateTempLine(event.clientX, event.clientY);
+            
+            document.addEventListener('mousemove', onMoveConnectionDrag);
+            document.addEventListener('mouseup', onEndConnectionDrag);
+        }
+
+        function updateTempLine(clientX, clientY) {
+            if (!tempLineSvg || connectionSourceStep === null) return;
+            const nodeA = activeNodes[connectionSourceStep];
+            if (!nodeA) return;
+            
+            const rectA = nodeA.getBoundingClientRect();
+            const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+            
+            const x1 = (rectA.left - canvasRect.left + rectA.width) / canvasZoom;
+            const y1 = (rectA.top - canvasRect.top + rectA.height / 2) / canvasZoom;
+            
+            const x2 = (clientX - canvasRect.left) / canvasZoom;
+            const y2 = (clientY - canvasRect.top) / canvasZoom;
+            
+            const controlX = x1 + (x2 - x1) / 2;
+            tempLineSvg.setAttribute('d', `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`);
+        }
+
+        function onMoveConnectionDrag(e) {
+            if (isDrawingConnection) {
+                updateTempLine(e.clientX, e.clientY);
+            }
+        }
+
+        function onEndConnectionDrag(e) {
+            document.removeEventListener('mousemove', onMoveConnectionDrag);
+            document.removeEventListener('mouseup', onEndConnectionDrag);
+            
+            if (tempLineSvg) {
+                tempLineSvg.remove();
+                tempLineSvg = null;
+            }
+            
+            isDrawingConnection = false;
+            
+            // Try to find if drop target is a node handle or a node card
+            const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+            if (!targetEl) return;
+            
+            const inputHandle = targetEl.closest('.node-input-handle');
+            const targetNode = targetEl.closest('workflow-node');
+            
+            let targetStep = null;
+            if (inputHandle) {
+                targetStep = Number(inputHandle.getAttribute('data-step'));
+            } else if (targetNode) {
+                targetStep = Number(targetNode.getAttribute('step'));
+            }
+            
+            if (targetStep !== null && targetStep !== connectionSourceStep && !isNaN(targetStep)) {
+                // Connect them! (targetStep depends on connectionSourceStep)
+                const currentSteps = getCurrentStepList();
+                const stepB = currentSteps.find(s => s.step === targetStep);
+                if (stepB) {
+                    if (!stepB.depends_on) stepB.depends_on = [];
+                    if (!stepB.depends_on.includes(connectionSourceStep)) {
+                        // Check for direct cycle
+                        const stepA = currentSteps.find(s => s.step === connectionSourceStep);
+                        if (stepA && stepA.depends_on && stepA.depends_on.includes(targetStep)) {
+                            addLog("Boucle directe détectée ! Connexion rejetée.", "error");
+                        } else {
+                            // Test adding dependency with hasCycle
+                            stepB.depends_on.push(connectionSourceStep);
+                            if (hasCycle(currentSteps)) {
+                                // Cycle detected! Rollback connection
+                                stepB.depends_on.pop();
+                                addLog("Boucle complexe/Cycle détecté ! Connexion rejetée pour conserver le graphe acyclique (DAG).", "error");
+                            } else {
+                                saveHistoryState(); // Record change
+                                addLog(`Connexion créée : Étape ${targetStep} dépend de l'étape ${connectionSourceStep}`, "success");
+                                
+                                // Re-render and save
+                                drawConnections();
+                                saveActiveWorkspace();
+                                
+                                // If node editor is open for target step, update display
+                                if (selectedStepNum === targetStep) {
+                                    editNode(targetStep);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            connectionSourceStep = null;
+        }
+
+        function closeConnectionModal() {
+            document.getElementById('connection-modal').style.display = 'none';
+        }
+
+        function selectConnection(parentNum, childNum) {
+            const currentSteps = getCurrentStepList();
+            const childStep = currentSteps.find(s => s.step === childNum);
+            const parentStep = currentSteps.find(s => s.step === parentNum);
+            if (!childStep || !parentStep) return;
+
+            // Ensure visual storage exists
+            if (!childStep.ui) childStep.ui = {};
+            if (!childStep.ui.connection_labels) childStep.ui.connection_labels = {};
+            
+            const currentLabel = childStep.ui.connection_labels[parentNum] || "";
+            
+            const modal = document.getElementById('connection-modal');
+            const desc = document.getElementById('connection-modal-desc');
+            const labelInput = document.getElementById('connection-modal-label');
+            const deleteBtn = document.getElementById('connection-modal-delete-btn');
+            const saveBtn = document.getElementById('connection-modal-save-btn');
+            
+            desc.innerHTML = `Liaison reliant le nœud source <strong>${parentStep.ui.label}</strong> au nœud cible <strong>${childStep.ui.label}</strong>.`;
+            labelInput.value = currentLabel;
+            
+            // Re-bind click events for this specific pair
+            deleteBtn.onclick = () => {
+                if (confirm(`Voulez-vous vraiment supprimer la liaison de [${parentStep.ui.label}] vers [${childStep.ui.label}] ?`)) {
+                    childStep.depends_on = childStep.depends_on.filter(d => d !== parentNum);
+                    if (childStep.ui.connection_labels[parentNum]) {
+                        delete childStep.ui.connection_labels[parentNum];
+                    }
+                    addLog(`Liaison entre '${parentStep.ui.label}' et '${childStep.ui.label}' supprimée.`, 'warning');
+                    drawConnections();
+                    saveActiveWorkspace();
+                    if (selectedStepNum === childNum) {
+                        editNode(childNum);
+                    }
+                    closeConnectionModal();
+                }
+            };
+            
+            saveBtn.onclick = () => {
+                const newLabel = labelInput.value.trim();
+                childStep.ui.connection_labels[parentNum] = newLabel;
+                addLog(`Liaison nommée : "${newLabel}"`, 'success');
+                drawConnections();
+                saveActiveWorkspace();
+                closeConnectionModal();
+            };
+            
+            modal.style.display = 'flex';
+        }
+
         function drawConnections() {
             const svg = document.getElementById('connections-svg');
             svg.innerHTML = '';
@@ -725,17 +914,58 @@ let ws;
                         const rectB = nodeB.getBoundingClientRect();
                         const canvasRect = document.getElementById('canvas').getBoundingClientRect();
                         
-                        const x1 = rectA.left - canvasRect.left + rectA.width;
-                        const y1 = rectA.top - canvasRect.top + rectA.height / 2;
+                        const x1 = (rectA.left - canvasRect.left + rectA.width) / canvasZoom;
+                        const y1 = (rectA.top - canvasRect.top + rectA.height / 2) / canvasZoom;
                         
-                        const x2 = rectB.left - canvasRect.left;
-                        const y2 = rectB.top - canvasRect.top + rectB.height / 2;
+                        const x2 = (rectB.left - canvasRect.left) / canvasZoom;
+                        const y2 = (rectB.top - canvasRect.top + rectB.height / 2) / canvasZoom;
                         
                         const controlX = x1 + (x2 - x1) / 2;
+                        const pathD = `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`;
+                        
+                        // Create interactive overlay path (thicker transparent path for easy clicking)
+                        const clickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        clickPath.setAttribute('d', pathD);
+                        clickPath.setAttribute('fill', 'none');
+                        clickPath.setAttribute('stroke', 'transparent');
+                        clickPath.setAttribute('stroke-width', '16');
+                        clickPath.setAttribute('cursor', 'pointer');
+                        clickPath.style.pointerEvents = 'auto';
+                        clickPath.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            selectConnection(parentNum, stepNum);
+                        });
+                        
+                        // Create visual path
                         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        path.setAttribute('d', `M ${x1} ${y1} C ${controlX} ${y1}, ${controlX} ${y2}, ${x2} ${y2}`);
+                        path.setAttribute('d', pathD);
                         path.setAttribute('class', 'connection-line');
+                        path.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            selectConnection(parentNum, stepNum);
+                        });
+                        
                         svg.appendChild(path);
+                        svg.appendChild(clickPath);
+                        
+                        // Render label if present
+                        const label = (step.ui && step.ui.connection_labels) ? step.ui.connection_labels[parentNum] : "";
+                        if (label) {
+                            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            
+                            // Estimate midpoint on cubic Bezier curve
+                            const midX = (x1 + 3 * controlX + 3 * controlX + x2) / 8;
+                            const midY = (y1 + 3 * y1 + 3 * y2 + y2) / 8;
+                            
+                            text.setAttribute('x', midX);
+                            text.setAttribute('y', midY - 8); // Slightly offset vertically
+                            text.setAttribute('text-anchor', 'middle');
+                            text.setAttribute('class', 'connection-text');
+                            text.style.pointerEvents = 'none';
+                            text.textContent = label;
+                            
+                            svg.appendChild(text);
+                        }
                     }
                 });
             });
@@ -1379,6 +1609,7 @@ let ws;
         // AiMapper implementation
         let mapperStepNum = null;
         let mapperSourceHeaders = [];
+        let mapperRightSourceHeaders = [];
         let mapperMappings = [];
         let lastFocusedInput = null;
 
@@ -1393,6 +1624,10 @@ let ws;
             
             document.getElementById('aimapper-source-path').innerText = `Source : ${step.args.source || ''}`;
             
+            // Set relation join inputs
+            document.getElementById('aimapper-join-right-source').value = step.args.right_source || '';
+            document.getElementById('aimapper-join-type').value = step.args.how_join || 'left';
+
             // Clear lists
             document.getElementById('aimapper-source-list').innerHTML = '<div style="color:var(--text-muted); font-style:italic; padding:10px;">Chargement...</div>';
             document.getElementById('aimapper-mapping-body').innerHTML = '';
@@ -1418,16 +1653,64 @@ let ws;
             }
             renderLocalVariables();
 
-            // Fetch schema details from backend
-            if (ws && ws.readyState === WebSocket.OPEN && step.args.source) {
-                ws.send(JSON.stringify({
-                    type: 'GET_SCHEMA',
-                    filepath: step.args.source
-                }));
+            // Fetch schemas from backend
+            mapperSourceHeaders = [];
+            mapperRightSourceHeaders = [];
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                if (step.args.source) {
+                    ws.send(JSON.stringify({
+                        type: 'GET_SCHEMA',
+                        filepath: step.args.source
+                    }));
+                }
+                if (step.args.right_source) {
+                    ws.send(JSON.stringify({
+                        type: 'GET_SCHEMA',
+                        filepath: step.args.right_source
+                    }));
+                }
             } else {
                 renderSourceColumns([]);
                 renderMappingRows();
             }
+        }
+
+        function onJoinRightSourceChanged() {
+            const filepath = document.getElementById('aimapper-join-right-source').value.trim();
+            if (ws && ws.readyState === WebSocket.OPEN && filepath) {
+                ws.send(JSON.stringify({
+                    type: 'GET_SCHEMA',
+                    filepath: filepath
+                }));
+            } else {
+                mapperRightSourceHeaders = [];
+                populateJoinKeys();
+                filterSourceColumns();
+            }
+        }
+
+        function populateJoinKeys() {
+            const step = currentRecipe.steps.find(s => s.step === mapperStepNum);
+            const leftKeySelect = document.getElementById('aimapper-join-left-key');
+            const rightKeySelect = document.getElementById('aimapper-join-right-key');
+
+            if (!leftKeySelect || !rightKeySelect) return;
+
+            const selectedLeft = leftKeySelect.value || (step ? step.args.left_on : "") || "";
+            const selectedRight = rightKeySelect.value || (step ? step.args.right_on : "") || "";
+
+            leftKeySelect.innerHTML = '<option value="">Clé Gauche</option>';
+            mapperSourceHeaders.forEach(h => {
+                leftKeySelect.innerHTML += `<option value="${h}">${h}</option>`;
+            });
+            leftKeySelect.value = selectedLeft;
+
+            rightKeySelect.innerHTML = '<option value="">Clé Droite</option>';
+            mapperRightSourceHeaders.forEach(h => {
+                rightKeySelect.innerHTML += `<option value="${h}">${h}</option>`;
+            });
+            rightKeySelect.value = selectedRight;
         }
 
         function parseStepArgsToMappings(step) {
@@ -1469,8 +1752,13 @@ let ws;
             return mappings;
         }
 
-        function renderSourceColumns(headers) {
-            mapperSourceHeaders = headers || [];
+        function renderSourceColumns(headers, isRightTable = false) {
+            if (isRightTable) {
+                mapperRightSourceHeaders = headers || [];
+            } else {
+                mapperSourceHeaders = headers || [];
+            }
+            populateJoinKeys();
             filterSourceColumns();
         }
 
@@ -1479,54 +1767,86 @@ let ws;
             const container = document.getElementById('aimapper-source-list');
             container.innerHTML = '';
 
-            if (mapperSourceHeaders.length === 0 && mapperVariables.length === 0) {
+            if (mapperSourceHeaders.length === 0 && mapperRightSourceHeaders.length === 0 && mapperVariables.length === 0) {
                 container.innerHTML = '<div style="color:var(--text-muted); font-style:italic; padding:10px;">Aucune colonne ou variable</div>';
                 return;
             }
 
-            mapperSourceHeaders.forEach(header => {
-                if (search && !header.toLowerCase().includes(search)) return;
+            // Primary source columns
+            if (mapperSourceHeaders.length > 0) {
+                const titleG = document.createElement('div');
+                titleG.style.cssText = 'font-size:0.68rem; color:var(--accent); text-transform:uppercase; font-weight:800; padding:2px 4px;';
+                titleG.innerText = 'Table A (Source)';
+                container.appendChild(titleG);
 
-                const div = document.createElement('div');
-                div.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
-                div.className = 'aimapper-source-item';
-                div.dataset.header = header;
-                
-                div.innerHTML = `
-                    <span>${header}</span>
-                    <button class="toggle-logs-btn" style="padding:1px 4px; font-size:0.7rem; border-color:var(--accent); color:var(--accent);" onclick="event.stopPropagation(); quickMapSource('${header}')">➕</button>
-                `;
+                mapperSourceHeaders.forEach(header => {
+                    if (search && !header.toLowerCase().includes(search)) return;
 
-                div.addEventListener('click', () => {
-                    if (lastFocusedInput) {
-                        const start = lastFocusedInput.selectionStart;
-                        const end = lastFocusedInput.selectionEnd;
-                        const text = lastFocusedInput.value;
-                        lastFocusedInput.value = text.substring(0, start) + header + text.substring(end);
-                        lastFocusedInput.focus();
-                        const event = new Event('input', { bubbles: true });
-                        lastFocusedInput.dispatchEvent(event);
-                    } else {
-                        quickMapSource(header);
-                    }
-                });
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
+                    div.className = 'aimapper-source-item';
+                    div.dataset.header = header;
+                    
+                    div.innerHTML = `
+                        <span>${header}</span>
+                        <button class="toggle-logs-btn" style="padding:1px 4px; font-size:0.7rem; border-color:var(--accent); color:var(--accent);" onclick="event.stopPropagation(); quickMapSource('${header}')">➕</button>
+                    `;
 
-                div.addEventListener('mouseenter', () => {
-                    document.querySelectorAll('.aimapper-row').forEach(row => {
-                        const select = row.querySelector('.aimapper-source-select');
-                        if (select && select.value === header) {
-                            row.style.background = 'rgba(0, 240, 255, 0.05)';
+                    div.addEventListener('click', () => {
+                        if (lastFocusedInput) {
+                            const start = lastFocusedInput.selectionStart;
+                            const end = lastFocusedInput.selectionEnd;
+                            const text = lastFocusedInput.value;
+                            lastFocusedInput.value = text.substring(0, start) + header + text.substring(end);
+                            lastFocusedInput.focus();
+                            const event = new Event('input', { bubbles: true });
+                            lastFocusedInput.dispatchEvent(event);
+                        } else {
+                            quickMapSource(header);
                         }
                     });
-                });
-                div.addEventListener('mouseleave', () => {
-                    document.querySelectorAll('.aimapper-row').forEach(row => {
-                        row.style.background = '';
-                    });
-                });
 
-                container.appendChild(div);
-            });
+                    container.appendChild(div);
+                });
+            }
+
+            // Secondary (right) source columns
+            if (mapperRightSourceHeaders.length > 0) {
+                const titleD = document.createElement('div');
+                titleD.style.cssText = 'font-size:0.68rem; color:var(--running); text-transform:uppercase; font-weight:800; padding:2px 4px; margin-top:6px; border-top:1px solid var(--border);';
+                titleD.innerText = 'Table B (Jointure)';
+                container.appendChild(titleD);
+
+                mapperRightSourceHeaders.forEach(header => {
+                    if (search && !header.toLowerCase().includes(search)) return;
+
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding:4px 8px; background:rgba(0,240,255,0.02); border:1px solid rgba(0,240,255,0.1); border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
+                    div.className = 'aimapper-source-item';
+                    div.dataset.header = header;
+                    
+                    div.innerHTML = `
+                        <span>${header}</span>
+                        <button class="toggle-logs-btn" style="padding:1px 4px; font-size:0.7rem; border-color:var(--running); color:var(--running);" onclick="event.stopPropagation(); quickMapSource('${header}')">➕</button>
+                    `;
+
+                    div.addEventListener('click', () => {
+                        if (lastFocusedInput) {
+                            const start = lastFocusedInput.selectionStart;
+                            const end = lastFocusedInput.selectionEnd;
+                            const text = lastFocusedInput.value;
+                            lastFocusedInput.value = text.substring(0, start) + header + text.substring(end);
+                            lastFocusedInput.focus();
+                            const event = new Event('input', { bubbles: true });
+                            lastFocusedInput.dispatchEvent(event);
+                        } else {
+                            quickMapSource(header);
+                        }
+                    });
+
+                    container.appendChild(div);
+                });
+            }
 
             // Append variables to source items for quick insertion
             if (mapperVariables.length > 0) {
@@ -1580,6 +1900,9 @@ let ws;
             }
             let html = '';
             mapperSourceHeaders.forEach(h => {
+                html += `<option value="${h}"></option>`;
+            });
+            mapperRightSourceHeaders.forEach(h => {
                 html += `<option value="${h}"></option>`;
             });
             mapperVariables.forEach(v => {
@@ -1703,10 +2026,20 @@ let ws;
             mapperSourceHeaders.forEach(header => {
                 const btn = document.createElement('div');
                 btn.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
-                btn.innerHTML = `<span>${header}</span> <span style="font-size:0.65rem; color:var(--text-muted);">colonne</span>`;
+                btn.innerHTML = `<span>${header}</span> <span style="font-size:0.65rem; color:var(--accent);">colonne A</span>`;
                 btn.onclick = () => insertTextAtCursor(header);
                 btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.05)';
                 btn.onmouseleave = () => btn.style.background = 'rgba(255,255,255,0.02)';
+                container.appendChild(btn);
+            });
+
+            mapperRightSourceHeaders.forEach(header => {
+                const btn = document.createElement('div');
+                btn.style.cssText = 'padding:4px 8px; background:rgba(0, 240, 255, 0.02); border:1px solid rgba(0, 240, 255, 0.1); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+                btn.innerHTML = `<span>${header}</span> <span style="font-size:0.65rem; color:var(--running);">colonne B</span>`;
+                btn.onclick = () => insertTextAtCursor(header);
+                btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.1)';
+                btn.onmouseleave = () => btn.style.background = 'rgba(0, 240, 255, 0.02)';
                 container.appendChild(btn);
             });
 
@@ -1809,6 +2142,24 @@ let ws;
             step.ui.mappings = mappings;
             step.ui.variables = variables;
 
+            // Serialize join arguments
+            const rightSource = document.getElementById('aimapper-join-right-source').value.trim();
+            const joinType = document.getElementById('aimapper-join-type').value;
+            const leftOn = document.getElementById('aimapper-join-left-key').value;
+            const rightOn = document.getElementById('aimapper-join-right-key').value;
+
+            if (rightSource) {
+                step.args.right_source = rightSource;
+                step.args.how_join = joinType;
+                step.args.left_on = leftOn;
+                step.args.right_on = rightOn;
+            } else {
+                delete step.args.right_source;
+                delete step.args.how_join;
+                delete step.args.left_on;
+                delete step.args.right_on;
+            }
+
             let selectCols = [];
             let renameCols = [];
             let deriveCols = [];
@@ -1819,7 +2170,8 @@ let ws;
                 selectCols.push(m.destCol);
                 
                 let val = m.sourceCol || "";
-                let isFormula = val && (!mapperSourceHeaders.includes(val) || val.includes(" ") || val.includes("*") || val.includes("+") || val.includes("-") || val.includes("/") || val.includes("IF") || val.includes("<") || val.includes(">") || val.includes("="));
+                let isKnownHeader = mapperSourceHeaders.includes(val) || mapperRightSourceHeaders.includes(val);
+                let isFormula = val && (!isKnownHeader || val.includes(" ") || val.includes("*") || val.includes("+") || val.includes("-") || val.includes("/") || val.includes("IF") || val.includes("<") || val.includes(">") || val.includes("="));
                 
                 if (isFormula) {
                     let expr = val;
@@ -1897,10 +2249,62 @@ let ws;
             });
         }
 
+        // Theme management
+        function toggleTheme() {
+            const isLight = document.body.classList.toggle('light-theme');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            addLog(`Thème basculé sur : ${isLight ? 'Clair (Moderne Noir & Blanc)' : 'Sombre'}`, 'info');
+            drawConnections(); // Redraw paths to match colors if needed
+        }
+
+        // Canvas Zoom management
+        let canvasZoom = 1;
+        function updateCanvasZoom() {
+            const canvas = document.getElementById('canvas');
+            if (canvas) {
+                canvas.style.transform = `scale(${canvasZoom})`;
+                canvas.style.transformOrigin = 'top left';
+                // Adjust SVG connections thickness if needed
+                const svg = document.getElementById('connections-svg');
+                // Adjust zoom text in DOM
+                const zoomValText = document.getElementById('zoom-level-val');
+                if (zoomValText) {
+                    zoomValText.innerText = `${Math.round(canvasZoom * 100)}%`;
+                }
+                drawConnections();
+            }
+        }
+
+        function zoomIn() {
+            if (canvasZoom < 2.0) {
+                canvasZoom += 0.1;
+                updateCanvasZoom();
+            }
+        }
+
+        function zoomOut() {
+            if (canvasZoom > 0.5) {
+                canvasZoom -= 0.1;
+                updateCanvasZoom();
+            }
+        }
+
+        function zoomReset() {
+            canvasZoom = 1.0;
+            updateCanvasZoom();
+        }
+
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
             initWebSocket();
             updateSettingsModelOptions();
+            initPrimitivesCatalog();
+            
+            // Restore theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-theme');
+            }
         });
 
         // Data Preview Functions
@@ -1971,4 +2375,369 @@ let ws;
 
         function closeDataPreview() {
             document.getElementById('data-preview-panel').classList.add('collapsed');
+        }
+
+        // --- MANUEL INTERACTIVE EDITING & CATALOG ---
+        const primitiveCatalogData = {
+            "I/O (Fichiers)": [
+                { name: "io.copy", label: "Copier des fichiers", args: { source: "", destination: "", overwrite: true } },
+                { name: "io.move", label: "Déplacer des fichiers", args: { source: "", destination: "", overwrite: true } },
+                { name: "io.delete", label: "Supprimer des fichiers", args: { path: "", secure_retention: true } },
+                { name: "io.metadata", label: "Obtenir les métadonnées", args: { path: "", destination: "" } },
+                { name: "io.write_file", label: "Écrire un fichier", args: { content: "", destination: "" } }
+            ],
+            "Réseau & Services": [
+                { name: "net.download", label: "Télécharger par HTTP", args: { url: "", destination: "" } },
+                { name: "net.upload", label: "Téléverser par HTTP", args: { file_path: "", url: "", method: "POST", headers: "" } },
+                { name: "net.ftp_download", label: "Télécharger FTP", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
+                { name: "net.ftp_upload", label: "Téléverser FTP", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
+                { name: "net.sftp_download", label: "Télécharger SFTP", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
+                { name: "net.sftp_upload", label: "Téléverser SFTP", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
+                { name: "google.sheets_read", label: "Lire Google Sheets", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "" } },
+                { name: "google.sheets_write", label: "Écrire Google Sheets", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "", clear_sheet: true } },
+                { name: "net.http_request", label: "Requête HTTP avancée", args: { url: "", method: "GET", destination: "", headers: "", body: "", extract_regex: "", extract_destination: "" } },
+                { name: "net.notify", label: "Notification SMTP / Webhook", args: { type: "webhook", smtp_host: "localhost", smtp_port: "25", smtp_user: "", smtp_pass: "", to: "", subject: "ETL Alert", url: "", message: "" } }
+            ],
+            "Transformations de données": [
+                { name: "data.filter", label: "Filtrer des lignes", args: { source: "", destination: "", field: "", operator: "equals", value: "" } },
+                { name: "data.clean", label: "Nettoyer et mapper (AiMapper)", args: { source: "", destination: "", mappings: {}, right_source: "", left_on: "", right_on: "", how_join: "left" } },
+                { name: "data.validate", label: "Validation Qualité (DLQ)", args: { source: "", destination: "", quarantine: "", rules: "[]" } },
+                { name: "data.csv_to_json", label: "CSV vers JSON", args: { source: "", destination: "" } },
+                { name: "data.json_to_csv", label: "JSON vers CSV", args: { source: "", destination: "" } },
+                { name: "data.xml_to_json", label: "XML vers JSON", args: { source: "", destination: "" } },
+                { name: "data.json_to_xml", label: "Exporter en XML", args: { source: "", destination: "", root_element: "root", row_element: "row" } },
+                { name: "data.to_xlsx", label: "Exporter en Excel XLSX", args: { source: "", destination: "", sheet_name: "Sheet1" } },
+                { name: "data.delta", label: "Réconciliation Delta CDC", args: { source: "", target: "", keys: "", destination_upsert: "", destination_delete: "", destination_sync: "" } },
+                { name: "data.type_cast", label: "Typage strict de schéma", args: { source: "", destination: "", casts: "{}" } }
+            ],
+            "Bases de Données": [
+                { name: "db.query", label: "Requête SQL SELECT", args: { connection_string: "", query: "", destination: "" } },
+                { name: "db.insert", label: "Insertion SQL", args: { connection_string: "", table_name: "", source: "", mode: "insert" } },
+                { name: "mongodb.find", label: "Recherche MongoDB", args: { connection_string: "", database: "", collection: "", filter: "{}", projection: "", destination: "" } },
+                { name: "mongodb.insert", label: "Insertion MongoDB", args: { connection_string: "", database: "", collection: "", source: "", mode: "insert" } }
+            ],
+            "Analytique & Statistiques": [
+                { name: "data.groupby", label: "Agrégations Group By", args: { source: "", destination: "", keys: "", aggregations: "" } },
+                { name: "data.metrics", label: "Statistiques descriptives", args: { source: "", destination: "", columns: "" } },
+                { name: "data.lookup", label: "Jointure dictionnaire", args: { source: "", destination: "", lookup_source: "", left_on: "", right_on: "", select_columns: "" } },
+                { name: "data.deduplicate", label: "Supprimer les doublons", args: { source: "", destination: "", keys: "", keep: "first" } },
+                { name: "data.anonymize", label: "Masquage / RGPD", args: { source: "", destination: "", columns: "" } },
+                { name: "data.pivot", label: "Pivoter (format large)", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
+                { name: "data.unpivot", label: "Dépivoter (format long)", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } }
+            ],
+            "Intelligence Artificielle": [
+                { name: "ai.summarize", label: "Résumé de texte NLP", args: { source: "", destination: "", text_column: "", summary_column: "", model_provider: "", model_id: "", base_url: "" } },
+                { name: "ai.extract", label: "Extraction d'entités NLP", args: { source: "", destination: "", text_column: "", schema: "{}", model_provider: "", model_id: "", base_url: "" } }
+            ],
+            "Contrôle": [
+                { name: "core.sub_flow", label: "Sous-flux de traitement", args: { steps: [] } },
+                { name: "core.loop", label: "Boucle d'itération", args: { type: "variables", list: "", steps: [] } }
+            ]
+        };
+
+        function toggleCatalog() {
+            const panel = document.getElementById('primitives-catalog');
+            if (panel) {
+                panel.classList.toggle('collapsed');
+            }
+        }
+
+        function initPrimitivesCatalog() {
+            const container = document.getElementById('primitives-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            for (const [category, items] of Object.entries(primitiveCatalogData)) {
+                const catDiv = document.createElement('div');
+                catDiv.className = 'catalog-category';
+
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'catalog-category-title';
+                titleDiv.innerHTML = `<span>${category}</span> <span class="cat-arrow">►</span>`;
+                
+                const itemsDiv = document.createElement('div');
+                itemsDiv.className = 'catalog-category-items';
+                itemsDiv.style.display = 'none';
+
+                items.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.className = 'catalog-item-btn';
+                    btn.innerHTML = `<span>${item.label}</span> <span style="font-size:0.65rem; color:var(--accent); font-family:monospace; margin-left:8px;">${item.name}</span>`;
+                    btn.onclick = () => addPrimitiveNode(item.name, item.label, item.args);
+                    itemsDiv.appendChild(btn);
+                });
+
+                // Collapsible logic
+                titleDiv.onclick = () => {
+                    const collapsed = itemsDiv.style.display === 'none';
+                    itemsDiv.style.display = collapsed ? 'flex' : 'none';
+                    titleDiv.querySelector('.cat-arrow').innerText = collapsed ? '▼' : '►';
+                };
+
+                catDiv.appendChild(titleDiv);
+                catDiv.appendChild(itemsDiv);
+                container.appendChild(catDiv);
+            }
+        }
+
+        function addPrimitiveNode(primitiveName, label, defaultArgs) {
+            if (!currentRecipe) {
+                currentRecipe = {
+                    recipe: "manual_flow",
+                    steps: [],
+                    env: { dev: {}, test: {}, prod: {} }
+                };
+            }
+            if (!currentRecipe.steps) {
+                currentRecipe.steps = [];
+            }
+
+            const steps = getCurrentStepList();
+            
+            // Generate unique step index/number
+            let nextStepNum = 1;
+            if (currentRecipe.steps.length > 0) {
+                // Find global max to avoid duplicate step IDs anywhere in nested flows
+                const getAllStepNums = (stepList) => {
+                    let nums = [];
+                    stepList.forEach(s => {
+                        nums.push(s.step);
+                        if (s.args && s.args.steps) {
+                            nums = nums.concat(getAllStepNums(s.args.steps));
+                        }
+                    });
+                    return nums;
+                };
+                const allNums = getAllStepNums(currentRecipe.steps);
+                nextStepNum = Math.max(...allNums) + 1;
+            }
+
+            // Copy args deep structure
+            const copiedArgs = JSON.parse(JSON.stringify(defaultArgs));
+
+            const newStep = {
+                step: nextStepNum,
+                primitive: primitiveName,
+                depends_on: [],
+                args: copiedArgs,
+                ui: {
+                    label: `${label} (${nextStepNum})`,
+                    position: {
+                        x: 150 + (steps.length % 3) * 100,
+                        y: 150 + Math.floor(steps.length / 3) * 100
+                    }
+                }
+            };
+
+            steps.push(newStep);
+            saveHistoryState();
+            
+            // Re-render
+            renderNodes(steps);
+            addLog(`Nœud '${newStep.ui.label}' ajouté manuellement.`, 'success');
+        }
+
+        // --- UNDO / REDO HISTORY STACK ENGINE ---
+        let undoStack = [];
+        let redoStack = [];
+
+        function saveHistoryState() {
+            if (!currentRecipe) return;
+            // Capture a deep copy of currentRecipe structure
+            const stateSnapshot = JSON.stringify(currentRecipe);
+            // Limit stack depth to 50
+            if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== stateSnapshot) {
+                undoStack.push(stateSnapshot);
+                if (undoStack.length > 50) {
+                    undoStack.shift();
+                }
+                redoStack = []; // Clear redo stack on new action
+            }
+        }
+
+        function undoAction() {
+            if (undoStack.length <= 1) {
+                addLog("Rien à annuler.", "warning");
+                return;
+            }
+            const currentState = undoStack.pop();
+            redoStack.push(currentState);
+            
+            const prevStateStr = undoStack[undoStack.length - 1];
+            currentRecipe = JSON.parse(prevStateStr);
+            
+            // Re-render current navigation depth
+            const steps = getCurrentStepList();
+            renderNodes(steps);
+            detectAndRenderEnvVars();
+            saveActiveWorkspace();
+            addLog("Action annulée.", "info");
+        }
+
+        function redoAction() {
+            if (redoStack.length === 0) {
+                addLog("Rien à rétablir.", "warning");
+                return;
+            }
+            const nextStateStr = redoStack.pop();
+            undoStack.push(nextStateStr);
+            
+            currentRecipe = JSON.parse(nextStateStr);
+            
+            const steps = getCurrentStepList();
+            renderNodes(steps);
+            detectAndRenderEnvVars();
+            saveActiveWorkspace();
+            addLog("Action rétablie.", "info");
+        }
+
+        // Bind Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z) globally
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey) {
+                if (e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    undoAction();
+                } else if (e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    redoAction();
+                }
+            }
+        });
+
+        // --- CYCLE DETECTION (Tri Topologique) ---
+        function hasCycle(steps) {
+            const adj = {};
+            const visited = {};
+            const recStack = {};
+
+            steps.forEach(s => {
+                adj[s.step] = s.depends_on || [];
+                visited[s.step] = false;
+                recStack[s.step] = false;
+            });
+
+            function isCyclicUtil(v) {
+                if (!visited[v]) {
+                    visited[v] = true;
+                    recStack[v] = true;
+
+                    const neighbors = adj[v] || [];
+                    for (const n of neighbors) {
+                        // Skip checking neighbors that are not in current step list (dangling ids)
+                        if (adj[n] === undefined) continue;
+
+                        if (!visited[n] && isCyclicUtil(n)) {
+                            return true;
+                        } else if (recStack[n]) {
+                            return true;
+                        }
+                    }
+                }
+                recStack[v] = false;
+                return false;
+            }
+
+            for (const s of steps) {
+                if (isCyclicUtil(s.step)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- SEARCH CANVAS NODES ---
+        function searchCanvasNodes(query) {
+            const cleanQuery = query.trim().toLowerCase();
+            document.querySelectorAll('workflow-node').forEach(node => {
+                const label = node.getAttribute('label').toLowerCase();
+                const primitive = node.getAttribute('primitive').toLowerCase();
+                if (cleanQuery === "") {
+                    // Reset styling
+                    node.style.opacity = "1";
+                    node.style.boxShadow = "";
+                } else if (label.includes(cleanQuery) || primitive.includes(cleanQuery)) {
+                    node.style.opacity = "1";
+                    node.style.boxShadow = "0 0 25px var(--accent), 0 0 5px var(--accent)";
+                } else {
+                    node.style.opacity = "0.3";
+                    node.style.boxShadow = "";
+                }
+            });
+        }
+
+        function clearCanvasNodeSearch() {
+            document.getElementById('canvas-node-search').value = "";
+            searchCanvasNodes("");
+        }
+
+        // --- DUPLICATE NODE ---
+        function duplicateNode(stepNum) {
+            const steps = getCurrentStepList();
+            const sourceStep = steps.find(s => s.step === stepNum);
+            if (!sourceStep) return;
+
+            // Generate unique step index
+            let nextStepNum = 1;
+            const getAllStepNums = (stepList) => {
+                let nums = [];
+                stepList.forEach(s => {
+                    nums.push(s.step);
+                    if (s.args && s.args.steps) {
+                        nums = nums.concat(getAllStepNums(s.args.steps));
+                    }
+                });
+                return nums;
+            };
+            const allNums = getAllStepNums(currentRecipe.steps);
+            nextStepNum = Math.max(...allNums) + 1;
+
+            // Deep clone step object arguments
+            const clonedArgs = JSON.parse(JSON.stringify(sourceStep.args));
+            
+            // Offset visual position slightly
+            const originalX = (sourceStep.ui && sourceStep.ui.position) ? sourceStep.ui.position.x : 100;
+            const originalY = (sourceStep.ui && sourceStep.ui.position) ? sourceStep.ui.position.y : 100;
+
+            const duplicated = {
+                step: nextStepNum,
+                primitive: sourceStep.primitive,
+                depends_on: [], // Keep duplicate initially independent to avoid cycles
+                args: clonedArgs,
+                ui: {
+                    label: `${sourceStep.ui.label.split(" (Copy)")[0]} (Copy) (${nextStepNum})`,
+                    position: {
+                        x: originalX + 50,
+                        y: originalY + 50
+                    }
+                }
+            };
+
+            steps.push(duplicated);
+            saveHistoryState();
+            renderNodes(steps);
+            saveActiveWorkspace();
+            addLog(`Nœud '${duplicated.ui.label}' dupliqué avec succès.`, 'success');
+        }
+
+        function deleteStepNode(stepNum) {
+            if (!currentRecipe || !currentRecipe.steps) return;
+            const steps = getCurrentStepList();
+            const index = steps.findIndex(s => s.step === stepNum);
+            if (index > -1) {
+                const stepLabel = steps[index].ui.label;
+                steps.splice(index, 1);
+                
+                // Clean references in depends_on lists at this nesting level
+                steps.forEach(s => {
+                    if (s.depends_on) {
+                        s.depends_on = s.depends_on.filter(d => d !== stepNum);
+                    }
+                });
+
+                saveHistoryState();
+                addLog(`Nœud '${stepLabel}' supprimé du flux.`, 'warning');
+                closeNodeEditor();
+                renderNodes(steps);
+                saveActiveWorkspace();
+            }
         }

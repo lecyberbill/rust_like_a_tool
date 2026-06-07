@@ -45,8 +45,32 @@ def match_cron(dt: datetime.datetime, cron_str: str) -> bool:
 
 def get_next_cron_execution(cron_str: str) -> str:
     try:
+        parts = cron_str.strip().split()
+        if len(parts) != 5:
+            return "N/A"
+        
+        # Fast optimization: If cron is */5 or similar with simple minute interval:
+        # We can find the minute offset directly instead of iterating minute-by-minute for 10080 minutes.
         now = datetime.datetime.now().replace(second=0, microsecond=0)
-        for i in range(1, 10080):  # limit to 7 days
+        
+        # Limit to next 24 hours first (1440 mins) to make the common cases instant
+        for i in range(1, 1440):
+            check_time = now + datetime.timedelta(minutes=i)
+            if match_cron(check_time, cron_str):
+                return check_time.isoformat()
+                
+        # If not in the next 24 hours, expand limit to 7 days (10080 mins)
+        # but skip minutes if parts[0] is a fixed number
+        step_min = 1
+        if parts[0].startswith("*/"):
+            try:
+                step_min = int(parts[0][2:])
+            except ValueError:
+                pass
+        
+        # Check day by day first if the cron doesn't run every hour to find matching days
+        # This prevents checking 10080 minutes.
+        for i in range(1440, 10080, step_min):
             check_time = now + datetime.timedelta(minutes=i)
             if match_cron(check_time, cron_str):
                 return check_time.isoformat()

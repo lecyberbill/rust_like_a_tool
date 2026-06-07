@@ -1255,9 +1255,9 @@ async def main():
         # Start Webhook HTTP Server
         http_port = 8766
         print(f"[HTTP SERVER] Starting Webhook HTTP server on port {http_port}...")
-        http_server = await asyncio.start_server(handle_http_request, "localhost", http_port)
+        http_server = await asyncio.start_server(handle_http_request, "0.0.0.0", http_port)
         
-        async with websockets.serve(handler, "localhost", port):
+        async with websockets.serve(handler, "0.0.0.0", port):
             await asyncio.Future()  # Keep running forever
     else:
         if len(sys.argv) < 2:

@@ -21,7 +21,7 @@ This system is an intent-based ETL orchestrator:
 - Invariant 7 [Background Daemon & Webhook Triggers]: Automated scheduler tasks (Cron checks, directory scanner, and HTTP Webhook server) run persistently.
 - Invariant 8 [Workspace Metadata Registry]: All workspace flows and trigger specifications are recorded in `workspaces.json`.
 - Invariant 9 [AiMapper visual matching overlay]: The visual mapping interface resolves schemas over WebSocket and maps visual connections to `data.clean` arguments.
-- Invariant 10 [FTP Transfer Compatibility]: System must support downloading from and uploading to remote FTP servers natively using arguments defined in the registry.
+- Invariant 10 [FTP/SFTP Transfer Compatibility]: System must support downloading from and uploading to remote FTP/SFTP servers natively using arguments defined in the registry.
 - Invariant 11 [Data Quality & Quarantine (DLQ)]:\ System must support row-level Data Quality validation rules and automatically isolate rejected records into a quarantine path.
 - Invariant 12 [SMTP & Webhook Télémétrie/Alertes]: System must support sending job status alerts via SMTP Email or HTTP Webhook POST requests.
 - Invariant 13 [Agentic Model Context Protocol (MCP)]:\ System must expose a pure Python standard-I/O JSON-RPC Model Context Protocol (MCP) server allowing external AI agents to discover workspaces, retrieve recipe structures, and run flows on different environments.
@@ -43,6 +43,10 @@ This system is an intent-based ETL orchestrator:
 - **Invariant 25 [Data Anonymization]:** System must support anonymizing dataset columns using masking, hashing, and replacement strategies (`data.anonymize`).
 - **Invariant 26 [Data Pivot Table Structure]:** System must support pivoting tables from long to wide format using Polars eager method (`data.pivot`).
 - **Invariant 27 [Data Unpivot Melt Structure]:** System must support melting tables from wide to long format using Polars `melt` method (`data.unpivot`).
+- Invariant 29 [Google Sheets Integration]: System must support reading and writing Google Sheets (`google.sheets_read` and `google.sheets_write`) delegating to a python helper.
+- Invariant 30 [MongoDB Integration]: System must support extracting and inserting MongoDB documents (`mongodb.find` and `mongodb.insert`) delegating to a python helper using pymongo.
+- Invariant 31 [Manual Recipe Visual Editing]: System must support manual visual step insertion from a sidebar Primitive Catalog and manual drawing of dependencies on the workbench.
+- Invariant 32 [Node Deletion Cleanup]: System must support manual deletion of recipe steps, cascading dependency removals to maintain DAG structural integrity.
 
 ## Verification Gate
 - Invariant 1 [Recipe Schema Validation]: SUCCESS (`SchemaValidator` implements JSON schema validation against registry specifications)
@@ -54,7 +58,7 @@ This system is an intent-based ETL orchestrator:
 - Invariant 7 [Background Daemon & Webhook Triggers]: SUCCESS (Lightweight Cron, File Watcher scanner, and port 8766 HTTP Webhook API validated)
 - Invariant 8 [Workspace Metadata Registry]: SUCCESS (`workspaces.json` registry file loaded and managed dynamically by WebSocket commands)
 - Invariant 9 [AiMapper visual matching overlay]: SUCCESS (AiMapper overlay dynamically loads schemas over WebSocket, supports interactive mapping highlights, and correctly serializes settings into `data.clean` arguments)
-- Invariant 10 [FTP Transfer Compatibility]: SUCCESS (Implemented `net.ftp_download` and `net.ftp_upload` primitives with parameter schemas registered and executed via python's native ftplib to maintain offline rust compilation compatibility)
+- Invariant 10 [FTP/SFTP Transfer Compatibility]: SUCCESS (Implemented `net.ftp_download`, `net.ftp_upload`, `net.sftp_download`, and `net.sftp_upload` primitives with parameter schemas registered and executed via python helpers to maintain offline rust compilation compatibility)
 - Invariant 11 [Data Quality & Quarantine (DLQ)]: SUCCESS (Implemented `data.validate` primitive in Rust Muscle using Polars to evaluate assertions and route rejets to a quarantine file, verified by integration tests)
 - Invariant 12 [SMTP & Webhook Télémétrie/Alertes]: SUCCESS (Implemented `net.notify` primitive in Rust Muscle executing a python helper using built-in `smtplib` and `urllib.request`, verified by integration tests)
 - Invariant 13 [Agentic Model Context Protocol (MCP)]: SUCCESS (Implemented `mcp_server.py` supporting stdin/stdout JSON-RPC handshake, `list_flows`, `get_flow_details`, and `run_flow` tools, verified by integration tests)
@@ -70,8 +74,61 @@ This system is an intent-based ETL orchestrator:
 - Invariant 23 [Data Lookup Dictionary Join]: SUCCESS (Implemented left-join reference dictionaries in Rust using Polars via `data.lookup` primitive, fully verified by integration tests)
 - Invariant 24 [Dataset Deduplication]: SUCCESS (Implemented Polars deduplication inside `data.deduplicate` primitive, supporting first/last occurrence strategies, verified by integration tests)
 - Invariant 25 [Data Anonymization]: SUCCESS (Implemented dataset anonymization strategies (replace, hash, mask, mask_email) in Rust using Polars via `data.anonymize` primitive, fully verified by integration tests)
-- Invariant 26 [Data Pivot Table Structure]: SUCCESS (Implemented Polars eager pivot in `data.pivot` primitive in Rust, verified by integration tests)
-- Invariant 27 [Data Unpivot Melt Structure]: SUCCESS (Implemented Polars melt-unpivot in `data.unpivot` primitive in Rust, verified by integration tests)
+- Invariant 26 [Data Pivot Table Structure]: SUCCESS
+- Invariant 27 [Data Unpivot Melt Structure]: SUCCESS
+- Invariant 29 [Google Sheets Integration]: SUCCESS (Implemented google.sheets_read and google.sheets_write delegating to python google_sheets_helper.py, verified via mock integration tests)
+- Invariant 30 [MongoDB Integration]: SUCCESS (Implemented mongodb.find and mongodb.insert delegating to python mongodb_helper.py, verified via mock tests and real Atlas database tests)
+- Invariant 31 [Manual Recipe Visual Editing]: SUCCESS (Implemented sliding left sidebar Primitive Catalog with 35+ primitives, added node creation and visual rendering, verified manually)
+- Invariant 32 [Node Deletion Cleanup]: SUCCESS (Implemented step deletion button in the editor panel with dependency cascade, verified manually)
+
+---
+
+## 18. Jointures Relationnelles et Configuration Visuelle (AiMapper)
+
+Nous avons implémenté les jointures relationnelles double-source (`left`, `inner`, `outer`) directement dans la primitive `data.clean` en Polars et configurables de façon interactive depuis le workbench AiMapper.
+
+### Fonctionnalités de Jointure :
+- **Jointure en Mémoire Optimisée** : La jointure s'exécute de manière optimisée à l'entrée de la pipeline Lazy Polars (avant les projections, expressions calculées, filtres, renommages et dédoublonnages), maximisant le Query Planner de Polars.
+- **Interface Interactive AiMapper** :
+  - Un champ permet de saisir ou choisir la table de jointure de droite (`right_source`).
+  - Dès la saisie, un événement WebSocket `GET_SCHEMA` demande les en-têtes de cette table secondaire.
+  - La colonne latérale gauche du modal liste de manière distincte les colonnes de la Table A (Source principale) et de la Table B (Jointure).
+  - Des listes déroulantes de liaison permettent de sélectionner les clés respectives de la jointure (`left_on` et `right_on`) ainsi que le type de jointure (`how_join`).
+  - L'autocomplétion globale du mappage (datalist) et l'éditeur de formule `ƒx` proposent et intègrent dynamiquement les colonnes des deux tables.
+
+### Validation :
+Le script d'intégration [test_aimapper_join.py](file:///d:/image_to_text/RUST_LIKE_A_TOOL/test_results/test_aimapper_join.py) a validé avec succès les jointures LEFT et INNER :
+```
+=== RUNNING DATA.CLEAN RELATION JOIN INTEGRATION TEST ===
+Created users dataset at 'D:\image_to_text\RUST_LIKE_A_TOOL\test_results\users.csv'
+Created roles dataset at 'D:\image_to_text\RUST_LIKE_A_TOOL\test_results\roles.csv'
+
+--- Testing LEFT JOIN ---
+Executing: D:\image_to_text\RUST_LIKE_A_TOOL\rust_muscle\target\debug\rust_muscle.exe data.clean ...
+Exit code: 0
+Left Join Result:
+id,name,role_id,role_name,clearance
+1,Jean,10,Admin,High
+2,Marie,20,User,Medium
+3,Pierre,99,Unknown,None
+4,Sophie,10,Admin,High
+5,Lucas,30,Guest,Low
+
+--- Testing INNER JOIN ---
+Executing: D:\image_to_text\RUST_LIKE_A_TOOL\rust_muscle\target\debug\rust_muscle.exe data.clean ...
+Exit code: 0
+Inner Join Result:
+id,name,role_name
+1,Jean,Admin
+2,Marie,User
+4,Sophie,Admin
+5,Lucas,Guest
+
+INTEGRATION TESTS PASSED SUCCESSFULLY!
+```
+
+[VERIFICATION_GATE]
+- Invariant 28 [AiMapper Relation Join]: SUCCESS
 
 ## Exit Codes & Standard Error Resolution
 To preserve internationalization and separate concerns, the Rust Muscle binary returns strict numeric exit codes. The Python Orchestrator intercepts these codes and translates them to the target local language via `ERROR_TRANSLATIONS`.
@@ -125,6 +182,39 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-05:** Implemented `data.lookup` and `data.deduplicate` analytical primitives in Rust Muscle using Polars, parsing arguments inside CLI handler, and routing calls via the main executable dispatcher. Verified correct lookup joins and row deduplication using automated integration tests.
 - **2026-06-05:** Implemented `data.anonymize` utility primitive in Rust Muscle using Polars expressions, supporting FNV-1a hashing, custom string masking, local-part email masking, and replacement strategies. Created integration test script `test_anonymize.py`.
 - **2026-06-05:** Implemented `data.pivot` and `data.unpivot` analytical primitives in Rust Muscle using Polars, parsing arguments inside CLI handler, and routing calls via the main executable dispatcher. Enabled Polars "pivot" feature flag in analytical_engine workspace, and verified using automated integration tests.
+- **2026-06-06:** Implemented Google Sheets integration primitives `google.sheets_read` and `google.sheets_write` delegating to python `google_sheets_helper.py`, verified via mock integration tests.
+- **2026-06-06:** Implemented MongoDB integration primitives `mongodb.find` and `mongodb.insert` delegating to python `mongodb_helper.py`, verified via mock tests and real Atlas cluster tests.
+- **2026-06-06:** Implemented Interactive Manual Editing with Left Sidebar Primitive Catalog (35+ functions), manual node insertion/drawing, dependency check-boxes linking, and step deletion with dependency cascade.
+- **2026-06-06:** Implemented Visual Node Link Drawing (drag-and-drop handles connecting nodes), link selection (prompt dialog), naming/labeling along paths, and link deletion with auto-saving to registry.
+- **2026-06-06:** Implemented Modern Light Theme switch (Black & White style with subtle shadows) and Zoom controls tool in Workbench UI.
+- **2026-06-07:** Implemented visual node duplication button, search box on canvas toolbar, deep topological cycle validation to prevent loop dependencies, and global Undo/Redo history stack with keyboard shortcuts (Ctrl+Z/Ctrl+Y).
+- **2026-06-07:** Implemented advanced ETL primitives `data.delta` (Change Data Capture / incremental sync) and `data.type_cast` (strict schema conversion and date formatting) with full Polars backend logic, CLI handlers, JSON schema validation, frontend catalog integration, and python integration tests.
+
+## Invariant 33 [Visual Connection Handles and Link Labels]
+- **Invariant 33 [Visual Connection Handles and Link Labels]:** System must support creating connections visually by dragging from an output handle to another node/input handle, selecting connection lines to either label them or remove the link, and displaying connection names along the paths.
+
+## Invariant 34 [UI Theme Management & Zoom Controls]
+- **Invariant 34 [UI Theme Management & Zoom Controls]:** System must support toggling between dark mode and a modern light theme (characterized by subtle card shadows, black/white accents), as well as interactive canvas zooming (zoom in, zoom out, fit screen zoom reset).
+
+## Invariant 35 [Canvas Node Search & Duplication Primitives]
+- **Invariant 35 [Canvas Node Search & Duplication Primitives]:** System must support filtering and highlighting nodes on the canvas via a real-time text query box, and duplicating an existing step (including parameters) through an explicit button.
+
+## Invariant 36 [Topological Loop Verification & Undo/Redo State Engine]
+- **Invariant 36 [Topological Loop Verification & Undo/Redo State Engine]:** System must dynamically check for any direct or complex cyclical dependencies (loops) on connection creation to reject them, and maintain a historical state log allowing users to undo (Ctrl+Z) or redo (Ctrl+Y) structural flow modifications.
+
+## Invariant 37 [Incremental Data Delta Sync]
+- **Invariant 37 [Incremental Data Delta Sync]:** System must support comparing a source dataset with a target dataset on primary keys to generate deletes, upserts, and synced results using Polars (`data.delta`).
+
+## Invariant 38 [Advanced Type Casting]
+- **Invariant 38 [Advanced Type Casting]:** System must support casting column data types strictly to target types (integer, float, boolean, string, date/datetime) with custom date formats using Polars (`data.type_cast`).
+
+[VERIFICATION_GATE]
+- Invariant 33 [Visual Connection Handles and Link Labels]: SUCCESS (Link drawing, renaming/labeling, and deletion are fully operational and verified visually)
+- Invariant 34 [UI Theme Management & Zoom Controls]: SUCCESS (Theme toggling state and interactive canvas scaling are fully operational)
+- Invariant 35 [Canvas Node Search & Duplication Primitives]: SUCCESS (Search highlight and node cloning are operational)
+- Invariant 36 [Topological Loop Verification & Undo/Redo State Engine]: SUCCESS (Topological graph traversal successfully rejects cycles, and Undo/Redo state actions restore flow states correctly)
+- Invariant 37 [Incremental Data Delta Sync]: SUCCESS (Validated via `test_advanced_etl.py` executing the Rust Muscle binary)
+- Invariant 38 [Advanced Type Casting]: SUCCESS (Validated via `test_advanced_etl.py` executing type casting with date parsing format constraints)
 
 
 

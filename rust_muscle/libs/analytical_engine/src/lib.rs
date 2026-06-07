@@ -482,8 +482,32 @@ pub fn clean(
     fill_na: Option<Vec<(String, String)>>,
     drop_na: bool,
     derive_columns: Option<Vec<(String, String)>>,
+    right_source: Option<String>,
+    left_on: Option<String>,
+    right_on: Option<String>,
+    how_join: Option<String>,
 ) -> Result<(), String> {
     let mut lf = read_df(source)?;
+
+    // 0. Jointure relationnelle optionnelle
+    if let Some(r_src) = right_source {
+        let l_on = left_on.ok_or_else(|| "left_on est requis pour la jointure".to_string())?;
+        let r_on = right_on.ok_or_else(|| "right_on est requis pour la jointure".to_string())?;
+        let r_lf = read_df(&r_src)?;
+
+        let join_type = match how_join.as_deref().unwrap_or("left").to_lowercase().as_str() {
+            "inner" => JoinType::Inner,
+            "outer" => JoinType::Outer { coalesce: true },
+            _ => JoinType::Left,
+        };
+
+        lf = lf.join(
+            r_lf,
+            vec![col(&l_on)],
+            vec![col(&r_on)],
+            join_type.into(),
+        );
+    }
 
     // 1. Derive columns if specified (must happen first so they can use original columns)
     if let Some(derives) = derive_columns {
@@ -890,6 +914,129 @@ pub fn unpivot(
 
     write_df(res_df, destination)?;
     println!("SUCCESS: Unpivoted dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// Calcule les différences incrémentales entre un fichier source et cible sur clés primaires
+pub fn delta(
+    source: &str,
+    target: &str,
+    keys: Vec<String>,
+    destination_upsert: &str,
+    destination_delete: &str,
+    destination_sync: Option<&str>,
+) -> Result<(), String> {
+    let source_lf = read_df(source)?;
+    let target_lf = read_df(target)?;
+
+    // Les clés de jointure sous forme d'expressions
+    let key_exprs: Vec<Expr> = keys.iter().map(|k| col(k)).collect();
+
+    // 1. Les deletes : présents dans target mais absents de source (anti-join)
+    let deletes_lf = target_lf.clone().join(
+        source_lf.clone(),
+        key_exprs.clone(),
+        key_exprs.clone(),
+        JoinType::Anti.into(),
+    );
+    let deletes_df = deletes_lf.collect().map_err(|e| format!("Erreur lors du calcul des deletes : {}", e))?;
+    write_df(deletes_df, destination_delete)?;
+
+    // 2. Les upserts : tous les enregistrements du fichier source (inserts + updates)
+    let source_df = source_lf.clone().collect().map_err(|e| format!("Erreur lors de la collection de source : {}", e))?;
+    write_df(source_df.clone(), destination_upsert)?;
+
+    // 3. Si destination_sync est spécifiée, on écrit la table finale synchronisée
+    if let Some(dest_sync) = destination_sync {
+        let kept_target_lf = target_lf.join(
+            source_lf,
+            key_exprs.clone(),
+            key_exprs,
+            JoinType::Anti.into(),
+        );
+        let kept_target_df = kept_target_lf.collect().map_err(|e| format!("Erreur lors du calcul des conservations : {}", e))?;
+
+        let synced_df = if kept_target_df.height() > 0 {
+            let synced_lf = concat(
+                vec![source_df.lazy(), kept_target_df.lazy()],
+                UnionArgs::default(),
+            ).map_err(|e| format!("Erreur lors de la fusion du sync : {}", e))?;
+            synced_lf.collect().map_err(|e| format!("Erreur de collection du sync : {}", e))?
+        } else {
+            source_df
+        };
+        write_df(synced_df, dest_sync)?;
+    }
+
+    println!("SUCCESS: Computed delta CDC from '{}' and '{}'", source, target);
+    Ok(())
+}
+
+/// Convertit les types de colonnes selon une configuration JSON
+pub fn type_cast(
+    source: &str,
+    destination: &str,
+    casts_json: &str,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+    
+    let casts: serde_json::Map<String, serde_json::Value> = serde_json::from_str(casts_json)
+        .map_err(|e| format!("Invalid JSON casts specification: {}", e))?;
+
+    for (col_name, type_val) in casts {
+        let type_str = type_val.as_str()
+            .ok_or_else(|| format!("Cast value for column '{}' must be a string", col_name))?;
+        
+        let col_expr = col(&col_name);
+        
+        let cast_expr = if type_str.starts_with("date") {
+            let fmt = if type_str.contains(':') {
+                type_str.split(':').nth(1).unwrap_or("%Y-%m-%d")
+            } else {
+                "%Y-%m-%d"
+            };
+            col_expr.cast(DataType::String).str().strptime(
+                DataType::Date,
+                StrptimeOptions {
+                    format: Some(fmt.to_string()),
+                    strict: false,
+                    exact: false,
+                    cache: false,
+                },
+                lit("raise")
+            )
+        } else if type_str.starts_with("datetime") {
+            let fmt = if type_str.contains(':') {
+                type_str.split(':').nth(1).unwrap_or("%Y-%m-%d %H:%M:%S")
+            } else {
+                "%Y-%m-%d %H:%M:%S"
+            };
+            col_expr.cast(DataType::String).str().strptime(
+                DataType::Datetime(TimeUnit::Milliseconds, None),
+                StrptimeOptions {
+                    format: Some(fmt.to_string()),
+                    strict: false,
+                    exact: false,
+                    cache: false,
+                },
+                lit("raise")
+            )
+        } else {
+            match type_str.to_lowercase().as_str() {
+                "integer" | "int" | "i64" => col_expr.cast(DataType::Int64),
+                "float" | "double" | "f64" => col_expr.cast(DataType::Float64),
+                "boolean" | "bool" => col_expr.cast(DataType::Boolean),
+                "string" | "str" | "varchar" => col_expr.cast(DataType::String),
+                other => return Err(format!("Unsupported cast target type '{}' for column '{}'", other, col_name)),
+            }
+        };
+        
+        lf = lf.with_column(cast_expr.alias(&col_name));
+    }
+
+    let df = lf.collect().map_err(|e| format!("Erreur lors de l'execution du type_cast Polars : {}", e))?;
+    write_df(df, destination)?;
+    println!("SUCCESS: Executed type_cast on '{}' -> '{}'", source, destination);
     Ok(())
 }
 
