@@ -18,6 +18,7 @@ fn init_logging() {
         .with_target(true)
         .with_thread_ids(true)
         .json()
+        .with_writer(std::io::stderr)
         .init();
 }
 
@@ -27,6 +28,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         tracing::error!("Missing primitive name. Usage: rust_muscle <primitive> [args]");
+        eprintln!("Missing primitive name. Usage: rust_muscle <primitive> [args]");
         process::exit(1);
     }
 
@@ -127,6 +129,7 @@ fn main() {
         Ok(_) => process::exit(0),
         Err(err) => {
             tracing::error!(exit_code = err.exit_code(), message = %err.message(), "Primitive failed");
+            eprintln!("{}", err.message());
             process::exit(err.exit_code());
         }
     }
