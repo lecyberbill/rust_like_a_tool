@@ -19,6 +19,15 @@ function addLog(message, type = 'info') {
     logsDiv.scrollTop = logsDiv.scrollHeight;
 }
 
+function changeEnvPod(env) {
+    activeEnv = env;
+    document.querySelectorAll('.env-pod-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.env === env);
+    });
+    addLog(`Environnement basculé sur : ${env.toUpperCase()}`, 'info');
+    detectAndRenderEnvVars();
+}
+
 function toggleLogs() {
     const panel = document.getElementById('log-panel');
     if (panel) panel.classList.toggle('collapsed');
