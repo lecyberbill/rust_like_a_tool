@@ -230,6 +230,9 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - Invariant 47 [Visual Data Lineage Mode]: SUCCESS (Dotted curves drawn dynamically based on `GET_DATA_LINEAGE` payloads on SVG canvas, showing file basenames)
 - Invariant 48 [Immutable Audit Trail Logs]: SUCCESS (Audit JSON structures populated on run completion and displayed in UI list and details modals, verified via `test_observability_lot_b.py`)
 - Invariant 49 [AI Recipe Planner Stress Test Suite]: SUCCESS (Successfully executed all 5 scenario prompts covering simple pipelines, nested loops, AI inference, CDC delta syncs, and edge cases, validating schema compliance and DAG cycle prevention, and outputting the report to `test_results/stress_test_report.md`)
+- Invariant 56 [JWT User Authentication & Multi-tenant Vault]: SUCCESS (Implemented `auth.py` with SQLite user storage, PBKDF2 password hashing, HMAC-SHA256 JWT tokens, and `POST /api/register`/`POST /api/login` HTTP endpoints. Chromatix `TenantVault` isolé par `tenant_id`, migration automatique depuis legacy vault. 54 tests Python verts)
+- Invariant 57 [WebSocket Token Auth via URL Query]: SUCCESS (WebSocket handler extrait le token JWT du query string `?token=xxx`, valide via `validate_token`, isole le vault par tenant. Fallback `default` sans token. Plus de consommation du premier message — `LIST_WORKSPACES` et `GET_RUN_HISTORY` ne sont plus perdus)
+- Invariant 58 [Frontend Auth UI & Admin First-setup Flow]: SUCCESS (Modal login/register intégré à la Vitrine. `GET /api/setup-status` détecte l'absence de comptes et propose la création admin. Token stocké dans `localStorage`, WebSocket reconnecté avec `?token=`. Bouton déconnexion dans le header. 54/54 tests Python)
 
 ## Invariant 43 [Wait/Retention Sleep Primitive]
 - **Invariant 43 [Wait/Retention Sleep Primitive]:** System must support pausing flow execution for a configurable duration using flexible time formats (HH:MM:SS, MM:SS, or seconds) via `core.wait`.
@@ -251,6 +254,15 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 
 ## Invariant 49 [AI Recipe Planner Stress Test Suite]
 - **Invariant 49 [AI Recipe Planner Stress Test Suite]:** System must provide a dedicated test script (`test_planner_stress.py`) to run and validate workflow generation using local or simulated LLM APIs, checking JSON schemas and ensuring dependency graphs do not contain cyclical execution loops.
+
+## Invariant 56 [JWT User Authentication & Multi-tenant Vault]
+- **Invariant 56 [JWT User Authentication & Multi-tenant Vault]:** Système d'authentification complet avec comptes utilisateurs stockés en SQLite (`brain/users.db`), hash PBKDF2-SHA256 + sel, tokens JWT HMAC-SHA256 sans dépendance externe. Chaque utilisateur possède un `tenant_id` unique, isolant son vault Chromatix. Endpoints HTTP `POST /api/register` et `POST /api/login` sur le port 8766. Clés d'environnement : `JWT_SECRET` (défaut `change-me-jwt-secret-2026`), `JWT_TTL` (défaut 86400s/24h).
+
+## Invariant 57 [WebSocket Token Auth via URL Query]
+- **Invariant 57 [WebSocket Token Auth via URL Query]:** L'authentification WebSocket s'effectue via le query string de l'URL : `ws://host:8765/?token=xxx`. Le handler extrait le token JWT, le valide via `validate_token()`, et isole le `StealthVault` par `tenant_id`. En l'absence de token, le tenant `"default"` est utilisé. Le bug précédent (consommation du premier message `LIST_WORKSPACES` comme tentative d'auth) est corrigé — aucun message n'est perdu.
+
+## Invariant 58 [Frontend Auth UI & Admin First-setup Flow]
+- **Invariant 58 [Frontend Auth UI & Admin First-setup Flow]:** Modal d'authentification intégré à la Vitrine (`#auth-modal`). À l'initialisation, `GET /api/setup-status` détermine si des comptes existent : si aucun → formulaire de création du compte administrateur ; si des comptes existent → formulaire de login. Le token JWT est stocké dans `localStorage` et passé en query string à la WebSocket. Bouton de déconnexion dans le header. Après login, l'admin peut créer des comptes supplémentaires via le lien "Créer un nouveau compte".
 
 ---
 
@@ -332,6 +344,17 @@ Les champs enum (ex : `conflict: [overwrite/skip/newer]`, `secure: [trash/perman
 | `vitrine/js/app.js` | Correction `primitiveCatalogData` (13 primitives), ajout `primitiveEnums` (19 champs), ajout `io.read_file` |
 | `vitrine/js/editor.js` | Rendu `<select>` pour enums, indicateurs visuels source/destination |
 
+### Fichiers modifiés (session du 2026-06-09 — Auth & Multi-tenant)
+
+| Fichier | Modifications |
+|---------|--------------|
+| `brain/auth.py` | Module complet : `register()`, `login()`, `validate_token()`, `_get_db()`, `_hash_password()`, `_create_token()`, `_decode_token()`, `get_tenant_id()` |
+| `brain/vault.py` | `StealthVault` adapté pour `TenantVault` multi‑tenant via `chromatix_cps`. Migration legacy depuis `etl_vault.png`/`.json`. API `get(key, env)`, `set(key, value, env)`, `delete(key, env)`, `list(env)` |
+| `brain/orchestrator.py` | WebSocket handler : retiré `asyncio.wait_for(websocket.recv())` (consommait le premier message). Extraction du token JWT depuis `path` (query string `?token=xxx`). `StealthVault(vault_key, tenant_id=tenant_id)` |
+| `brain/scheduler.py` | Ajout route `GET /api/setup-status` → `{"has_users": bool}` |
+| `vitrine/index.html` | Modal `#auth-modal` (login/register/admin creation), bouton `#logout-btn` dans le header |
+| `vitrine/js/app.js` | `AUTH_TOKEN`, `checkAuthStatus()`, `authSubmit()`, `toggleAuthMode()`, `logout()`. WebSocket connecté avec `?token=${AUTH_TOKEN}`. Auth check au `DOMContentLoaded` |
+
 ### Invariants non résolus
 - `google.sheets_read`, `google.sheets_write`, `data.scd`, `data.partition` toujours absents de `registry.json`
 
@@ -358,6 +381,7 @@ Les champs enum (ex : `conflict: [overwrite/skip/newer]`, `secure: [trash/perman
 - **2026-06-07:** Fixed a critical nested loop context-override bug in `orchestrator.py` by saving and restoring iteration scopes, verified by `test_nested_loops_bug.py`.
 - **2026-06-08:** Audit de cohérence des primitives (registry ↔ Rust ↔ frontend). Correction de 13 noms d'arguments divergents et 5 paramètres manquants. Ajout de l'auto-résolution de `source` depuis les dépendances. Ajout de `io.read_file`. Implémentation de menus déroulants pour 19 champs enum. Suppression du doublon `core.loop` dans registry.json. Indicateurs visuels de source héritée et destination auto-générée dans l'éditeur.
 - **2026-06-09:** Nettoyage final `data_format.rs` (~55 `MuscleError::Generic` → typed variants). Ajout `data.read`, `data.write`, `data.convert` (multi-format via analytical_engine). Support JSON Lines (`.jsonl`/`.ndjson`). Retrait Avro (API incompatible Polars 0.37). Dashboard Grafana (`grafana/wfgy_dashboard.json`). Documentation README.md étendue (WebSocket, HTTP, Prometheus, Docker, installation sources). 26/26 tests Rust, build release OK.
+- **2026-06-09:** Correction bug WebSocket : retiré `asyncio.wait_for(websocket.recv(), timeout=10)` qui consommait le premier message — `LIST_WORKSPACES` était perdu. Authentification déplacée dans l'URL (`?token=xxx`). Implémentation `GET /api/setup-status` pour détection comptes. Modal login/register avec création admin first-setup. Token JWT stocké dans `localStorage`. Bouton déconnexion. Vault multi-tenant isolé par tenant_id. 54/54 tests Python verts.
 
 
 

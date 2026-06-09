@@ -20,6 +20,7 @@
             </div>
             <!-- Theme Toggle Button -->
             <button class="toggle-logs-btn" onclick="toggleTheme()" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">🌗 Thème</button>
+            <button class="toggle-logs-btn" id="logout-btn" onclick="logout()" style="padding: 6px 12px; font-size: 0.8rem; display: none; align-items: center; gap: 6px; border-color: var(--error); color: var(--error);">🚪 Déconnexion</button>
         </div>
         
         <!-- Workshop canvas control actions (visible only in Workshop view) -->
@@ -39,6 +40,29 @@
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
         </div>
     </header>
+
+    <!-- Modal Authentification / Création Admin -->
+    <div id="auth-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.92); backdrop-filter: blur(16px); z-index: 200; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 400px; text-align: center; padding: 32px;">
+            <div id="auth-title" class="modal-title" style="color: var(--accent); font-weight: 800; margin-bottom: 8px; font-size: 1.3rem;">🔐 Connexion Requise</div>
+            <div id="auth-subtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 24px;">Connectez-vous pour accéder à l'atelier</div>
+            <div id="auth-error" style="color: var(--error); font-size: 0.8rem; margin-bottom: 12px; display: none;"></div>
+            <div style="display: flex; flex-direction: column; gap: 14px; text-align: left;">
+                <div class="settings-input-group">
+                    <label>Nom d'utilisateur</label>
+                    <input type="text" id="auth-username" class="editor-input" placeholder="admin" style="width: 100%;" autocomplete="username">
+                </div>
+                <div class="settings-input-group">
+                    <label>Mot de passe</label>
+                    <input type="password" id="auth-password" class="editor-input" placeholder="••••••••" style="width: 100%;" autocomplete="current-password">
+                </div>
+                <button id="auth-action-btn" onclick="authSubmit()" style="margin-top: 8px; padding: 12px; border-radius: 8px; background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 12px var(--accent-glow);">Se connecter</button>
+                <div id="auth-alt-action" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                    <a href="#" id="auth-alt-link" onclick="toggleAuthMode()" style="color: var(--accent); text-decoration: none;">Pas encore de compte ? Créer un administrateur</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- SECTION 1: DASHBOARD VIEW -->
     <div id="dashboard-view" class="view-section active">

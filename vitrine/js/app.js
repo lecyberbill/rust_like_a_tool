@@ -8,6 +8,9 @@ try {
     promptHistory = [];
 }
 
+let AUTH_TOKEN = localStorage.getItem('auth_token') || '';
+let AUTH_MODE = 'login'; // 'login' | 'register'
+
 function addLog(message, type = 'info') {
     const logsDiv = document.getElementById('logs');
     if (!logsDiv) return;
@@ -166,9 +169,100 @@ class WorkflowNode extends HTMLElement {
 }
 customElements.define('workflow-node', WorkflowNode);
 
+// ── Authentification ────────────────────────────────────────────
+async function checkAuthStatus() {
+    try {
+        const r = await fetch('/api/setup-status');
+        const data = await r.json();
+        if (!data.has_users) {
+            AUTH_MODE = 'register';
+            document.getElementById('auth-title').textContent = '👑 Création du Compte Admin';
+            document.getElementById('auth-subtitle').textContent = 'Aucun compte existant. Créez votre administrateur.';
+            document.getElementById('auth-action-btn').textContent = 'Créer l\'administrateur';
+            document.getElementById('auth-alt-action').style.display = 'none';
+        } else {
+            AUTH_MODE = 'login';
+            document.getElementById('auth-title').textContent = '🔐 Connexion';
+            document.getElementById('auth-subtitle').textContent = 'Connectez-vous pour accéder à l\'atelier';
+            document.getElementById('auth-action-btn').textContent = 'Se connecter';
+            document.getElementById('auth-alt-action').style.display = 'block';
+            document.getElementById('auth-alt-link').textContent = 'Créer un nouveau compte';
+        }
+        document.getElementById('auth-error').style.display = 'none';
+        document.getElementById('auth-modal').style.display = 'flex';
+    } catch (e) {
+        addLog('Impossible de vérifier le statut d\'auth sur le serveur.', 'error');
+    }
+}
+
+function toggleAuthMode() {
+    if (AUTH_MODE === 'login') {
+        AUTH_MODE = 'register';
+        document.getElementById('auth-title').textContent = '📝 Création de Compte';
+        document.getElementById('auth-subtitle').textContent = 'Créez un nouveau compte utilisateur';
+        document.getElementById('auth-action-btn').textContent = 'Créer le compte';
+        document.getElementById('auth-alt-link').textContent = 'Déjà un compte ? Se connecter';
+    } else {
+        AUTH_MODE = 'login';
+        document.getElementById('auth-title').textContent = '🔐 Connexion';
+        document.getElementById('auth-subtitle').textContent = 'Connectez-vous pour accéder à l\'atelier';
+        document.getElementById('auth-action-btn').textContent = 'Se connecter';
+        document.getElementById('auth-alt-link').textContent = 'Créer un nouveau compte';
+    }
+    document.getElementById('auth-error').style.display = 'none';
+}
+
+async function authSubmit() {
+    const username = document.getElementById('auth-username').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errDiv = document.getElementById('auth-error');
+    errDiv.style.display = 'none';
+
+    if (!username || !password) {
+        errDiv.textContent = 'Veuillez remplir tous les champs.';
+        errDiv.style.display = 'block';
+        return;
+    }
+
+    try {
+        const endpoint = AUTH_MODE === 'login' ? '/api/login' : '/api/register';
+        const r = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await r.json();
+        if (data.error) {
+            errDiv.textContent = data.error;
+            errDiv.style.display = 'block';
+            return;
+        }
+        AUTH_TOKEN = data.token;
+        localStorage.setItem('auth_token', AUTH_TOKEN);
+        document.getElementById('auth-modal').style.display = 'none';
+        document.getElementById('logout-btn').style.display = 'inline-flex';
+        initWebSocket();
+    } catch (e) {
+        errDiv.textContent = 'Erreur de connexion au serveur.';
+        errDiv.style.display = 'block';
+    }
+}
+
+function logout() {
+    AUTH_TOKEN = '';
+    localStorage.removeItem('auth_token');
+    document.getElementById('auth-username').value = '';
+    document.getElementById('auth-password').value = '';
+    document.getElementById('logout-btn').style.display = 'none';
+    AUTH_MODE = 'login';
+    if (ws) { ws.close(); }
+    checkAuthStatus();
+}
+
 function initWebSocket() {
     const wsHost = window.location.hostname || '127.0.0.1';
-    ws = new WebSocket(`ws://${wsHost}:8765`);
+    const wsUrl = AUTH_TOKEN ? `ws://${wsHost}:8765/?token=${AUTH_TOKEN}` : `ws://${wsHost}:8765`;
+    ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
         addLog('Connecté au serveur d\'orchestration Python.', 'success');
@@ -1181,9 +1275,13 @@ function addPrimitiveNode(primitiveName, label, defaultArgs) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    initWebSocket();
     updateSettingsModelOptions();
     initPrimitivesCatalog();
+    if (AUTH_TOKEN) {
+        initWebSocket();
+    } else {
+        checkAuthStatus();
+    }
     
     // Canvas pan event listeners
     const wrapper = document.getElementById('canvas-wrapper');

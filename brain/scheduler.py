@@ -1,6 +1,7 @@
 # [WFGY] Zone: SAFE | λ: 0.2 | Action: Daemon loops for Cron, File Watcher and port 8766 HTTP Webhook API server
 
 import os
+import json
 import asyncio
 import fnmatch
 import datetime
@@ -232,8 +233,25 @@ async def handle_http_request(reader, writer):
             parts = req_line.split()
             if len(parts) >= 2:
                 method, path = parts[0], parts[1]
-                if path == "/api/register" and method == "POST":
-                    body_data = data.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in data else "{}"
+                if path == "/api/setup-status" and method == "GET":
+                    from auth import _get_db
+                    conn = _get_db()
+                    row = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
+                    conn.close()
+                    has_users = row["cnt"] > 0 if row else False
+                    resp_body = json.dumps({"has_users": has_users})
+                    resp = (
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: application/json\r\n"
+                        "Access-Control-Allow-Origin: *\r\n"
+                        f"Content-Length: {len(resp_body.encode('utf-8'))}\r\n"
+                        "Connection: close\r\n\r\n"
+                        f"{resp_body}"
+                    )
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif path == "/api/register" and method == "POST":
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
                     try:
                         from auth import register
                         creds = json.loads(body_data)
@@ -260,7 +278,7 @@ async def handle_http_request(reader, writer):
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
                 elif path == "/api/login" and method == "POST":
-                    body_data = data.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in data else "{}"
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
                     try:
                         from auth import login as auth_login
                         creds = json.loads(body_data)

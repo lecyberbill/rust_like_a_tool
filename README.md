@@ -13,7 +13,8 @@ The RLAT architecture is built on a strict segregation of concerns:
    - Validates execution steps against registered primitives specifications.
    - Manages asynchronous routing of DAG steps, resolving dependencies, and handling errors with custom retry policies.
    - Runs persistent background daemons (Cron Scheduler, File Watcher, HTTP Webhook server).
-   - Secures environment variables and secrets using a chiffrated vault (**Stealth Vault** integrated with Chromatix PNG or legacy fallback).
+    - Secures environment variables and secrets using a chiffrated vault (**Stealth Vault** integrated with Chromatix PNG or legacy fallback).
+    - Authenticates users via JWT HMAC-SHA256 tokens (SQLite accounts, PBKDF2 password hashing) and isolates secrets per tenant (`POST /api/register` / `POST /api/login`).
 2. **The Muscle (Rust)**:
    - A high-performance compiled binary executing atomic steps (I/O, network requests, format conversions, SQL queries, S3 object transfers).
    - Communicates using standardized numeric exit codes, translated dynamically into localized error messages by the Python orchestrator.
@@ -25,7 +26,8 @@ The RLAT architecture is built on a strict segregation of concerns:
    - **Node Duplication**: Clone existing nodes with all their configured parameters.
    - **Cycle Prevention**: Live topological DAG verification rejecting loops on link creation.
    - **Undo/Redo Engine**: History state stack allowing structural modifications rollback (via toolbar or shortcuts `Ctrl+Z` / `Ctrl+Y`).
-   - **Zoom & Theme Controls**: Switch between dark and light modes, and adjust canvas scale (zoom in, out, reset to fit).
+    - **Zoom & Theme Controls**: Switch between dark and light modes, and adjust canvas scale (zoom in, out, reset to fit).
+    - **User Authentication Modal**: Login/register/admin first-setup flow with JWT token stored in localStorage and passed to WebSocket.
 
 ---
 
@@ -49,9 +51,15 @@ The workspace is organized into clean, dedicated directories to keep the root di
 │   ├── scheduler.py              <-- Cron scheduler, File Watcher, and port 8766 Webhook API
 │   ├── registry.py               <-- Metadata registry database loader
 │   ├── schema_validator.py       <-- Recipe argument validator
-│   ├── vault.py                  <-- Secret keeper (Stealth Vault resolver)
+│   ├── vault.py                  <-- Secret keeper (Stealth Vault multi‑tenant resolver)
+│   ├── auth.py                   <-- User accounts, JWT tokens, tenant isolation
+│   ├── metrics.py                <-- Prometheus metrics registry
+│   ├── checkpoint.py             <-- Execution checkpoint SQLite persistence
+│   ├── worker_bridge.py          <-- Rust subprocess bridge and argument filtering
+│   ├── logger.py                 <-- JSON logging utility
 │   ├── registry.json             <-- Primitive specifications JSON Schema
 │   ├── workspaces.json           <-- Active workflow configurations
+│   ├── users.db                  <-- SQLite user accounts (créé automatiquement)
 │   └── history_recipes/          <-- Local history of generated JSON recipes
 ├── vitrine/                      <-- The Vitrine (Frontend Client modularized)
 │   ├── index.html                <-- UI Entrypoint served on port 8766
@@ -133,6 +141,7 @@ LLM_MODEL=gemma
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=your_llm_api_key
 SECRET_VAULT_KEY=your_vault_encryption_key
+JWT_SECRET=change-me-jwt-secret-2026
 ```
 
 ### 2. Run the Orchestration Server
@@ -170,8 +179,10 @@ Le Brain expose un serveur WebSocket pour la communication temps réel avec la V
 
 **Connexion :**
 ```
-ws://localhost:8765
+ws://localhost:8765?token=<jwt_token>
 ```
+> Le token JWT est optionnel. Sans token, le tenant `"default"` est utilisé.
+> Obtenez un token via `POST /api/login` ou `POST /api/register` (port 8766).
 
 **Messages reçus (Brain → Client) :**
 
@@ -205,9 +216,35 @@ Endpoint REST pour les déclencheurs externes et les métriques.
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | `GET` | `/` | Servir la Vitrine (index.html) |
+| `GET` | `/api/setup-status` | Vérifier si des comptes existent (`{"has_users": bool}`) |
+| `POST` | `/api/register` | Créer un compte (`{"username", "password"}` → `{"token", "tenant_id"}`) |
+| `POST` | `/api/login` | Se connecter (`{"username", "password"}` → `{"token", "tenant_id"}`) |
 | `GET` | `/trigger?workspace=<nom>` | Déclencher un workspace |
 | `GET` | `/cancel` | Annuler le plan en cours |
 | `GET` | `/metrics` | Endpoint Prometheus |
+
+#### Authentification
+
+Créer un compte administrateur (première utilisation) :
+```bash
+curl -X POST http://localhost:8766/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "secret123"}'
+```
+
+Se connecter :
+```bash
+curl -X POST http://localhost:8766/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "secret123"}'
+```
+
+Les deux endpoints retournent un token JWT à passer à la WebSocket :
+```json
+{"token": "eyJ...", "tenant_id": "a1b2c3d4"}
+```
+
+> Le vault (`SECRET_VAULT_KEY`) est isolé par `tenant_id` — chaque utilisateur possède son propre coffre chiffré Chromatix.
 
 ### Métriques Prometheus exposées
 

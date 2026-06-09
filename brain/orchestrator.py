@@ -1173,25 +1173,18 @@ async def handler(websocket, path=None):
         print("[CRITICAL SECURITY ERROR] SECRET_VAULT_KEY is not defined in environment variables.")
         sys.exit(1)
     
-    # ── Authentification ────────────────────────────────────────
+    # Extraire tenant_id depuis le token JWT dans l'URL (query string)
+    # ws://host:8765/?token=xxx
     tenant_id = "default"
-    try:
-        auth_msg = await asyncio.wait_for(websocket.recv(), timeout=10)
-        auth_data = json.loads(auth_msg)
-        if auth_data.get("type") == "AUTH":
-            token = auth_data.get("token", "")
+    if path and "token=" in path:
+        import urllib.parse
+        qs = urllib.parse.urlparse(path).query
+        token = urllib.parse.parse_qs(qs).get("token", [None])[0]
+        if token:
             payload = validate_token(token)
             if payload:
                 tenant_id = payload.get("tenant_id", "default")
                 print(f"[WS SERVER] Authenticated: {payload.get('username')} (tenant: {tenant_id})")
-                await websocket.send(json.dumps({"type": "AUTH_OK", "tenant_id": tenant_id}))
-            else:
-                print("[WS SERVER] Invalid token — using default tenant")
-                await websocket.send(json.dumps({"type": "AUTH_OK", "tenant_id": "default", "warning": "Invalid token, default tenant used"}))
-        else:
-            print(f"[WS SERVER] First message was not AUTH — using default tenant")
-    except asyncio.TimeoutError:
-        print("[WS SERVER] No AUTH message within 10s — using default tenant")
     
     vault = StealthVault(vault_key, tenant_id=tenant_id)
     saved_secrets = vault.load_secrets()
@@ -1742,6 +1735,8 @@ async def main():
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
             log.info("SSL enabled", extra={"cert": ssl_cert})
         
+        import logging
+        logging.getLogger("websockets").setLevel(logging.WARNING)
         proto = "wss" if ssl_context else "ws"
         log.info("Starting WebSocket server", extra={"port": port, "env": env_mode, "proto": proto})
         

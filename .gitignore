@@ -31,4 +31,7 @@ brain/audit_trail.json
 brain/.run_checkpoint.db
 brain/.run_checkpoint.json
 workspace/.dlq/
+brain/workspace/
+brain/vaults/
+brain/users.db
 

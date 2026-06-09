@@ -10,8 +10,8 @@
         "label": "Nettoyage & Calcul Majorité",
         "color": "#4A90E2",
         "position": {
-          "x": 86,
-          "y": 103
+          "x": 44,
+          "y": 99
         },
         "mappings": [
           {
@@ -91,8 +91,8 @@
         "label": "Filtrer les Mineurs",
         "color": "#F5A623",
         "position": {
-          "x": 604,
-          "y": 193
+          "x": 615,
+          "y": 215
         },
         "connection_labels": {
           "1": "test",
@@ -141,8 +141,8 @@
       "ui": {
         "label": "Copier des fichiers (4)",
         "position": {
-          "x": 118,
-          "y": 269
+          "x": 158,
+          "y": 338
         }
       }
     },
