@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    branches: ["main", "master"]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+
+jobs:
+  test-rust:
+    name: Rust — build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust_muscle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build (release)
+        run: cargo build --release --verbose
+
+      - name: Run unit tests
+        run: cargo test --verbose
+
+      - name: Check warnings
+        run: cargo build --release 2>&1 | grep -c "warning" || true
+
+  test-python:
+    name: Python — lint & integration tests
+    runs-on: ubuntu-latest
+    needs: test-rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio jsonschema websockets pillow
+
+      - name: Rust binary from previous job
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+
+      - name: Run integration tests
+        env:
+          RUST_BIN_PATH: rust_muscle/target/release/rust_muscle
+        run: |
+          if [ -f "$RUST_BIN_PATH" ]; then
+            python -m pytest brain/tests/ -v
+          else
+            echo "Rust binary not found, building..."
+            cd rust_muscle && cargo build --release && cd ..
+            python -m pytest brain/tests/ -v
+          fi
+
+  check-format:
+    name: Format — Rust & Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: always()
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Rust fmt check
+        run: cargo fmt --check
+        working-directory: rust_muscle
+        continue-on-error: true
+
+      - name: Python syntax check
+        run: |
+          python -m py_compile brain/orchestrator.py
+          python -m py_compile brain/worker_bridge.py
+          python -m py_compile brain/schema_validator.py

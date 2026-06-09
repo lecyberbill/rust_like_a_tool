@@ -522,6 +522,108 @@
             transform: translateX(4px);
         }
 
+        .catalog-info-btn {
+            font-size: 0.8rem;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s, transform 0.2s;
+            flex-shrink: 0;
+            padding: 2px;
+        }
+        .catalog-info-btn:hover {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+
+        /* Documentation modal */
+        .doc-header { margin-bottom: 20px; }
+        .doc-primitive-name {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .doc-label {
+            margin: 4px 0 12px 0;
+            font-size: 1.3rem;
+            color: var(--text);
+        }
+        .doc-desc {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin: 0;
+        }
+        .doc-section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+        }
+        .doc-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .doc-table th {
+            text-align: left;
+            padding: 8px 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .doc-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        .doc-table tbody tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+        .doc-col-center { text-align: center !important; }
+        .doc-cell-name {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.82rem;
+            white-space: nowrap;
+            color: var(--accent);
+            font-weight: 500;
+        }
+        .doc-cell-desc {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+        .doc-code {
+            font-size: 0.75rem;
+            background: rgba(255,255,255,0.06);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text);
+            font-family: 'Roboto Mono', monospace;
+        }
+        .doc-required { color: var(--error); font-weight: 600; }
+        .doc-optional { color: var(--text-muted); }
+        .doc-na { color: var(--text-muted); font-style: italic; }
+        .doc-enum {
+            color: var(--accent);
+            font-size: 0.75rem;
+            margin-top: 3px;
+            opacity: 0.8;
+        }
+        .doc-no-params {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-style: italic;
+            padding: 12px 0;
+        }
+
         .editor-section {
             border-bottom: 1px solid var(--border);
             padding: 16px 20px;
@@ -563,6 +665,25 @@
 
         .editor-input:focus {
             border-color: var(--accent);
+        }
+
+        select.editor-input {
+            appearance: auto;
+            background: #1a1a2e;
+            color: var(--text);
+            cursor: pointer;
+        }
+        .light-theme select.editor-input {
+            background: #fff;
+            color: #0f172a;
+        }
+        select.editor-input option {
+            background: #1a1a2e;
+            color: var(--text);
+        }
+        .light-theme select.editor-input option {
+            background: #fff;
+            color: #0f172a;
         }
 
         .editor-checkbox-group {
@@ -616,6 +737,21 @@
         .save-secrets-btn:hover {
             opacity: 0.9;
             box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .editor-tool-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .editor-tool-btn:hover {
+            opacity: 0.85;
+            transform: translateY(-1px);
         }
 
         /* --- Zone de Chat pour le Mode Étude --- */
@@ -1577,6 +1713,12 @@
 
         .zoom-btn:hover {
             background: rgba(255,255,255,0.08);
+        }
+
+        .zoom-btn.active {
+            background: rgba(0, 240, 255, 0.15);
+            box-shadow: 0 0 8px var(--accent-glow);
+            color: var(--accent);
         }
 
         body.light-theme .zoom-btn:hover {

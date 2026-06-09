@@ -1,0 +1,127 @@
+{
+  "plan_id": "stress_test_core",
+  "intent_analysis": "Test noyau ETL 8 etapes sur 10K lignes",
+  "steps": [
+    {
+      "step": 1,
+      "primitive": "io.read_file",
+      "args": {
+        "source": "test_results\\stress_data/orders.csv",
+        "destination": "test_results\\stress_data/s01.csv"
+      },
+      "depends_on": [],
+      "ui": {
+        "label": "1. Lire CSV"
+      }
+    },
+    {
+      "step": 2,
+      "primitive": "data.filter",
+      "args": {
+        "column_name": "status",
+        "operator": "not_equals",
+        "value": "cancelled",
+        "delimiter": ",",
+        "has_headers": true,
+        "destination": "test_results\\stress_data/s02.csv"
+      },
+      "depends_on": [
+        1
+      ],
+      "ui": {
+        "label": "2. Exclure annules"
+      }
+    },
+    {
+      "step": 3,
+      "primitive": "data.groupby",
+      "args": {
+        "groupby_columns": "category",
+        "aggregate_column": "price",
+        "operation": "sum",
+        "destination": "test_results\\stress_data/s03.csv"
+      },
+      "depends_on": [
+        2
+      ],
+      "ui": {
+        "label": "3. CA/categorie"
+      }
+    },
+    {
+      "step": 4,
+      "primitive": "data.metrics",
+      "args": {
+        "column_name": "price",
+        "operation": "mean",
+        "destination_variable": "AVG_PRICE"
+      },
+      "depends_on": [
+        2
+      ],
+      "ui": {
+        "label": "4. Prix moyen"
+      }
+    },
+    {
+      "step": 5,
+      "primitive": "data.type_cast",
+      "args": {
+        "casts": "{\"customer_id\":\"string\",\"price\":\"float\",\"quantity\":\"int\"}",
+        "destination": "test_results\\stress_data/s05.csv"
+      },
+      "depends_on": [
+        2
+      ],
+      "ui": {
+        "label": "5. Typer colonnes"
+      }
+    },
+    {
+      "step": 6,
+      "primitive": "data.anonymize",
+      "args": {
+        "rules": "email:mask_email,customer_id:hash",
+        "destination": "test_results\\stress_data/s06.csv"
+      },
+      "depends_on": [
+        5
+      ],
+      "ui": {
+        "label": "6. Anonymiser PII"
+      }
+    },
+    {
+      "step": 7,
+      "primitive": "data.deduplicate",
+      "args": {
+        "subset": "customer_id",
+        "keep": "first",
+        "destination": "test_results\\stress_data/s07.csv"
+      },
+      "depends_on": [
+        6
+      ],
+      "ui": {
+        "label": "7. Dedup clients"
+      }
+    },
+    {
+      "step": 8,
+      "primitive": "data.pivot",
+      "args": {
+        "index": "category",
+        "on": "product",
+        "values": "quantity",
+        "aggregate": "sum",
+        "destination": "test_results\\stress_data/s08.csv"
+      },
+      "depends_on": [
+        7
+      ],
+      "ui": {
+        "label": "8. Pivot qte/cat"
+      }
+    }
+  ]
+}

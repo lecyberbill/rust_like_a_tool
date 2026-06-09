@@ -155,7 +155,150 @@ Access the workbench in your browser at: **`http://localhost:8766/`** (served dy
 The server actively polls configured workflow schedules:
 - **Cron**: Run recipes based on Cron expressions (e.g. `*/5 * * * *` to run every 5 minutes).
 - **File Watcher**: Scans directory folders and triggers a run when matching file formats are added.
-- **Webhook API**: Fire execution runs instantly by sending HTTP requests:
-  ```bash
-  curl "http://localhost:8766/trigger?workspace=default_workflow"
-  ```
+   - **Webhook API**: Fire execution runs instantly by sending HTTP requests:
+   ```bash
+   curl "http://localhost:8766/trigger?workspace=default_workflow"
+   ```
+
+---
+
+## 📡 API Documentation
+
+### WebSocket API (port 8765)
+
+Le Brain expose un serveur WebSocket pour la communication temps réel avec la Vitrine.
+
+**Connexion :**
+```
+ws://localhost:8765
+```
+
+**Messages reçus (Brain → Client) :**
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `system_info` | `{ orchestrator, version, os, primitives, enums }` | État du serveur et catalogue complet |
+| `step_status` | `{ step_id, status, output? }` | Mise à jour d'une étape en cours |
+| `plan_complete` | `{ plan_id, status, results }` | Fin d'exécution d'un plan |
+| `plan_error` | `{ plan_id, error }` | Erreur fatale lors de l'exécution |
+| `log` | `{ level, message, step_id? }` | Log temps réel |
+| `error` | `{ message, code }` | Erreur générique |
+| `current_state` | `{ state, workspace? }` | État de connexion |
+
+**Messages envoyés (Client → Brain) :**
+
+| Commande | Payload | Description |
+|----------|---------|-------------|
+| `execute_plan` | `{ plan_id, steps, workspace }` | Lancer un plan ETL |
+| `cancel_plan` | `{ plan_id }` | Annuler un plan en cours |
+| `get_system_info` | `{}` | Demander le catalogue primitives |
+| `get_plans` | `{}` | Lister les plans historiques |
+| `get_workspaces` | `{}` | Lister les workspaces |
+| `save_workspace` | `{ name, steps, connections }` | Sauvegarder un workspace |
+| `delete_workspace` | `{ name }` | Supprimer un workspace |
+| `load_workspace` | `{ name }` | Charger un workspace |
+
+### HTTP API (port 8766)
+
+Endpoint REST pour les déclencheurs externes et les métriques.
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/` | Servir la Vitrine (index.html) |
+| `GET` | `/trigger?workspace=<nom>` | Déclencher un workspace |
+| `GET` | `/cancel` | Annuler le plan en cours |
+| `GET` | `/metrics` | Endpoint Prometheus |
+
+### Métriques Prometheus exposées
+
+| Métrique | Type | Labels | Description |
+|----------|------|--------|-------------|
+| `wfgy_plan_runs_total` | counter | `target_env` | Nombre total de plans exécutés |
+| `wfgy_steps_total` | counter | `primitive, status` | Nombre total d'étapes exécutées |
+| `wfgy_step_failures_total` | counter | `primitive, code` | Nombre total d'échecs d'étapes |
+| `wfgy_validation_errors_total` | counter | `primitive, step` | Erreurs de validation de recette |
+| `wfgy_step_duration_seconds` | histogram | `primitive` | Durée d'exécution des étapes (buckets: 0.01s à 60s) |
+| `wfgy_active_connections` | gauge | — | Connexions WebSocket actives |
+
+## 🐳 Installation Docker
+
+```bash
+# 1. Construire l'image
+docker build -t wfgy-core-v3 .
+
+# 2. Créer le fichier .env (cf. Configuration ci-dessus)
+
+# 3. Lancer le conteneur
+docker run -d --name wfgy-etl \
+  -p 8765:8765 -p 8766:8766 \
+  -v "$(pwd)/.env:/app/.env" \
+  -v "$(pwd)/workspace:/app/workspace" \
+  wfgy-core-v3
+
+# 4. Ouvrir http://localhost:8766/
+```
+
+## 📊 Monitoring Grafana
+
+1. Ajouter une source Prometheus pointant vers `http://localhost:8766/metrics`
+2. Importer le dashboard : `grafana/wfgy_dashboard.json`
+3. Le dashboard expose 10 panneaux :
+   - **Statistiques instantanées** : connexions actives, plans, échecs, erreurs de validation
+   - **Série temporelle** : latence P50/P95/P99 des étapes
+   - **Répartition** : étapes par primitive, taux succès/échec
+   - **Détail** : échecs par primitive, plans par environnement, erreurs de validation par primitive
+
+## 🔧 Installation depuis les sources
+
+### Prérequis
+- **Rust** 1.82+ (build muscle)
+- **Python** 3.10+ (brain)
+- **Cargo** (pour la compilation)
+
+### Étapes
+
+```bash
+# 1. Compiler le moteur Rust
+cd rust_muscle
+cargo build --release
+cp target/release/rust_muscle /usr/local/bin/
+
+# 2. Installer les dépendances Python
+cd ..
+python -m venv .venv
+source .venv/bin/activate  # ou .venv\Scripts\activate sous Windows
+pip install -r requirements.txt
+
+# 3. Configurer l'environnement
+cp .env.prod .env
+# Éditer .env avec vos paramètres (LLM, ports, etc.)
+
+# 4. Lancer le serveur
+python brain/orchestrator.py --server
+```
+
+### Tests
+
+```bash
+# Rust (26 tests unitaires)
+cd rust_muscle && cargo test
+
+# Python (41 tests d'intégration)
+cd .. && pytest brain/tests/ -v
+
+# Stress test (10K lignes × 8 étapes)
+python test_advanced_etl.py
+
+# Benchmarks
+python test_results/bench_primitives.py
+
+# Suite complète cross-platform
+./run_all_tests.py
+```
+
+## 🏗️ Références complémentaires
+
+- `PRIMITIVE_REFERENCE.md` — Documentation exhaustive des 54 primitives
+- `TECHNICAL_REPORT.md` — Invariants structurels et changelog
+- `ROADMAP_MODULES.md` — Feuille de route des modules
+- `grafana/wfgy_dashboard.json` — Dashboard Grafana importable

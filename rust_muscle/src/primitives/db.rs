@@ -16,7 +16,7 @@ pub fn handle_db_query(args: &[String]) -> Result<(), MuscleError> {
                     connection_string = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --connection-string".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --connection-string".to_string()));
                 }
             }
             "--query" => {
@@ -24,7 +24,7 @@ pub fn handle_db_query(args: &[String]) -> Result<(), MuscleError> {
                     query = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --query".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --query".to_string()));
                 }
             }
             "--destination" => {
@@ -32,25 +32,25 @@ pub fn handle_db_query(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let connection_string = connection_string.ok_or_else(|| MuscleError::Generic("Missing argument --connection-string".to_string()))?;
-    let query = query.ok_or_else(|| MuscleError::Generic("Missing argument --query".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing argument --destination".to_string()))?;
+    let connection_string = connection_string.ok_or_else(|| MuscleError::MissingArg("Missing argument --connection-string".to_string()))?;
+    let query = query.ok_or_else(|| MuscleError::MissingArg("Missing argument --query".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing argument --destination".to_string()))?;
 
     let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| MuscleError::Generic(format!("Failed to build tokio runtime: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to build tokio runtime: {}", e)))?;
 
     rt.block_on(async {
         db_connector::query_to_file(connection_string, query, destination).await
-    }).map_err(|e| MuscleError::Generic(e))
+    }).map_err(|e| MuscleError::IoError(format!("DB error: {}", e)))
 }
 
 pub fn handle_db_insert(args: &[String]) -> Result<(), MuscleError> {
@@ -68,7 +68,7 @@ pub fn handle_db_insert(args: &[String]) -> Result<(), MuscleError> {
                     connection_string = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --connection-string".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --connection-string".to_string()));
                 }
             }
             "--table-name" | "--table_name" => {
@@ -76,7 +76,7 @@ pub fn handle_db_insert(args: &[String]) -> Result<(), MuscleError> {
                     table_name = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --table-name".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --table-name".to_string()));
                 }
             }
             "--source" => {
@@ -84,7 +84,7 @@ pub fn handle_db_insert(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--mode" => {
@@ -92,7 +92,7 @@ pub fn handle_db_insert(args: &[String]) -> Result<(), MuscleError> {
                     mode = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --mode".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --mode".to_string()));
                 }
             }
             "--schema-drift" | "--schema_drift" => {
@@ -100,25 +100,25 @@ pub fn handle_db_insert(args: &[String]) -> Result<(), MuscleError> {
                     schema_drift = args[i + 1].parse::<bool>().unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --schema-drift".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --schema-drift".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let connection_string = connection_string.ok_or_else(|| MuscleError::Generic("Missing argument --connection-string".to_string()))?;
-    let table_name = table_name.ok_or_else(|| MuscleError::Generic("Missing argument --table-name".to_string()))?;
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
+    let connection_string = connection_string.ok_or_else(|| MuscleError::MissingArg("Missing argument --connection-string".to_string()))?;
+    let table_name = table_name.ok_or_else(|| MuscleError::MissingArg("Missing argument --table-name".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing argument --source".to_string()))?;
 
     let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| MuscleError::Generic(format!("Failed to build tokio runtime: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to build tokio runtime: {}", e)))?;
 
     rt.block_on(async {
         db_connector::insert_from_file(connection_string, table_name, source, &mode, schema_drift).await
-    }).map_err(|e| MuscleError::Generic(e))
+    }).map_err(|e| MuscleError::IoError(format!("DB error: {}", e)))
 }
 
 pub fn handle_db_upsert(args: &[String]) -> Result<(), MuscleError> {
@@ -136,7 +136,7 @@ pub fn handle_db_upsert(args: &[String]) -> Result<(), MuscleError> {
                     connection_string = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --connection-string".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --connection-string".to_string()));
                 }
             }
             "--table-name" | "--table_name" => {
@@ -144,7 +144,7 @@ pub fn handle_db_upsert(args: &[String]) -> Result<(), MuscleError> {
                     table_name = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --table-name".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --table-name".to_string()));
                 }
             }
             "--source" => {
@@ -152,7 +152,7 @@ pub fn handle_db_upsert(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--keys" => {
@@ -160,7 +160,7 @@ pub fn handle_db_upsert(args: &[String]) -> Result<(), MuscleError> {
                     keys = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --keys".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --keys".to_string()));
                 }
             }
             "--schema-drift" | "--schema_drift" => {
@@ -168,25 +168,25 @@ pub fn handle_db_upsert(args: &[String]) -> Result<(), MuscleError> {
                     schema_drift = args[i + 1].parse::<bool>().unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --schema-drift".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --schema-drift".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let connection_string = connection_string.ok_or_else(|| MuscleError::Generic("Missing argument --connection-string".to_string()))?;
-    let table_name = table_name.ok_or_else(|| MuscleError::Generic("Missing argument --table-name".to_string()))?;
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing argument --source".to_string()))?;
-    let keys = keys.ok_or_else(|| MuscleError::Generic("Missing argument --keys".to_string()))?;
+    let connection_string = connection_string.ok_or_else(|| MuscleError::MissingArg("Missing argument --connection-string".to_string()))?;
+    let table_name = table_name.ok_or_else(|| MuscleError::MissingArg("Missing argument --table-name".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing argument --source".to_string()))?;
+    let keys = keys.ok_or_else(|| MuscleError::MissingArg("Missing argument --keys".to_string()))?;
 
     let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| MuscleError::Generic(format!("Failed to build tokio runtime: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to build tokio runtime: {}", e)))?;
 
     rt.block_on(async {
         db_connector::upsert_from_file(connection_string, table_name, source, keys, schema_drift).await
-    }).map_err(|e| MuscleError::Generic(e))
+    }).map_err(|e| MuscleError::IoError(format!("DB error: {}", e)))
 }
 

@@ -3,7 +3,7 @@ use polars::prelude::*;
 use std::path::Path;
 
 /// Détecte le format de fichier et charge un LazyFrame Polars
-fn read_df(file_path: &str) -> Result<LazyFrame, String> {
+pub fn read_df(file_path: &str) -> Result<LazyFrame, String> {
     let path = Path::new(file_path);
     let ext = path.extension()
         .and_then(|s| s.to_str())
@@ -30,12 +30,19 @@ fn read_df(file_path: &str) -> Result<LazyFrame, String> {
             LazyFrame::scan_parquet(file_path, ScanArgsParquet::default())
                 .map_err(|e| format!("Erreur de lecture Parquet Polars: {}", e))
         },
+        "jsonl" | "ndjson" => {
+            let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+            let df = JsonLineReader::new(f)
+                .finish()
+                .map_err(|e| format!("Erreur de lecture JSON Lines Polars: {}", e))?;
+            Ok(df.lazy())
+        },
         other => Err(format!("Format de fichier non supporte par le moteur analytique : .{}", other))
     }
 }
 
 /// Écrit un LazyFrame collecté vers la destination selon le format
-fn write_df(df: DataFrame, file_path: &str) -> Result<(), String> {
+pub fn write_df(df: DataFrame, file_path: &str) -> Result<(), String> {
     let path = Path::new(file_path);
     let ext = path.extension()
         .and_then(|s| s.to_str())
@@ -66,6 +73,12 @@ fn write_df(df: DataFrame, file_path: &str) -> Result<(), String> {
             let writer = ParquetWriter::new(f);
             writer.finish(&mut df.clone())
                 .map_err(|e| format!("Erreur d'ecriture Parquet: {}", e))?;
+        },
+        "jsonl" | "ndjson" => {
+            let mut writer = JsonWriter::new(f)
+                .with_json_format(JsonFormat::JsonLines);
+            writer.finish(&mut df.clone())
+                .map_err(|e| format!("Erreur d'ecriture JSON Lines: {}", e))?;
         },
         other => return Err(format!("Format d'ecriture non supporte : .{}", other))
     }

@@ -1,0 +1,157 @@
+{
+  "title": "WFGY-Core V3 — Tableau de Bord ETL",
+  "uid": "wfgy-core-v3",
+  "version": 1,
+  "timezone": "browser",
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Connexions actives",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "wfgy_active_connections",
+        "legendFormat": "actives",
+        "refId": "A"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green" }, { "value": 5, "color": "orange" }, { "value": 20, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Plans exécutés (total cumulé)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [{
+        "expr": "sum(wfgy_plan_runs_total)",
+        "legendFormat": "plans",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "Étapes en échec (total cumulé)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "targets": [{
+        "expr": "sum(wfgy_step_failures_total)",
+        "legendFormat": "échecs",
+        "refId": "A"
+      }],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "value": 1, "color": "red" }] } }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Erreurs de validation (total cumulé)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "sum(wfgy_validation_errors_total)",
+        "legendFormat": "erreurs",
+        "refId": "A"
+      }],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green" }, { "value": 1, "color": "red" }] } }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Durée des étapes (P50 / P95 / P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 4 },
+      "targets": [{
+        "expr": "histogram_quantile(0.50, sum(rate(wfgy_step_duration_seconds_bucket[5m])) by (le))",
+        "legendFormat": "P50",
+        "refId": "A"
+      }, {
+        "expr": "histogram_quantile(0.95, sum(rate(wfgy_step_duration_seconds_bucket[5m])) by (le))",
+        "legendFormat": "P95",
+        "refId": "B"
+      }, {
+        "expr": "histogram_quantile(0.99, sum(rate(wfgy_step_duration_seconds_bucket[5m])) by (le))",
+        "legendFormat": "P99",
+        "refId": "C"
+      }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 6,
+      "title": "Étapes par primitive (top 10)",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 4 },
+      "targets": [{
+        "expr": "topk(10, sum(wfgy_steps_total) by (primitive))",
+        "legendFormat": "{{primitive}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Taux de succès / échec",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 4, "x": 16, "y": 4 },
+      "targets": [{
+        "expr": "sum(wfgy_steps_total{status=\"success\"})",
+        "legendFormat": "succès",
+        "refId": "A"
+      }, {
+        "expr": "sum(wfgy_step_failures_total)",
+        "legendFormat": "échec",
+        "refId": "B"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "Échecs par primitive",
+      "type": "barchart",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
+      "targets": [{
+        "expr": "topk(10, sum(wfgy_step_failures_total) by (primitive))",
+        "legendFormat": "{{primitive}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "Plans par environnement cible",
+      "type": "barchart",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
+      "targets": [{
+        "expr": "sum(wfgy_plan_runs_total) by (target_env)",
+        "legendFormat": "{{target_env}}",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 10,
+      "title": "Erreurs de validation par primitive",
+      "type": "barchart",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
+      "targets": [{
+        "expr": "sum(wfgy_validation_errors_total) by (primitive)",
+        "legendFormat": "{{primitive}}",
+        "refId": "A"
+      }]
+    }
+  ],
+  "schemaVersion": 39,
+  "templating": {
+    "list": [{
+      "name": "datasource",
+      "type": "datasource",
+      "query": "prometheus",
+      "current": { "type": "datasource", "name": "Prometheus" },
+      "hide": 0
+    }]
+  },
+  "annotations": { "list": [] },
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" }
+}

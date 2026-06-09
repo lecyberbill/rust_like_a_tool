@@ -12,8 +12,14 @@ function editNode(stepNum) {
     
     panel.classList.remove('collapsed');
     document.getElementById('node-editor-title').innerText = `Étape ${stepNum} : ${step.ui.label}`;
-    
+
     let html = `
+        <div class="editor-section" style="display:flex; flex-wrap:wrap; gap:8px; padding:8px 16px; border-bottom:1px solid var(--border);">
+            <button class="editor-tool-btn" title="Documentation" onclick="showPrimitiveDoc('${step.primitive}')" style="background:var(--bg-card); color:var(--text);">ℹ️ Doc</button>
+            <button class="editor-tool-btn" title="Dupliquer" onclick="duplicateNode(${stepNum})" style="background:var(--bg-card); color:var(--text);">📋 Dupliquer</button>
+            ${step.primitive === 'data.clean' ? `<button class="editor-tool-btn" title="AiMapper" onclick="openAiMapper(${stepNum})" style="background:linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color:#000; font-weight:800;">🗺️ AiMapper</button>` : ''}
+            <button class="editor-tool-btn" title="Supprimer" onclick="deleteStepNode(${stepNum})" style="background:var(--error); color:#fff;">🗑️ Supprimer</button>
+        </div>
         <div class="editor-section">
             <div class="editor-section-title">Infos Générales</div>
             <div class="editor-input-group">
@@ -55,7 +61,9 @@ function editNode(stepNum) {
         `;
     }
 
+    const deps = step.depends_on || [];
     const args = step.args || {};
+    const enumOpts = (typeof primitiveEnums !== 'undefined' && primitiveEnums[step.primitive]) || {};
     for (const [key, val] of Object.entries(args)) {
         const inputId = `arg-${key}`;
         if (typeof val === 'boolean') {
@@ -66,22 +74,81 @@ function editNode(stepNum) {
                     <label for="${inputId}">${key}</label>
                 </div>
             `;
-        } else {
+        } else if (Array.isArray(val)) {
+            // Tableau (steps, then_steps, else_steps...)
+            const isSteps = key === 'steps' || key.endsWith('_steps');
             html += `
                 <div class="editor-input-group">
                     <label>${key}</label>
-                    <input type="text" class="editor-input" id="${inputId}" value="${val}" oninput="saveNodeChanges()">
+                    <div style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px;">
+                        <span style="font-size:0.85rem;color:var(--text-muted);">${val.length} élément${val.length > 1 ? 's' : ''}</span>
+                        ${isSteps && val.length > 0 ? `<button class="editor-tool-btn" style="font-size:0.75rem;padding:2px 8px;" onclick="drillDown(${stepNum}, '${step.ui.label}')">🔍 Voir</button>` : ''}
+                    </div>
                 </div>
             `;
+        } else if (typeof val === 'object' && val !== null) {
+            // Objet (mappings, cases...)
+            const jsonStr = JSON.stringify(val, null, 2);
+            const preview = jsonStr.length > 60 ? jsonStr.substring(0, 60) + '…' : jsonStr;
+            html += `
+                <div class="editor-input-group">
+                    <label>${key}</label>
+                    <textarea class="editor-input" id="${inputId}" style="min-height:70px;font-family:monospace;font-size:0.75rem;" oninput="saveNodeChanges()">${jsonStr}</textarea>
+                </div>
+            `;
+        } else if (enumOpts[key]) {
+            let hint = '';
+            if (key === 'source' && !val && deps.length > 0) {
+                const parentStep = currentSteps.find(s => s.step === deps[0]);
+                if (parentStep) {
+                    hint = `<div style="font-size:0.75rem;color:var(--accent);font-style:italic;margin-top:2px;">↳ hérité depuis « ${parentStep.ui.label} » (étape ${deps[0]})</div>`;
+                }
+            }
+            html += `
+                <div class="editor-input-group">
+                    <label>${key}</label>
+                    <select class="editor-input" id="${inputId}" onchange="saveNodeChanges()">
+                        ${enumOpts[key].map(opt => `<option value="${opt}"${val === opt || (val === true && opt === 'true') || (val === false && opt === 'false') ? ' selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    ${hint}
+                </div>
+            `;
+        } else {
+            let hint = '';
+            // Source héritée du parent
+            if (key === 'source' && !val && deps.length > 0) {
+                const parentStep = currentSteps.find(s => s.step === deps[0]);
+                if (parentStep) {
+                    hint = `<div style="font-size:0.75rem;color:var(--accent);font-style:italic;margin-top:2px;">↳ hérité depuis « ${parentStep.ui.label} » (étape ${deps[0]})</div>`;
+                }
+            }
+            // Destination auto-générée
+            if (key === 'destination' && !val) {
+                hint = `<div style="font-size:0.75rem;color:var(--text-muted);font-style:italic;margin-top:2px;">↳ auto-généré si vide (workspace/output/step_${stepNum}_...)</div>`;
+            }
+            // data.merge.sources → textarea multi-lignes
+            if (key === 'sources') {
+                html += `
+                    <div class="editor-input-group">
+                        <label>${key} <span style="font-weight:normal;font-size:0.7rem;color:var(--text-muted);">(un chemin par ligne)</span></label>
+                        <textarea class="editor-input" id="${inputId}" style="min-height:60px;font-family:monospace;font-size:0.8rem;" oninput="saveNodeChanges()">${val}</textarea>
+                        ${hint}
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="editor-input-group">
+                        <label>${key}</label>
+                        <input type="text" class="editor-input" id="${inputId}" value="${val}" oninput="saveNodeChanges()">
+                        ${hint}
+                    </div>
+                `;
+            }
         }
     }
     html += `</div>`;
 
-    html += `
-        <div class="editor-section" style="display:flex; justify-content:center; padding:16px 20px;">
-            <button class="save-secrets-btn" style="background:linear-gradient(135deg, var(--error) 0%, rgba(239,68,68,0.6) 100%); color:#fff; border:none; box-shadow: 0 4px 12px rgba(239,68,68,0.3); font-weight:800; width:100%;" onclick="deleteStepNode(${stepNum})">🗑️ Supprimer l'étape</button>
-        </div>
-    `;
+
     container.innerHTML = html;
 }
 
@@ -125,6 +192,16 @@ function saveNodeChanges() {
         if (el) {
             if (el.type === 'checkbox') {
                 step.args[key] = el.checked;
+            } else if (el.tagName === 'TEXTAREA') {
+                try {
+                    step.args[key] = JSON.parse(el.value);
+                } catch {
+                    step.args[key] = el.value;
+                }
+                // data.merge.sources : normaliser les retours à la ligne en virgules
+                if (key === 'sources' && typeof step.args[key] === 'string') {
+                    step.args[key] = step.args[key].split('\n').map(s => s.trim()).filter(Boolean).join(',');
+                }
             } else {
                 const floatVal = parseFloat(el.value);
                 if (!isNaN(floatVal) && String(floatVal) === el.value) {

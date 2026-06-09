@@ -10,14 +10,29 @@ mod primitives;
 
 pub use error::MuscleError;
 
+fn init_logging() {
+    use tracing_subscriber::filter::EnvFilter;
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .with_thread_ids(true)
+        .json()
+        .init();
+}
+
 fn main() {
+    init_logging();
+
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("Error: Missing command/primitive name. Usage: rust_muscle <primitive> [args]");
+        tracing::error!("Missing primitive name. Usage: rust_muscle <primitive> [args]");
         process::exit(1);
     }
 
     let primitive = &args[1];
+    tracing::info!(primitive = %primitive, args_count = args.len() - 2, "Executing primitive");
     let result = match primitive.as_str() {
         // io
         "io.copy" => primitives::io::handle_io_copy(&args[2..]),
@@ -25,6 +40,7 @@ fn main() {
         "io.delete" => primitives::io::handle_io_delete(&args[2..]),
         "io.metadata" => primitives::io::handle_io_metadata(&args[2..]),
         "io.write_file" => primitives::io::handle_io_write_file(&args[2..]),
+        "io.read_file" => primitives::io::handle_io_copy(&args[2..]),
         "data.zip" => primitives::io::handle_io_zip(&args[2..]),
         "data.unzip" => primitives::io::handle_io_unzip(&args[2..]),
 
@@ -41,7 +57,7 @@ fn main() {
         "google.sheets_write" => primitives::net::handle_google_sheets_write(&args[2..]),
         "net.http_request" => primitives::net::handle_net_http_request(&args[2..]),
         "net.notify" => primitives::net::handle_net_notify(&args[2..]),
-        "net.download_images" => Err(MuscleError::Generic("Deprecated: use net.http_request".to_string())),
+        "net.download_images" => Err(MuscleError::UnsupportedPrimitive("Deprecated: use net.http_request".to_string())),
 
         // data format
         "data.csv_to_json" => primitives::data_format::handle_csv_to_json(&args[2..]),
@@ -50,6 +66,9 @@ fn main() {
         "data.xml_transform" => primitives::data_format::handle_xml_transform(&args[2..]),
         "data.to_xlsx" => primitives::data_format::handle_to_xlsx(&args[2..]),
         "data.json_to_xml" => primitives::data_format::handle_json_to_xml(&args[2..]),
+        "data.read" => primitives::data_format::handle_data_read(&args[2..]),
+        "data.write" => primitives::data_format::handle_data_write(&args[2..]),
+        "data.convert" => primitives::data_format::handle_data_convert(&args[2..]),
 
         // data transform
         "data_filter" | "data.filter" => primitives::data_transform::handle_data_filter(&args[2..]),
@@ -91,13 +110,13 @@ fn main() {
         "s3.upload" => primitives::s3::handle_s3_upload(&args[2..]),
         "s3.download" => primitives::s3::handle_s3_download(&args[2..]),
 
-        _ => Err(MuscleError::Generic(format!("Unknown primitive '{}'", primitive))),
+        _ => Err(MuscleError::UnsupportedPrimitive(format!("Unknown primitive '{}'", primitive))),
     };
 
     match result {
         Ok(_) => process::exit(0),
         Err(err) => {
-            eprintln!("{}", err.message());
+            tracing::error!(exit_code = err.exit_code(), message = %err.message(), "Primitive failed");
             process::exit(err.exit_code());
         }
     }

@@ -138,6 +138,7 @@
                 <span class="zoom-level" id="zoom-level-val">100%</span>
                 <button class="zoom-btn" onclick="zoomIn()" title="Zoom Avant">➕</button>
                 <button class="zoom-btn" onclick="zoomReset()" title="Ajuster l'Écran">🔍</button>
+                <button class="zoom-btn" id="btn-pan-mode" onclick="togglePanMode()" title="Déplacer le canevas (Main)">✋</button>
             </div>
             
             <!-- Data Preview Panel (Bottom Docked) -->
@@ -598,6 +599,19 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             </div>
             <div id="audit-details-content" style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
                 <!-- Rempli dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Documentation des Primitives -->
+    <div id="primitive-doc-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.88); backdrop-filter: blur(12px); z-index: 130; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: min(700px, 90vw); max-height: 80vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.97); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+                <h4 style="color: var(--accent); margin: 0; font-weight: 800;">📖 Documentation</h4>
+                <button class="toggle-logs-btn" onclick="closePrimitiveDocModal()">✖</button>
+            </div>
+            <div id="primitive-doc-container" style="flex: 1; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; padding-right: 8px;">
+                <!-- Rempli dynamiquement par showPrimitiveDoc() -->
             </div>
         </div>
     </div>

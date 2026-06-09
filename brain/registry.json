@@ -105,6 +105,29 @@
         "required": ["path", "content"]
       }
     },
+    "io.read_file": {
+      "description": "Lit un fichier de données (CSV, JSON, XLSX, Parquet) et le met à disposition des étapes suivantes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier à lire."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin où copier/rendre les données disponibles (auto-généré si vide)."
+          },
+          "format": {
+            "type": "string",
+            "enum": ["csv", "json", "xlsx", "parquet", "auto"],
+            "default": "auto",
+            "description": "Format du fichier source (auto = déduit de l'extension)."
+          }
+        },
+        "required": ["source"]
+      }
+    },
     "net.download": {
       "description": "Télécharge un fichier depuis une URL HTTP/HTTPS.",
       "parameters": {
@@ -418,7 +441,7 @@
           },
           "operator": {
             "type": "string",
-            "enum": ["equals", "contains", "starts_with", "ends_with", "regex", "greater_than", "less_than"],
+            "enum": ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "regex", "greater_than", "greater_or_equal", "less_than", "less_or_equal", "is_null", "is_not_null", "in", "not_in"],
             "description": "Opérateur de comparaison logique."
           },
           "value": {
@@ -1199,35 +1222,6 @@
         "required": ["steps"]
       }
     },
-    "core.loop": {
-      "description": "Boucle d'exécution itérant sur une collection (fichiers, lignes de données, ou variables) et appliquant un sous-graphe.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "loop_over": {
-            "type": "string",
-            "enum": ["files", "rows", "variables"],
-            "description": "Le type de collection à parcourir (files = fichiers d'un dossier, rows = lignes d'un CSV/JSON, variables = valeurs séparées par virgules)."
-          },
-          "items_source": {
-            "type": "string",
-            "description": "La source des éléments (chemin vers le dossier/fichier, ou chaîne brute de valeurs)."
-          },
-          "pattern": {
-            "type": "string",
-            "description": "Pattern glob de recherche (optionnel, requis uniquement si loop_over est 'files', ex: *.csv)."
-          },
-          "steps": {
-            "type": "array",
-            "description": "Le sous-graphe d'étapes exécuté à chaque itération (la variable d'itération est disponible via ${ITER_ITEM}).",
-            "items": {
-              "type": "object"
-            }
-          }
-        },
-        "required": ["loop_over", "items_source", "steps"]
-      }
-    },
     "data.lookup": {
       "description": "Recherche et joint des données depuis un référentiel externe (jointure gauche Polars).",
       "parameters": {
@@ -1593,6 +1587,181 @@
           }
         },
         "required": ["value", "cases"]
+      }
+    },
+    "google.sheets_read": {
+      "description": "Extrait des données depuis Google Sheets vers un fichier local CSV.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "string",
+            "description": "Chemin vers le fichier JSON de credentials Google Service Account."
+          },
+          "spreadsheet_id": {
+            "type": "string",
+            "description": "L'identifiant du spreadsheet Google Sheets."
+          },
+          "worksheet_title": {
+            "type": "string",
+            "description": "Le nom de l'onglet/feuille à lire (optionnel, lit la première feuille si vide)."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Chemin local où sauvegarder les données extraites en CSV."
+          }
+        },
+        "required": ["credentials", "spreadsheet_id", "local_path"]
+      }
+    },
+    "google.sheets_write": {
+      "description": "Écrit des données depuis un fichier local CSV vers Google Sheets.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "string",
+            "description": "Chemin vers le fichier JSON de credentials Google Service Account."
+          },
+          "spreadsheet_id": {
+            "type": "string",
+            "description": "L'identifiant du spreadsheet Google Sheets."
+          },
+          "worksheet_title": {
+            "type": "string",
+            "description": "Le nom de l'onglet/feuille cible (optionnel)."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Chemin local du fichier CSV à importer."
+          },
+          "clear_sheet": {
+            "type": "boolean",
+            "default": true,
+            "description": "Vider la feuille avant d'écrire les nouvelles données."
+          }
+        },
+        "required": ["credentials", "spreadsheet_id", "local_path"]
+      }
+    },
+    "data.partition": {
+      "description": "Partitionne un dataset en plusieurs fichiers selon les valeurs d'une ou plusieurs colonnes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source (CSV/JSON/Parquet)."
+          },
+          "destination_dir": {
+            "type": "string",
+            "description": "Le répertoire de destination pour les fichiers partitionnés."
+          },
+          "by_columns": {
+            "type": "string",
+            "description": "Les colonnes de partitionnement séparées par des virgules."
+          }
+        },
+        "required": ["source", "destination_dir", "by_columns"]
+      }
+    },
+    "data.scd": {
+      "description": "Gère les dimensions à évolution lente (SCD Type 2) en comparant source et cible.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier source contenant les nouvelles données."
+          },
+          "target": {
+            "type": "string",
+            "description": "Le chemin du fichier cible existant (dimension historique)."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Les colonnes clés de jointure séparées par des virgules."
+          },
+          "compare_columns": {
+            "type": "string",
+            "description": "Les colonnes à comparer pour détecter les changements (optionnel, toutes si vide)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de sortie avec la dimension versionnée."
+          },
+          "valid_from_col": {
+            "type": "string",
+            "default": "valid_from",
+            "description": "Nom de la colonne marquant le début de validité."
+          },
+          "valid_to_col": {
+            "type": "string",
+            "default": "valid_to",
+            "description": "Nom de la colonne marquant la fin de validité."
+          },
+          "is_current_col": {
+            "type": "string",
+            "default": "is_current",
+            "description": "Nom de la colonne indiquant si l'enregistrement est courant."
+          },
+          "valid_from_value": {
+            "type": "string",
+            "description": "Valeur de début de validité (optionnel, ex: date du jour)."
+          }
+        },
+        "required": ["source", "target", "keys", "destination"]
+      }
+    },
+    "data.read": {
+      "description": "Lit un fichier dans tout format supporté (CSV, JSON, Parquet, JSONL/NDJSON) et l'écrit en CSV.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier source (auto-détection du format par extension)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier CSV de sortie."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.write": {
+      "description": "Lit un fichier CSV source et l'écrit dans le format détecté par l'extension de destination (CSV, JSON, Parquet, JSONL/NDJSON).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier CSV source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de sortie (format auto-détecté par extension)."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.convert": {
+      "description": "Convertit un fichier entre tous formats supportés (CSV, JSON, Parquet, JSONL/NDJSON) par auto-détection des extensions source et destination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier source (format auto-détecté par extension)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de destination (format auto-détecté par extension)."
+          }
+        },
+        "required": ["source", "destination"]
       }
     }
   }

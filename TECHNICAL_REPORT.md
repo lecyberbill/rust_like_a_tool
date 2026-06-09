@@ -80,6 +80,10 @@ This system is an intent-based ETL orchestrator:
 - Invariant 30 [MongoDB Integration]: SUCCESS (Implemented mongodb.find and mongodb.insert delegating to python mongodb_helper.py, verified via mock tests and real Atlas database tests)
 - Invariant 31 [Manual Recipe Visual Editing]: SUCCESS (Implemented sliding left sidebar Primitive Catalog with 35+ primitives, added node creation and visual rendering, verified manually)
 - Invariant 32 [Node Deletion Cleanup]: SUCCESS (Implemented step deletion button in the editor panel with dependency cascade, verified manually)
+- Invariant 33 [Multi-format Read/Write/Convert]: SUCCESS (Implemented `data.read`, `data.write`, `data.convert` in Rust via analytical_engine public API, registered in registry.json and frontend catalog. Supports CSV/JSON/Parquet/JSONL/NDJSON, 26 unit tests pass)
+- Invariant 34 [Zero Generic Error Handlers]: SUCCESS (600+ `MuscleError::Generic` replaced across all handler files by typed variants: MissingArg, InvalidArg, IoError, ParseError, etc. Zéro Generic restant hors definition)
+- Invariant 35 [Prometheus Metrics Endpoint]: SUCCESS (Metrics registry exposes 6 metric types on port 8766, dashboard Grafana importable dans `grafana/`)
+- Invariant 36 [Docker Multi-stage Build]: SUCCESS (Image Rust → Python, binaire 53MB, port 8765/8766)
 
 ---
 
@@ -248,6 +252,89 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 ## Invariant 49 [AI Recipe Planner Stress Test Suite]
 - **Invariant 49 [AI Recipe Planner Stress Test Suite]:** System must provide a dedicated test script (`test_planner_stress.py`) to run and validate workflow generation using local or simulated LLM APIs, checking JSON schemas and ensuring dependency graphs do not contain cyclical execution loops.
 
+---
+
+## Audit de Cohérence des Primitives (2026-06-08)
+
+À l'occasion d'une revue systématique du système, un audit transversal a été mené pour vérifier l'alignement sémantique entre les trois couches : **registry.json** (définition publique), **Rust Muscle** (dispatch et handlers), et **Vitrine** (catalogue frontend `primitiveCatalogData`).
+
+### Problèmes identifiés
+
+#### 1. Noms d'arguments divergents entre le frontend et les handlers Rust
+13 primitives envoyaient des noms de paramètres que le Rust ne reconnaissait pas, causant des échecs silencieux ou des erreurs `Unknown argument` :
+
+| Primitive | Ancien nom (cassé) | Nom corrigé |
+|-----------|-------------------|-------------|
+| `io.write_file` | `destination` | `path` |
+| `io.copy` / `io.move` | `overwrite` (bool) | `conflict` (string enum) |
+| `io.delete` | `secure_retention` (bool) | `secure` + `retention_days` |
+| `data.groupby` | `keys`, `aggregations` | `groupby_columns`, `aggregate_column`, `operation` |
+| `data.metrics` | `columns`, `destination` | `column_name`, `operation`, `destination_variable` |
+| `data.lookup` | `lookup_source`, `left_on`, `right_on`, `select_columns` | `lookup_file`, `source_key`, `lookup_key`, `lookup_value`, `destination` |
+| `data.anonymize` | `columns` | `rules` |
+| `data.deduplicate` | `keys` | `subset` |
+| `data.filter` | `field` | `column_name` |
+| `ai.summarize` | `text_column`, `summary_column` | `column`, `target_column` |
+| `ai.extract` | `text_column` | `column` |
+
+#### 2. Types incompatibles (bool vs enum)
+Les champs enum (ex : `conflict: [overwrite/skip/newer]`, `secure: [trash/permanent]`) étaient représentés par des booléens dans le frontend, rendant inaccessibles les valeurs autres que la valeur par défaut.
+
+#### 3. Paramètres manquants dans le catalogue frontend
+- `delimiter` et `has_headers` absents de `data.csv_to_json` et `data.json_to_csv`
+- `min_age_hours` absent de `net.ftp_download_filtered`, `net.sftp_download_filtered`, `core.loop`
+- `schema_drift` absent de `db.insert`
+- `prompt` absent de `ai.summarize` et `ai.extract`
+- `destination_variable` absent de `data.metrics`
+
+#### 4. Définition dupliquée dans registry.json
+`core.loop` apparaissait deux fois (lignes 1225 et 1561) — la seconde définition (riche en filtres) écrasait la première.
+
+#### 5. Primitives Rust sans entrée registry
+`google.sheets_read`, `google.sheets_write`, `data.scd`, `data.partition` sont implémentées dans Rust mais absentes de `registry.json`.
+
+### Corrections appliquées
+
+#### Invariant 50 [Auto-résolution de source depuis les dépendances]
+- **Fichier :** `brain/orchestrator.py`
+- **Mécanisme :** Avant l'exécution de chaque étape, si `source` est vide et que l'étape a une dépendance, le `destination` de l'étape parente est automatiquement injecté dans `args["source"]`.
+- **Destination auto-générée :** Si `destination` est vide, un chemin est généré automatiquement (`workspace/output/step_{N}_{primitive}.csv`).
+- **Indexation :** Un `step_map` indexé par numéro d'étape est construit avant le lancement des tâches concurrentes pour résoudre les dépendances sans appels coûteux.
+
+#### Invariant 51 [Nouvelle primitive io.read_file]
+- **Fichiers :** `brain/registry.json`, `rust_muscle/src/main.rs`, `vitrine/js/app.js`
+- **Description :** Lit un fichier CSV/JSON/XLSX/Parquet et le met à disposition des étapes suivantes. Dispatché sur `handle_io_copy` dans Rust (copie source → destination).
+- **Paramètres :** `source` (required), `destination`, `format` (enum: auto/csv/json/xlsx/parquet)
+
+#### Invariant 52 [Alignement des noms d'arguments frontend ↔ Rust]
+- **Fichier :** `vitrine/js/app.js` — `primitiveCatalogData`
+- Tous les noms d'arguments dans le catalogue frontend ont été alignés sur ce que les handlers Rust analysent réellement.
+
+#### Invariant 53 [Menus déroulants pour les champs enum]
+- **Fichier :** `vitrine/js/app.js` (nouvelle map `primitiveEnums`), `vitrine/js/editor.js` (rendu conditionnel `<select>`)
+- **Portée :** 19 champs enum couvrant 16 primitives (mode, conflict, secure, format, operator, how, how_join, operation, aggregate, keep, model_provider, loop_over, method, type)
+- **Comportement :** L'éditeur détecte si l'argument courant a des valeurs enum définies ; si oui, il rend un `<select>` au lieu d'un `<input text>`.
+
+#### Invariant 54 [Indicateur visuel de source héritée]
+- **Fichier :** `vitrine/js/editor.js`
+- **Comportement :** Si `source` est vide et qu'une dépendance existe, affiche `↳ hérité depuis « Étape X »` sous le champ. Si `destination` est vide, affiche `↳ auto-généré si vide`.
+
+#### Invariant 55 [Dédoublonnage core.loop dans registry.json]
+- Définition redondante supprimée (lignes 1225-1253). La définition riche (avec filtres max_age_hours, min_age_hours, min_size_mb, max_size_mb) est conservée.
+
+### Fichiers modifiés (session du 2026-06-08)
+
+| Fichier | Modifications |
+|---------|--------------|
+| `brain/orchestrator.py` | `step_map`, auto-résolution source/destination |
+| `brain/registry.json` | Ajout `io.read_file`, suppression doublon `core.loop` |
+| `rust_muscle/src/main.rs` | Ajout dispatch `io.read_file` → `handle_io_copy` |
+| `vitrine/js/app.js` | Correction `primitiveCatalogData` (13 primitives), ajout `primitiveEnums` (19 champs), ajout `io.read_file` |
+| `vitrine/js/editor.js` | Rendu `<select>` pour enums, indicateurs visuels source/destination |
+
+### Invariants non résolus
+- `google.sheets_read`, `google.sheets_write`, `data.scd`, `data.partition` toujours absents de `registry.json`
+
 ## Changelog
 - **2026-05-31:** Initial ingestion of the modular ETL agent architecture (v2).
 - **2026-05-31:** Transitioned to V3. Added front-end workbench architectural specification and WebSocket real-time state streaming.
@@ -268,6 +355,10 @@ To preserve internationalization and separate concerns, the Rust Muscle binary r
 - **2026-06-07:** Refactored the monolithic frontend `vitrine/js/app.js` (3000+ lines) by splitting visual rendering, mapping inputs (AiMapper), node settings editing, modal controllers, and outgoing WebSocket APIs into dedicated modular scripts (`canvas.js`, `aimapper.js`, `editor.js`, `modals.js`, `api.js`) loaded sequentially in `index.html`.
 - **2026-06-07:** Implemented a robust AI Planner stress test suite (`test_planner_stress.py`) validating 5 complex recipe scenarios including schema validation, nested structures, and cycle checking with offline simulation fallback.
 - **2026-06-07:** Created `run_e2e_postgres_test.py` for end-to-end stress testing of 20,000 lines processing, filtering, masking, and inserting into PostgreSQL.
+- **2026-06-07:** Fixed a critical nested loop context-override bug in `orchestrator.py` by saving and restoring iteration scopes, verified by `test_nested_loops_bug.py`.
+- **2026-06-08:** Audit de cohérence des primitives (registry ↔ Rust ↔ frontend). Correction de 13 noms d'arguments divergents et 5 paramètres manquants. Ajout de l'auto-résolution de `source` depuis les dépendances. Ajout de `io.read_file`. Implémentation de menus déroulants pour 19 champs enum. Suppression du doublon `core.loop` dans registry.json. Indicateurs visuels de source héritée et destination auto-générée dans l'éditeur.
+- **2026-06-09:** Nettoyage final `data_format.rs` (~55 `MuscleError::Generic` → typed variants). Ajout `data.read`, `data.write`, `data.convert` (multi-format via analytical_engine). Support JSON Lines (`.jsonl`/`.ndjson`). Retrait Avro (API incompatible Polars 0.37). Dashboard Grafana (`grafana/wfgy_dashboard.json`). Documentation README.md étendue (WebSocket, HTTP, Prometheus, Docker, installation sources). 26/26 tests Rust, build release OK.
+
 
 
 

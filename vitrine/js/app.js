@@ -1,4 +1,4 @@
-// [WFGY] Zone: SAFE | λ: 0.1 | Action: Main app core orchestrator and socket event loop
+// [WFGY] Zone: SAFE | λ: 0.2 | Action: Handle WORKSPACE_CREATED in websocket onmessage loop
 
 
 
@@ -53,14 +53,11 @@ class WorkflowNode extends HTMLElement {
         this.style.display = 'block';
         this.style.cursor = 'grab';
         
-        const mapBadge = primitive === 'data.clean' ? `<span class="node-edit-badge" title="AiMapper" style="background:rgba(0, 255, 102, 0.2); color:var(--success); border:1px solid rgba(0, 255, 102, 0.4);" onclick="event.stopPropagation(); openAiMapper(${step})">🗺️</span>` : '';
         this.innerHTML = `
             <div class="node-input-handle" data-step="${step}"></div>
             <div class="node-header">
                 <span>${label}</span>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    ${mapBadge}
-                    <span class="node-edit-badge" title="Dupliquer" onclick="event.stopPropagation(); duplicateNode(${step})">📋</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
                     <span class="node-edit-badge" title="Éditer" onclick="event.stopPropagation(); editNode(${step})">✏️</span>
                     <span class="status-badge"></span>
                 </div>
@@ -94,6 +91,7 @@ class WorkflowNode extends HTMLElement {
         let initialLeft, initialTop;
 
         this.addEventListener('mousedown', (e) => {
+            if (isPanMode) return;
             if (e.target.closest('.node-edit-badge') || e.target.closest('button') || e.target.closest('input')) return;
             
             isDragging = true;
@@ -250,8 +248,51 @@ function initWebSocket() {
         else if (data.type === 'WORKSPACES_LIST') {
             updateWorkspacesList(data.active_workspace, data.workspaces);
         }
+        else if (data.type === 'WORKSPACE_CREATED') {
+            addLog(`Flux '${data.name}' créé avec succès. Ouverture de l'atelier...`, 'success');
+            openWorkspace(data.workspace_id);
+        }
         else if (data.type === 'WORKSPACE_EXECUTION_STATE') {
             updateWorkspaceExecutionState(data.workspace_id, data.state);
+        }
+        else if (data.type === 'PRIMITIVE_DOC') {
+            const container = document.getElementById('primitive-doc-container');
+            if (container && data.description) {
+                const doc = getPrimitiveDoc(data.primitive);
+                let params = data.parameters || {};
+                let html = `
+                    <div class="doc-header">
+                        <div class="doc-primitive-name">${data.primitive}</div>
+                        <h2 class="doc-label">${doc ? doc.label : data.primitive}</h2>
+                        <p class="doc-desc">${data.description}</p>
+                    </div>
+                `;
+                const props = params.properties || {};
+                const required = params.required || [];
+                if (Object.keys(props).length > 0) {
+                    html += `<div class="doc-section-title">Paramètres</div>`;
+                    html += `<table class="doc-table"><thead><tr>
+                        <th>Paramètre</th><th>Type</th><th class="doc-col-center">Requis</th><th>Défaut</th><th>Description</th>
+                    </tr></thead><tbody>`;
+                    for (const [pname, pinfo] of Object.entries(props)) {
+                        const req = required.includes(pname) ? '<span class="doc-required">Oui</span>' : '<span class="doc-optional">Non</span>';
+                        const defVal = pinfo.default !== undefined ? `<code class="doc-code">${JSON.stringify(pinfo.default)}</code>` : '<span class="doc-na">—</span>';
+                        let desc = pinfo.description || '';
+                        if (pinfo.enum && pinfo.enum.length > 0) {
+                            desc += `<div class="doc-enum">Valeurs : ${pinfo.enum.join(', ')}</div>`;
+                        }
+                        html += `<tr>
+                            <td class="doc-cell-name">${pname}</td>
+                            <td><code class="doc-code">${pinfo.type}</code></td>
+                            <td class="doc-col-center">${req}</td>
+                            <td>${defVal}</td>
+                            <td class="doc-cell-desc">${desc}</td>
+                        </tr>`;
+                    }
+                    html += `</tbody></table>`;
+                }
+                container.innerHTML = html;
+            }
         }
         else if (data.type === 'RUN_HISTORY_RESULT') {
             renderRunHistoryTimeline(data.history);
@@ -852,68 +893,176 @@ function updateWorkspaceExecutionState(id, state) {
 
 const primitiveCatalogData = {
     "I/O (Fichiers)": [
-        { name: "io.copy", label: "Copier des fichiers", args: { source: "", destination: "", overwrite: true } },
-        { name: "io.move", label: "Déplacer des fichiers", args: { source: "", destination: "", overwrite: true } },
-        { name: "io.delete", label: "Supprimer des fichiers", args: { path: "", secure_retention: true } },
-        { name: "io.metadata", label: "Obtenir les métadonnées", args: { path: "", destination: "" } },
-        { name: "io.write_file", label: "Écrire un fichier", args: { content: "", destination: "" } },
-        { name: "data.zip", label: "Compresser en ZIP", args: { source: "", destination: "" } },
-        { name: "data.unzip", label: "Décompresser un ZIP", args: { source: "", destination: "" } }
+        { name: "io.copy", label: "Copier des fichiers", desc: "Copie un fichier local d'un emplacement vers un autre.", args: { source: "", destination: "", mode: "binary", conflict: "overwrite" } },
+        { name: "io.move", label: "Déplacer des fichiers", desc: "Déplace ou renomme un fichier local avec gestion des conflits.", args: { source: "", destination: "", conflict: "overwrite" } },
+        { name: "io.delete", label: "Supprimer des fichiers", desc: "Supprime un fichier/dossier avec option de mise à la corbeille.", args: { path: "", secure: "trash", retention_days: "" } },
+        { name: "io.metadata", label: "Obtenir les métadonnées", desc: "Lit les métadonnées d'un fichier ou dossier (taille, date, etc.).", args: { path: "" } },
+        { name: "io.write_file", label: "Écrire un fichier", desc: "Crée ou écrase un fichier local avec le contenu textuel spécifié.", args: { path: "", content: "" } },
+        { name: "io.read_file", label: "Lire un fichier", desc: "Lit un fichier CSV, JSON, XLSX ou Parquet et le met à disposition des étapes suivantes.", args: { source: "", destination: "", format: "auto" } },
+        { name: "data.zip", label: "Compresser en ZIP", desc: "Compresse un dossier ou fichier dans une archive ZIP.", args: { source: "", destination: "" } },
+        { name: "data.unzip", label: "Décompresser un ZIP", desc: "Décompresse une archive ZIP dans un dossier de destination.", args: { source: "", destination: "" } }
     ],
     "Réseau & Services": [
-        { name: "net.download", label: "Télécharger par HTTP", args: { url: "", destination: "" } },
-        { name: "net.upload", label: "Téléverser par HTTP", args: { file_path: "", url: "", method: "POST", headers: "" } },
-        { name: "net.ftp_download", label: "Télécharger FTP", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
-        { name: "net.ftp_download_filtered", label: "Télécharger FTP Filtré", args: { host: "", port: "21", user: "", password: "", remote_dir: "", local_dir: "", max_age_hours: "", min_size_mb: "", max_size_mb: "" } },
-        { name: "net.ftp_upload", label: "Téléverser FTP", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
-        { name: "net.sftp_download", label: "Télécharger SFTP", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
-        { name: "net.sftp_download_filtered", label: "Télécharger SFTP Filtré", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_dir: "", local_dir: "", max_age_hours: "", min_size_mb: "", max_size_mb: "" } },
-        { name: "net.sftp_upload", label: "Téléverser SFTP", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
-        { name: "google.sheets_read", label: "Lire Google Sheets", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "" } },
-        { name: "google.sheets_write", label: "Écrire Google Sheets", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "", clear_sheet: true } },
-        { name: "net.http_request", label: "Requête HTTP avancée", args: { url: "", method: "GET", destination: "", headers: "", body: "", extract_regex: "", extract_destination: "" } },
-        { name: "net.notify", label: "Notification SMTP / Webhook", args: { type: "webhook", smtp_host: "localhost", smtp_port: "25", smtp_user: "", smtp_pass: "", to: "", subject: "ETL Alert", url: "", message: "" } }
+        { name: "net.download", label: "Télécharger par HTTP", desc: "Télécharge un fichier depuis une URL HTTP/HTTPS.", args: { url: "", destination: "" } },
+        { name: "net.upload", label: "Téléverser par HTTP", desc: "Téléverse un fichier local vers un serveur HTTP.", args: { file_path: "", url: "", method: "POST", headers: "" } },
+        { name: "net.ftp_download", label: "Télécharger FTP", desc: "Télécharge un fichier depuis un serveur FTP.", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
+        { name: "net.ftp_download_filtered", label: "Télécharger FTP Filtré", desc: "Télécharge sélectivement depuis FTP selon âge/taille (UTC).", args: { host: "", port: "21", user: "", password: "", remote_dir: "", local_dir: "", max_age_hours: "", min_age_hours: "", min_size_mb: "", max_size_mb: "" } },
+        { name: "net.ftp_upload", label: "Téléverser FTP", desc: "Téléverse un fichier local vers un serveur FTP.", args: { host: "", port: "21", user: "", password: "", remote_path: "", local_path: "" } },
+        { name: "net.sftp_download", label: "Télécharger SFTP", desc: "Télécharge un fichier depuis un serveur SFTP sécurisé (SSH).", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
+        { name: "net.sftp_download_filtered", label: "Télécharger SFTP Filtré", desc: "Télécharge sélectivement depuis SFTP selon âge/taille (UTC).", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_dir: "", local_dir: "", max_age_hours: "", min_age_hours: "", min_size_mb: "", max_size_mb: "" } },
+        { name: "net.sftp_upload", label: "Téléverser SFTP", desc: "Téléverse un fichier local vers un serveur SFTP sécurisé (SSH).", args: { host: "", port: "22", user: "", password: "", key_path: "", key_passphrase: "", remote_path: "", local_path: "" } },
+        { name: "google.sheets_read", label: "Lire Google Sheets", desc: "Extrait des données depuis Google Sheets vers un fichier local.", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "" } },
+        { name: "google.sheets_write", label: "Écrire Google Sheets", desc: "Écrit des données depuis un fichier local vers Google Sheets.", args: { credentials: "", spreadsheet_id: "", worksheet_title: "", local_path: "", clear_sheet: true } },
+        { name: "net.http_request", label: "Requête HTTP avancée", desc: "Exécute une requête HTTP (GET/POST) avec headers, corps et extraction regex.", args: { url: "", method: "GET", destination: "", headers: "", body: "", extract_regex: "", extract_destination: "" } },
+        { name: "net.notify", label: "Notification SMTP / Webhook", desc: "Envoie une alerte par email (SMTP) ou HTTP Webhook.", args: { type: "webhook", smtp_host: "localhost", smtp_port: "25", smtp_user: "", smtp_pass: "", to: "", subject: "ETL Alert", url: "", message: "" } },
+        { name: "s3.upload", label: "Uploader vers S3", desc: "Téléverse un fichier local vers un bucket S3 (AWS/MinIO).", args: { bucket: "", file_path: "", object_key: "", aws_access_key_id: "", aws_secret_access_key: "", region: "us-east-1", endpoint: "" } },
+        { name: "s3.download", label: "Télécharger depuis S3", desc: "Télécharge un objet depuis un bucket S3 vers le stockage local.", args: { bucket: "", object_key: "", destination: "", aws_access_key_id: "", aws_secret_access_key: "", region: "us-east-1", endpoint: "" } }
     ],
     "Transformations de données": [
-        { name: "data.filter", label: "Filtrer des lignes", args: { source: "", destination: "", field: "", operator: "equals", value: "" } },
-        { name: "data.clean", label: "Nettoyer et mapper (AiMapper)", args: { source: "", destination: "", mappings: {}, right_source: "", left_on: "", right_on: "", how_join: "left" } },
-        { name: "data.validate", label: "Validation Qualité (DLQ)", args: { source: "", destination: "", quarantine: "", rules: "[]" } },
-        { name: "data.csv_to_json", label: "CSV vers JSON", args: { source: "", destination: "" } },
-        { name: "data.json_to_csv", label: "JSON vers CSV", args: { source: "", destination: "" } },
-        { name: "data.xml_to_json", label: "XML vers JSON", args: { source: "", destination: "" } },
-        { name: "data.json_to_xml", label: "Exporter en XML", args: { source: "", destination: "", root_element: "root", row_element: "row" } },
-        { name: "data.to_xlsx", label: "Exporter en Excel XLSX", args: { source: "", destination: "", sheet_name: "Sheet1" } },
-        { name: "data.delta", label: "Réconciliation Delta CDC", args: { source: "", target: "", keys: "", destination_upsert: "", destination_delete: "", destination_sync: "" } },
-        { name: "data.type_cast", label: "Typage strict de schéma", args: { source: "", destination: "", casts: "{}" } },
-        { name: "data.split_out", label: "Séparation Split Out (Explode)", args: { source: "", destination: "", column: "", delimiter: "" } }
+        { name: "data.filter", label: "Filtrer des lignes", desc: "Filtre les lignes d'un CSV selon une règle logique sur une colonne.", args: { source: "", destination: "", column_name: "", operator: "equals", value: "", delimiter: ",", has_headers: true } },
+        { name: "data.clean", label: "Nettoyer et mapper (AiMapper)", desc: "Nettoie, transforme et joint des données (tri, mapping, jointures).", args: { source: "", destination: "", mappings: {}, sort_by: "", sort_descending: false, deduplicate: false, deduplicate_on: "", select_columns: "", fill_na: "", drop_na: false, right_source: "", left_on: "", right_on: "", how_join: "left" } },
+        { name: "data.validate", label: "Validation Qualité (DLQ)", desc: "Valide les lignes selon des règles et isole les rejets en quarantaine.", args: { source: "", destination: "", quarantine: "", rules: "[]" } },
+        { name: "data.csv_to_json", label: "CSV vers JSON", desc: "Convertit un fichier CSV structuré en fichier JSON.", args: { source: "", destination: "", delimiter: ",", has_headers: true } },
+        { name: "data.json_to_csv", label: "JSON vers CSV", desc: "Convertit un fichier JSON (tableau d'objets) en CSV.", args: { source: "", destination: "", delimiter: ",", has_headers: true } },
+        { name: "data.xml_to_json", label: "XML vers JSON", desc: "Convertit un fichier XML hiérarchique en fichier JSON.", args: { source: "", destination: "" } },
+        { name: "data.json_to_xml", label: "Exporter en XML", desc: "Exporte un tableau JSON/CSV vers un fichier XML structuré.", args: { source: "", destination: "", root_element: "root", row_element: "row" } },
+        { name: "data.to_xlsx", label: "Exporter en Excel XLSX", desc: "Exporte un jeu de données (CSV/JSON) vers une feuille Excel .xlsx.", args: { source: "", destination: "", sheet_name: "Sheet1" } },
+        { name: "data.delta", label: "Réconciliation Delta CDC", desc: "Compare deux datasets sur clés primaires pour calculer les différences (upserts/deletes).", args: { source: "", target: "", keys: "", destination_upsert: "", destination_delete: "", destination_sync: "" } },
+        { name: "data.type_cast", label: "Typage strict de schéma", desc: "Convertit les colonnes vers des types stricts (int, float, bool, string, date).", args: { source: "", destination: "", casts: "{}" } },
+        { name: "data.split_out", label: "Séparation Split Out (Explode)", desc: "Explose les colonnes contenant des listes/JSON en lignes distinctes.", args: { source: "", destination: "", column: "", delimiter: "" } },
+        { name: "data.lookup", label: "Jointure dictionnaire", desc: "Enrichit le dataset principal par jointure gauche avec un référentiel.", args: { source: "", lookup_file: "", source_key: "", lookup_key: "", lookup_value: "", destination: "" } },
+        { name: "data.deduplicate", label: "Supprimer les doublons", desc: "Supprime les lignes dupliquées basées sur des colonnes clés.", args: { source: "", destination: "", subset: "", keep: "first" } },
+        { name: "data.anonymize", label: "Masquage / RGPD", desc: "Anonymise les colonnes sensibles (PII) par hash, masquage ou remplacement (format: col1:strategy1,col2:strategy2).", args: { source: "", destination: "", rules: "" } },
+        { name: "data.pivot", label: "Pivoter (format large)", desc: "Pivote une table du format long au format large (lignes en colonnes).", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
+        { name: "data.unpivot", label: "Dépivoter (format long)", desc: "Dépivote une table du format large au format long (colonnes en lignes).", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } },
+        { name: "data.xml_transform", label: "Transformer XML (XSLT)", desc: "Applique une transformation XSLT sur un fichier XML source.", args: { source: "", stylesheet: "", destination: "" } }
     ],
     "Bases de Données": [
-        { name: "db.query", label: "Requête SQL SELECT", args: { connection_string: "", query: "", destination: "" } },
-        { name: "db.insert", label: "Insertion SQL", args: { connection_string: "", table_name: "", source: "", mode: "insert" } },
-        { name: "db.upsert", label: "Upsert SQL Idempotent", args: { connection_string: "", table_name: "", source: "", keys: "", schema_drift: false } },
-        { name: "mongodb.find", label: "Recherche MongoDB", args: { connection_string: "", database: "", collection: "", filter: "{}", projection: "", destination: "" } },
-        { name: "mongodb.insert", label: "Insertion MongoDB", args: { connection_string: "", database: "", collection: "", source: "", mode: "insert" } }
+        { name: "db.query", label: "Requête SQL SELECT", desc: "Exécute une requête SQL SELECT et écrit le résultat dans un fichier.", args: { connection_string: "", query: "", destination: "" } },
+        { name: "db.insert", label: "Insertion SQL", desc: "Importe un fichier CSV/JSON dans une table SQL (SQLite, Postgres, MySQL).", args: { connection_string: "", table_name: "", source: "", mode: "insert", schema_drift: false } },
+        { name: "db.upsert", label: "Upsert SQL Idempotent", desc: "Insère ou met à jour des lignes dans une table SQL sur clés primaires.", args: { connection_string: "", table_name: "", source: "", keys: "", schema_drift: false } },
+        { name: "mongodb.find", label: "Recherche MongoDB", desc: "Extrait des documents MongoDB vers un fichier JSON.", args: { connection_string: "", database: "", collection: "", filter: "{}", projection: "", destination: "" } },
+        { name: "mongodb.insert", label: "Insertion MongoDB", desc: "Importe un fichier CSV/JSON dans une collection MongoDB.", args: { connection_string: "", database: "", collection: "", source: "", mode: "insert" } }
     ],
     "Analytique & Statistiques": [
-        { name: "data.groupby", label: "Agrégations Group By", args: { source: "", destination: "", keys: "", aggregations: "" } },
-        { name: "data.metrics", label: "Statistiques descriptives", args: { source: "", destination: "", columns: "" } },
-        { name: "data.lookup", label: "Jointure dictionnaire", args: { source: "", destination: "", lookup_source: "", left_on: "", right_on: "", select_columns: "" } },
-        { name: "data.deduplicate", label: "Supprimer les doublons", args: { source: "", destination: "", keys: "", keep: "first" } },
-        { name: "data.anonymize", label: "Masquage / RGPD", args: { source: "", destination: "", columns: "" } },
-        { name: "data.pivot", label: "Pivoter (format large)", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
-        { name: "data.unpivot", label: "Dépivoter (format long)", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } }
+        { name: "data.groupby", label: "Agrégations Group By", desc: "Groupe les lignes et calcule des agrégations (somme, moyenne, min, max, count).", args: { source: "", destination: "", groupby_columns: "", aggregate_column: "", operation: "sum" } },
+        { name: "data.metrics", label: "Statistiques descriptives", desc: "Calcule des métriques (sum, mean, min, max, count, null_count, n_unique).", args: { source: "", column_name: "", operation: "sum", destination_variable: "" } },
+        { name: "data.join", label: "Jointure relationnelle", desc: "Réalise une jointure (inner/left/outer) entre deux fichiers de données.", args: { left_source: "", right_source: "", destination: "", left_on: "", right_on: "", how: "inner" } },
+        { name: "data.split", label: "Division par colonne", desc: "Divise un dataset en plusieurs fichiers selon les valeurs d'une colonne.", args: { source: "", destination_prefix: "", by_column: "" } },
+        { name: "data.merge", label: "Fusion verticale", desc: "Fusionne verticalement plusieurs fichiers de structure identique.", args: { sources: "", destination: "" } },
+        { name: "data.chunk_cumulative", label: "Partition par cumul", desc: "Découpe un dataset en fichiers dès qu'un seuil cumulé est franchi.", args: { source: "", destination_prefix: "", accumulate_column: "", threshold: "" } },
+        { name: "data.partition", label: "Partitionner par colonne", desc: "Partitionne un dataset en fichiers séparés selon les valeurs d'une colonne.", args: { source: "", destination_dir: "", by_columns: "" } },
+        { name: "data.scd", label: "SCD Type 2 (dimension lente)", desc: "Gère les dimensions à évolution lente en comparant source et cible avec versionnement.", args: { source: "", target: "", keys: "", compare_columns: "", destination: "", valid_from_col: "valid_from", valid_to_col: "valid_to", is_current_col: "is_current", valid_from_value: "" } },
+        { name: "data.read", label: "Lire tout format", desc: "Lit tout format supporté (CSV, JSON, Parquet, JSONL) et écrit en CSV.", args: { source: "", destination: "" } },
+        { name: "data.write", label: "Écrire tout format", desc: "Lit CSV et écrit dans tout format supporté (extension auto-détectée).", args: { source: "", destination: "" } },
+        { name: "data.convert", label: "Convertir formats", desc: "Convertit entre tous les formats supportés par auto-détection d'extension.", args: { source: "", destination: "" } }
     ],
     "Intelligence Artificielle": [
-        { name: "ai.summarize", label: "Résumé de texte NLP", args: { source: "", destination: "", text_column: "", summary_column: "", model_provider: "", model_id: "", base_url: "" } },
-        { name: "ai.extract", label: "Extraction d'entités NLP", args: { source: "", destination: "", text_column: "", schema: "{}", model_provider: "", model_id: "", base_url: "" } }
+        { name: "ai.summarize", label: "Résumé de texte NLP", desc: "Génère des résumés concis via LLM d'une colonne textuelle.", args: { source: "", destination: "", column: "", target_column: "", prompt: "", model_provider: "", model_id: "", base_url: "" } },
+        { name: "ai.extract", label: "Extraction d'entités NLP", desc: "Extrait des informations structurées (JSON) via LLM depuis du texte.", args: { source: "", destination: "", column: "", schema: "{}", prompt: "", model_provider: "", model_id: "", base_url: "" } }
     ],
     "Contrôle": [
-        { name: "core.wait", label: "Attente (Retention Wait)", args: { duration: "10" } },
-        { name: "core.sub_flow", label: "Sous-flux de traitement", args: { steps: [] } },
-        { name: "core.loop", label: "Boucle d'itération", args: { loop_over: "variables", items_source: "", pattern: "*", max_age_hours: "", min_size_mb: "", max_size_mb: "", steps: [] } },
-        { name: "core.switch", label: "Aiguillage Switch", args: { value: "", cases: {} } }
+        { name: "core.condition", label: "Condition logique", desc: "Évalue une expression conditionnelle et exécute des branches.", args: { expression: "", then_steps: [], else_steps: [] } },
+        { name: "core.wait", label: "Attente (Retention Wait)", desc: "Pause l'exécution du workflow pendant une durée configurable.", args: { duration: "10" } },
+        { name: "core.sub_flow", label: "Sous-flux de traitement", desc: "Exécute un ensemble d'étapes imbriquées comme sous-graphe.", args: { steps: [] } },
+        { name: "core.loop", label: "Boucle d'itération", desc: "Itère sur des variables, fichiers ou lignes avec injection de contexte.", args: { loop_over: "variables", items_source: "", pattern: "*", max_age_hours: "", min_age_hours: "", min_size_mb: "", max_size_mb: "", steps: [] } },
+        { name: "core.switch", label: "Aiguillage Switch", desc: "Route l'exécution vers différents sous-graphes selon une valeur.", args: { value: "", cases: {} } }
     ]
 };
+
+// Mapping des arguments qui doivent être rendus en <select> avec leurs options
+const primitiveEnums = {
+    "io.copy": { mode: ["binary", "text"], conflict: ["overwrite", "skip", "newer"] },
+    "io.move": { conflict: ["overwrite", "skip", "newer"] },
+    "io.delete": { secure: ["trash", "permanent"] },
+    "io.read_file": { format: ["auto", "csv", "json", "xlsx", "parquet"] },
+    "net.upload": { method: ["POST", "PUT"] },
+    "net.notify": { type: ["webhook", "smtp"] },
+    "data.filter": { operator: ["equals", "not_equals", "greater_than", "less_than", "greater_or_equal", "less_or_equal", "contains", "starts_with", "ends_with", "regex", "is_null", "is_not_null"] },
+    "data.join": { how: ["inner", "left", "outer", "semi", "anti"] },
+    "data.clean": { how_join: ["left", "inner", "outer"] },
+    "data.deduplicate": { keep: ["first", "last", "none"] },
+    "data.groupby": { operation: ["sum", "mean", "min", "max", "count", "first", "last", "median", "std", "var"] },
+    "data.metrics": { operation: ["sum", "mean", "min", "max", "count", "null_count", "n_unique", "std", "var", "median"] },
+    "data.pivot": { aggregate: ["sum", "mean", "min", "max", "count", "first", "last"] },
+    "ai.summarize": { model_provider: ["openai_compatible", "gemini"] },
+    "ai.extract": { model_provider: ["openai_compatible", "gemini"] },
+    "core.loop": { loop_over: ["variables", "files", "rows"] },
+    "db.insert": { mode: ["insert", "replace", "ignore"] },
+    "mongodb.insert": { mode: ["insert", "replace"] },
+    "net.http_request": { method: ["GET", "POST", "PUT", "DELETE", "PATCH"] }
+};
+
+function getPrimitiveDoc(primitiveName) {
+    for (const items of Object.values(primitiveCatalogData)) {
+        const found = items.find(i => i.name === primitiveName);
+        if (found) return found;
+    }
+    return null;
+}
+
+function showPrimitiveDoc(primitiveName) {
+    const doc = getPrimitiveDoc(primitiveName);
+    if (!doc) {
+        addLog(`Documentation introuvable pour '${primitiveName}'`, 'error');
+        return;
+    }
+    const modal = document.getElementById('primitive-doc-modal');
+    const container = document.getElementById('primitive-doc-container');
+    if (!modal || !container) return;
+
+    let html = `
+        <div class="doc-header">
+            <div class="doc-primitive-name">${primitiveName}</div>
+            <h2 class="doc-label">${doc.label}</h2>
+            <p class="doc-desc">${doc.desc || 'Aucune description disponible.'}</p>
+        </div>
+    `;
+
+    if (doc.params && Object.keys(doc.params).length > 0) {
+        html += `<div class="doc-section-title">Paramètres</div>`;
+        html += `<table class="doc-table">
+            <thead><tr>
+                <th>Paramètre</th>
+                <th>Type</th>
+                <th class="doc-col-center">Requis</th>
+                <th>Défaut</th>
+                <th>Description</th>
+            </tr></thead><tbody>`;
+
+        for (const [pname, pinfo] of Object.entries(doc.params)) {
+            const req = pinfo.required ? '<span class="doc-required">Oui</span>' : '<span class="doc-optional">Non</span>';
+            const defVal = pinfo.default !== null && pinfo.default !== undefined ? `<code class="doc-code">${JSON.stringify(pinfo.default)}</code>` : '<span class="doc-na">—</span>';
+            let desc = pinfo.desc || '';
+            if (pinfo.enum && pinfo.enum.length > 0) {
+                desc += `<div class="doc-enum">Valeurs autorisées : ${pinfo.enum.join(', ')}</div>`;
+            }
+            html += `<tr>
+                <td class="doc-cell-name">${pname}</td>
+                <td><code class="doc-code">${pinfo.type}</code></td>
+                <td class="doc-col-center">${req}</td>
+                <td>${defVal}</td>
+                <td class="doc-cell-desc">${desc}</td>
+            </tr>`;
+        }
+        html += `</tbody></table>`;
+    } else {
+        html += `<div class="doc-no-params">Chargement des paramètres depuis le registre...</div>`;
+    }
+
+    container.innerHTML = html;
+    modal.style.display = 'flex';
+
+    // Try to load param docs from backend WebSocket
+    if (!doc.params && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'GET_PRIMITIVE_DOC', primitive: primitiveName }));
+    }
+}
+
+function closePrimitiveDocModal() {
+    const modal = document.getElementById('primitive-doc-modal');
+    if (modal) modal.style.display = 'none';
+}
 
 function toggleCatalog() {
     const panel = document.getElementById('primitives-catalog');
@@ -940,11 +1089,21 @@ function initPrimitivesCatalog() {
         itemsDiv.style.display = 'none';
 
         items.forEach(item => {
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'display:flex; align-items:center; gap:4px;';
             const btn = document.createElement('button');
             btn.className = 'catalog-item-btn';
+            btn.style.flex = '1';
             btn.innerHTML = `<span>${item.label}</span> <span style="font-size:0.65rem; color:var(--accent); font-family:monospace; margin-left:8px;">${item.name}</span>`;
             btn.onclick = () => addPrimitiveNode(item.name, item.label, item.args);
-            itemsDiv.appendChild(btn);
+            wrapper.appendChild(btn);
+            const infoBtn = document.createElement('span');
+            infoBtn.className = 'catalog-info-btn';
+            infoBtn.title = "Voir la documentation";
+            infoBtn.textContent = 'ℹ️';
+            infoBtn.onclick = (e) => { e.stopPropagation(); showPrimitiveDoc(item.name); };
+            wrapper.appendChild(infoBtn);
+            itemsDiv.appendChild(wrapper);
         });
 
         titleDiv.onclick = () => {
@@ -1016,6 +1175,15 @@ window.addEventListener('DOMContentLoaded', () => {
     initWebSocket();
     updateSettingsModelOptions();
     initPrimitivesCatalog();
+    
+    // Canvas pan event listeners
+    const wrapper = document.getElementById('canvas-wrapper');
+    if (wrapper) {
+        wrapper.addEventListener('mousedown', startCanvasPan);
+        wrapper.addEventListener('mousemove', doCanvasPan);
+        wrapper.addEventListener('mouseup', stopCanvasPan);
+        wrapper.addEventListener('mouseleave', stopCanvasPan);
+    }
     
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {

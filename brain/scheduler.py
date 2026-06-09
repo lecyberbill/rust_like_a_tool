@@ -216,6 +216,8 @@ async def directory_watcher_loop():
         except Exception as e:
             print(f"[DAEMON ERROR] Directory watcher error: {e}")
 
+from metrics import METRICS
+
 async def handle_http_request(reader, writer):
     try:
         data = await reader.read(4096)
@@ -230,7 +232,18 @@ async def handle_http_request(reader, writer):
             parts = req_line.split()
             if len(parts) >= 2:
                 method, path = parts[0], parts[1]
-                if "/trigger" in path:
+                if path == "/metrics":
+                    body = METRICS.render()
+                    resp = (
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: text/plain; charset=utf-8\r\n"
+                        f"Content-Length: {len(body.encode('utf-8'))}\r\n"
+                        "Connection: close\r\n\r\n"
+                        f"{body}"
+                    )
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif "/trigger" in path:
                     parsed_url = urllib.parse.urlparse(path)
                     params = urllib.parse.parse_qs(parsed_url.query)
                     workspace_id = params.get("workspace", [None])[0]
@@ -291,8 +304,9 @@ async def handle_http_request(reader, writer):
                             mime_type = "application/json; charset=utf-8"
                             
                         try:
-                            with open(file_path, "rb") as f:
-                                content = f.read()
+                            content = await asyncio.to_thread(
+                                lambda: open(file_path, "rb").read()
+                            )
                             response_headers = (
                                 "HTTP/1.1 200 OK\r\n"
                                 f"Content-Type: {mime_type}\r\n"

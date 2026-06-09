@@ -1,6 +1,12 @@
 // [WFGY] Zone: SAFE | λ: 0.1 | Action: Modularized canvas and drawing logic
 
 let canvasZoom = 1;
+let canvasPanX = 0;
+let canvasPanY = 0;
+let isPanMode = false;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
 let undoStack = [];
 let redoStack = [];
 let dataLineageMode = false;
@@ -32,17 +38,27 @@ function toggleTheme() {
     drawConnections();
 }
 
-function updateCanvasZoom() {
+function updateCanvasTransform() {
+    const transform = `translate(${canvasPanX}px, ${canvasPanY}px) scale(${canvasZoom})`;
     const canvas = document.getElementById('canvas');
+    const svg = document.getElementById('connections-svg');
     if (canvas) {
-        canvas.style.transform = `scale(${canvasZoom})`;
-        canvas.style.transformOrigin = 'top left';
-        const zoomValText = document.getElementById('zoom-level-val');
-        if (zoomValText) {
-            zoomValText.innerText = `${Math.round(canvasZoom * 100)}%`;
-        }
-        drawConnections();
+        canvas.style.transform = transform;
+        canvas.style.transformOrigin = '0 0';
     }
+    if (svg) {
+        svg.style.transform = transform;
+        svg.style.transformOrigin = '0 0';
+    }
+    const zoomValText = document.getElementById('zoom-level-val');
+    if (zoomValText) {
+        zoomValText.innerText = `${Math.round(canvasZoom * 100)}%`;
+    }
+    drawConnections();
+}
+
+function updateCanvasZoom() {
+    updateCanvasTransform();
 }
 
 function zoomIn() {
@@ -61,7 +77,47 @@ function zoomOut() {
 
 function zoomReset() {
     canvasZoom = 1.0;
-    updateCanvasZoom();
+    canvasPanX = 0;
+    canvasPanY = 0;
+    updateCanvasTransform();
+}
+
+function togglePanMode() {
+    isPanMode = !isPanMode;
+    const btn = document.getElementById('btn-pan-mode');
+    if (btn) {
+        btn.classList.toggle('active', isPanMode);
+        btn.title = isPanMode ? 'Désactiver le déplacement' : 'Déplacer le canevas (Main)';
+    }
+    const canvas = document.getElementById('canvas-wrapper');
+    if (canvas) {
+        canvas.style.cursor = isPanMode ? 'grab' : '';
+    }
+    addLog(isPanMode ? 'Mode Déplacement activé — glisser pour déplacer le canevas' : 'Mode Édition activé', 'info');
+}
+
+function startCanvasPan(e) {
+    if (!isPanMode) return;
+    isPanning = true;
+    panStartX = e.clientX - canvasPanX;
+    panStartY = e.clientY - canvasPanY;
+    const canvas = document.getElementById('canvas-wrapper');
+    if (canvas) canvas.style.cursor = 'grabbing';
+    e.preventDefault();
+}
+
+function doCanvasPan(e) {
+    if (!isPanning || !isPanMode) return;
+    canvasPanX = e.clientX - panStartX;
+    canvasPanY = e.clientY - panStartY;
+    updateCanvasTransform();
+}
+
+function stopCanvasPan(e) {
+    if (!isPanning) return;
+    isPanning = false;
+    const canvas = document.getElementById('canvas-wrapper');
+    if (canvas && isPanMode) canvas.style.cursor = 'grab';
 }
 
 function startDrawingConnection(stepNum, event) {
@@ -521,6 +577,11 @@ document.addEventListener('keydown', (e) => {
         } else if (e.key.toLowerCase() === 'y') {
             e.preventDefault();
             redoAction();
+        } else if (e.key.toLowerCase() === 'd') {
+            e.preventDefault();
+            if (selectedStepNum !== null) {
+                duplicateNode(selectedStepNum);
+            }
         }
     }
 });

@@ -10,8 +10,8 @@
         "label": "Nettoyage & Calcul Majorité",
         "color": "#4A90E2",
         "position": {
-          "x": 54,
-          "y": 96
+          "x": 56,
+          "y": 94
         },
         "mappings": [
           {
@@ -91,8 +91,8 @@
         "label": "Filtrer les Mineurs",
         "color": "#F5A623",
         "position": {
-          "x": 576,
-          "y": 236
+          "x": 593,
+          "y": 168
         },
         "connection_labels": {
           "1": "test",
@@ -118,8 +118,8 @@
         "label": "Insert MySQL (sql.free.fr)",
         "color": "#7ED321",
         "position": {
-          "x": 948,
-          "y": 90
+          "x": 1260,
+          "y": 159
         }
       },
       "args": {
@@ -141,8 +141,49 @@
       "ui": {
         "label": "Copier des fichiers (4)",
         "position": {
-          "x": 100,
-          "y": 332
+          "x": 88,
+          "y": 225
+        }
+      }
+    },
+    {
+      "step": 5,
+      "primitive": "ai.summarize",
+      "depends_on": [
+        2
+      ],
+      "args": {
+        "source": "",
+        "destination": "",
+        "text_column": "",
+        "summary_column": "",
+        "model_provider": "",
+        "model_id": "",
+        "base_url": ""
+      },
+      "ui": {
+        "label": "Résumé de texte NLP (5)",
+        "position": {
+          "x": 959,
+          "y": 397
+        }
+      }
+    },
+    {
+      "step": 6,
+      "primitive": "io.write_file",
+      "depends_on": [
+        5
+      ],
+      "args": {
+        "content": "",
+        "destination": ""
+      },
+      "ui": {
+        "label": "Écrire un fichier (6)",
+        "position": {
+          "x": 1482,
+          "y": 352
         }
       }
     }
