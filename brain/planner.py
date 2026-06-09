@@ -104,6 +104,12 @@ You MUST map prompt arguments exactly as specified in the schema. For example:
 Pour tout mot de passe, clé API, hôte, ou credentials sensibles (ex: mot de passe Snowflake, token API), utilise impérativement des placeholders sous la forme de variable d'environnement "${{SECRET_NOM_VARIABLE}}" (ex: "${{SECRET_SNOWFLAKE_PASSWORD}}"). Ne mets jamais de secret en clair dans le JSON.
 
 Si le plan requiert une transformation XML personnalisée (primitive `data.xml_transform`) et qu'aucun fichier de feuille de style XSLT existant n'est fourni par l'utilisateur, tu dois concevoir et générer la feuille de style XSLT. Pour ce faire, crée une étape préliminaire utilisant la primitive `io.write_file` pour écrire le contenu de ton XSLT dans un fichier temporaire (ex: "stylesheet.xslt"), puis référence ce fichier dans l'étape `data.xml_transform`.
+
+NESTED FLOWS AND LOOPS RULE:
+- Si la tâche requiert de répéter une opération sur une liste d'éléments (ex: des fichiers, des lignes de données ou des valeurs), tu dois utiliser la primitive `core.loop`. 
+- Pour `core.loop`, tu dois définir `loop_over` ("files", "rows" ou "variables"), `items_source` (le chemin d'accès au dossier/fichier ou les valeurs brutes) et le tableau `steps` contenant la sous-recette d'exécution.
+- Dans le sous-graphe `steps` de `core.loop`, tu dois référencer l'élément d'itération courant en utilisant le placeholder `${{ITER_ITEM}}` (ou des propriétés imbriquées comme `${{ITER_ITEM.nom_colonne}}` si `loop_over` est 'rows' sur un fichier structuré).
+- Si la tâche requiert d'isoler une logique spécifique réutilisable ou d'organiser hiérarchiquement des étapes, utilise `core.sub_flow` avec son propre tableau d'étapes imbriquées dans `steps`.
 """
 
     def _build_study_system_prompt(self) -> str:
@@ -289,7 +295,8 @@ Tu dois intégrer cette nouvelle intention dans la recette actuelle. Modifie la 
 """
         
         print(f"[PLANNER] Phase 2 - Génération de la recette paramétrée...")
-        raw_response = self.client.generate_completion(phase2_sys, user_prompt_2, schema=self._get_recipe_schema())
+        schema_p2 = None if self.client.__class__.__name__ == "GeminiAPIClient" else self._get_recipe_schema()
+        raw_response = self.client.generate_completion(phase2_sys, user_prompt_2, schema=schema_p2)
         
         # Clean response if LLM wrapped it in markdown code blocks
         clean_response = raw_response.strip()

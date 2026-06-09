@@ -1,0 +1,13 @@
+{
+  "plan_id": "test",
+  "intent_analysis": "Flux de travail: test",
+  "steps": [],
+  "env": {
+    "dev": {
+      "SECRET_MYSQL_USER": "user_dev",
+      "SECRET_MYSQL_PASSWORD": "user_dev"
+    },
+    "test": {},
+    "prod": {}
+  }
+}

@@ -105,6 +105,29 @@
         "required": ["path", "content"]
       }
     },
+    "io.read_file": {
+      "description": "Lit un fichier de données (CSV, JSON, XLSX, Parquet) et le met à disposition des étapes suivantes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier à lire."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin où copier/rendre les données disponibles (auto-généré si vide)."
+          },
+          "format": {
+            "type": "string",
+            "enum": ["csv", "json", "xlsx", "parquet", "auto"],
+            "default": "auto",
+            "description": "Format du fichier source (auto = déduit de l'extension)."
+          }
+        },
+        "required": ["source"]
+      }
+    },
     "net.download": {
       "description": "Télécharge un fichier depuis une URL HTTP/HTTPS.",
       "parameters": {
@@ -149,6 +172,247 @@
         "required": ["file_path", "url"]
       }
     },
+    "net.ftp_download": {
+      "description": "Télécharge un fichier depuis un serveur FTP.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "L'adresse IP ou nom d'hôte du serveur FTP."
+          },
+          "port": {
+            "type": "string",
+            "default": "21",
+            "description": "Le port du serveur FTP."
+          },
+          "user": {
+            "type": "string",
+            "description": "L'identifiant de connexion FTP."
+          },
+          "password": {
+            "type": "string",
+            "description": "Le mot de passe de connexion FTP."
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Le chemin du fichier sur le serveur FTP (ex: /path/to/file.csv)."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Le chemin local où enregistrer le fichier téléchargé."
+          }
+        },
+        "required": ["host", "user", "password", "remote_path", "local_path"]
+      }
+    },
+    "net.ftp_upload": {
+      "description": "Téléverse un fichier local vers un serveur FTP.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "L'adresse IP ou nom d'hôte du serveur FTP."
+          },
+          "port": {
+            "type": "string",
+            "default": "21",
+            "description": "Le port du serveur FTP."
+          },
+          "user": {
+            "type": "string",
+            "description": "L'identifiant de connexion FTP."
+          },
+          "password": {
+            "type": "string",
+            "description": "Le mot de passe de connexion FTP."
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Le chemin cible sur le serveur FTP (ex: /uploads/file.csv)."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Le chemin du fichier local à téléverser."
+          }
+        },
+        "required": ["host", "user", "password", "remote_path", "local_path"]
+      }
+    },
+    "net.ftp_download_filtered": {
+      "description": "Télécharge sélectivement des fichiers depuis FTP selon l'âge et la taille (UTC).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": { "type": "string", "description": "Hôte du serveur FTP." },
+          "port": { "type": "string", "default": "21", "description": "Port FTP." },
+          "user": { "type": "string", "description": "Identifiant FTP." },
+          "password": { "type": "string", "description": "Mot de passe FTP." },
+          "remote_dir": { "type": "string", "description": "Dossier distant contenant les fichiers." },
+          "local_dir": { "type": "string", "description": "Dossier local de destination." },
+          "max_age_hours": { "type": "string", "description": "Optionnel: âge maximal des fichiers en heures (ex: '24' pour modifier dans les dernières 24h)" },
+          "min_age_hours": { "type": "string", "description": "Optionnel: âge minimal / ancienneté en heures (ex: '72' pour exiger 3 jours d'ancienneté)" },
+          "min_size_mb": { "type": "string", "description": "Optionnel: taille minimale en Mo (ex: '0.1')" },
+          "max_size_mb": { "type": "string", "description": "Optionnel: taille maximale en Mo (ex: '50')" }
+        },
+        "required": ["host", "user", "password", "remote_dir", "local_dir"]
+      }
+    },
+    "net.sftp_download_filtered": {
+      "description": "Télécharge sélectivement des fichiers depuis SFTP selon l'âge et la taille (UTC).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": { "type": "string", "description": "Hôte du serveur SFTP." },
+          "port": { "type": "string", "default": "22", "description": "Port SSH/SFTP." },
+          "user": { "type": "string", "description": "Identifiant SSH." },
+          "password": { "type": "string", "description": "Mot de passe SSH (ou clé)." },
+          "key_path": { "type": "string", "description": "Optionnel: chemin clé privée SSH." },
+          "key_passphrase": { "type": "string", "description": "Optionnel: passphrase de clé privée." },
+          "remote_dir": { "type": "string", "description": "Dossier distant contenant les fichiers." },
+          "local_dir": { "type": "string", "description": "Dossier local de destination." },
+          "max_age_hours": { "type": "string", "description": "Optionnel: âge maximal des fichiers en heures (ex: '24')" },
+          "min_age_hours": { "type": "string", "description": "Optionnel: âge minimal / ancienneté en heures (ex: '72')" },
+          "min_size_mb": { "type": "string", "description": "Optionnel: taille minimale en Mo (ex: '0.1')" },
+          "max_size_mb": { "type": "string", "description": "Optionnel: taille maximale en Mo (ex: '50')" }
+        },
+        "required": ["host", "user", "remote_dir", "local_dir"]
+      }
+    },
+    "net.sftp_download": {
+      "description": "Télécharge un fichier depuis un serveur SFTP sécurisé (SSH).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "L'adresse IP ou nom d'hôte du serveur SFTP."
+          },
+          "port": {
+            "type": "string",
+            "default": "22",
+            "description": "Le port SSH/SFTP (défaut 22)."
+          },
+          "user": {
+            "type": "string",
+            "description": "L'identifiant de connexion SSH."
+          },
+          "password": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clé privée n'est fournie)."
+          },
+          "key_path": {
+            "type": "string",
+            "description": "Optionnel : Le chemin local vers le fichier de clé privée SSH (ex: ~/.ssh/id_rsa)."
+          },
+          "key_passphrase": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe/passphrase déverrouillant la clé privée SSH si nécessaire."
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Le chemin du fichier distant sur le serveur SFTP."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Le chemin local de destination pour enregistrer le fichier."
+          }
+        },
+        "required": ["host", "user", "remote_path", "local_path"]
+      }
+    },
+    "net.sftp_upload": {
+      "description": "Téléverse un fichier local vers un serveur SFTP sécurisé (SSH).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "L'adresse IP ou nom d'hôte du serveur SFTP."
+          },
+          "port": {
+            "type": "string",
+            "default": "22",
+            "description": "Le port SSH/SFTP (défaut 22)."
+          },
+          "user": {
+            "type": "string",
+            "description": "L'identifiant de connexion SSH."
+          },
+          "password": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clé privée n'est fournie)."
+          },
+          "key_path": {
+            "type": "string",
+            "description": "Optionnel : Le chemin local vers le fichier de clé privée SSH (ex: ~/.ssh/id_rsa)."
+          },
+          "key_passphrase": {
+            "type": "string",
+            "description": "Optionnel : Le mot de passe/passphrase déverrouillant la clé privée SSH si nécessaire."
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Le chemin de destination sur le serveur SFTP."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Le chemin du fichier local à téléverser."
+          }
+        },
+        "required": ["host", "user", "remote_path", "local_path"]
+      }
+    },
+    "net.notify": {
+      "description": "Envoie une alerte de notification par Email (SMTP) ou par Webhook (HTTP POST).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["email", "webhook"],
+            "description": "Le type de notification (email ou webhook)."
+          },
+          "smtp_host": {
+            "type": "string",
+            "default": "localhost",
+            "description": "L'adresse du serveur SMTP (requis pour email)."
+          },
+          "smtp_port": {
+            "type": "string",
+            "default": "25",
+            "description": "Le port du serveur SMTP (requis pour email)."
+          },
+          "smtp_user": {
+            "type": "string",
+            "description": "L'identifiant du serveur SMTP (optionnel)."
+          },
+          "smtp_pass": {
+            "type": "string",
+            "description": "Le mot de passe du serveur SMTP (optionnel)."
+          },
+          "to": {
+            "type": "string",
+            "description": "L'adresse email du destinataire (requis pour email)."
+          },
+          "subject": {
+            "type": "string",
+            "default": "ETL Job Notification",
+            "description": "Le sujet du mail (optionnel)."
+          },
+          "url": {
+            "type": "string",
+            "description": "L'URL de destination du Webhook (requis pour webhook)."
+          },
+          "message": {
+            "type": "string",
+            "description": "Le corps du message ou de la payload."
+          }
+        },
+        "required": ["type", "message"]
+      }
+    },
     "data.filter": {
       "description": "Filtre les lignes d'un fichier texte structuré (CSV) selon une règle logique sur une colonne.",
       "parameters": {
@@ -177,7 +441,7 @@
           },
           "operator": {
             "type": "string",
-            "enum": ["equals", "contains", "starts_with", "ends_with", "regex", "greater_than", "less_than"],
+            "enum": ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "regex", "greater_than", "greater_or_equal", "less_than", "less_or_equal", "is_null", "is_not_null", "in", "not_in"],
             "description": "Opérateur de comparaison logique."
           },
           "value": {
@@ -283,6 +547,55 @@
           }
         },
         "required": ["source", "stylesheet", "destination"]
+      }
+    },
+    "data.to_xlsx": {
+      "description": "Exporte un fichier de données (CSV ou JSON) vers une feuille de calcul Excel (.xlsx).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source (CSV ou JSON)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier Excel (.xlsx) de destination."
+          },
+          "sheet_name": {
+            "type": "string",
+            "default": "Sheet1",
+            "description": "Le nom de l'onglet/feuille de calcul Excel (optionnel)."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.json_to_xml": {
+      "description": "Convertit un tableau d'objets JSON ou un CSV en fichier XML structuré.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier JSON ou CSV source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier XML de destination."
+          },
+          "root_element": {
+            "type": "string",
+            "default": "root",
+            "description": "Nom du nœud XML racine (optionnel)."
+          },
+          "row_element": {
+            "type": "string",
+            "default": "row",
+            "description": "Nom du nœud XML pour chaque ligne (optionnel)."
+          }
+        },
+        "required": ["source", "destination"]
       }
     },
     "net.http_request": {
@@ -558,9 +871,62 @@
           "derive_columns": {
             "type": "string",
             "description": "Optionnel : Création de colonnes calculées ou conditionnelles séparées par des virgules au format col_nouvelle=EXPRESSION. L'expression supporte : 1. Opérateurs mathématiques (+, -, *, /) ex: total = qty * price. 2. Concaténations textuelles (+ et guillemets) ex: nom_complet = prenom + ' ' + nom. 3. Conditions IF-THEN-ELSE avec opérateurs (==, !=, >, >=, <, <=) ex: statut = IF age >= 18 THEN 'adulte' ELSE 'mineur'."
+          },
+          "right_source": {
+            "type": "string",
+            "description": "Optionnel : Le chemin du second fichier à joindre."
+          },
+          "left_on": {
+            "type": "string",
+            "description": "Optionnel : La colonne clé de jointure du fichier source principal."
+          },
+          "right_on": {
+            "type": "string",
+            "description": "Optionnel : La colonne clé de jointure du second fichier."
+          },
+          "how_join": {
+            "type": "string",
+            "enum": ["left", "inner", "outer"],
+            "default": "left",
+            "description": "Optionnel : Le type de jointure relationnelle."
+          },
+          "streaming": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Activer l'exécution en flux (streaming) dans Polars pour optimiser la mémoire RAM."
           }
         },
         "required": ["source", "destination"]
+      }
+    },
+    "data.validate": {
+      "description": "Valide les lignes d'un jeu de données (CSV, JSON, Parquet) par rapport à des règles d'assertions et sépare les lignes rejetées dans un fichier de quarantaine.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de destination recevant les lignes valides."
+          },
+          "quarantine": {
+            "type": "string",
+            "description": "Le chemin du fichier de destination recevant les rejets."
+          },
+          "rules": {
+            "type": "string",
+            "description": "Tableau JSON de règles d'assertions. Ex: [{\"column\": \"age\", \"operator\": \">=\", \"value\": 0}, {\"column\": \"email\", \"operator\": \"matches\", \"value\": \"^[^@]+@[^@]+\\\\.[^@]+$\"}]"
+          },
+          "streaming": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optionnel : Activer l'exécution en flux (streaming) dans Polars pour optimiser la mémoire RAM."
+          }
+        },
+        "required": ["source", "destination", "quarantine", "rules"]
       }
     },
     "db.query": {
@@ -606,9 +972,78 @@
             "enum": ["insert", "replace"],
             "default": "insert",
             "description": "Mode d'insertion : insert (ajout simple) ou replace (remplacement complet)."
+          },
+          "schema_drift": {
+            "type": "boolean",
+            "default": false,
+            "description": "Activer la dérive de schéma automatique pour ajouter les colonnes manquantes dans la base."
           }
         },
         "required": ["connection_string", "table_name", "source"]
+      }
+    },
+    "mongodb.find": {
+      "description": "Extrait des documents depuis une collection MongoDB et les sauvegarde au format JSON.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "URI de connexion MongoDB (ex: mongodb://localhost:27017)."
+          },
+          "database": {
+            "type": "string",
+            "description": "Nom de la base de données."
+          },
+          "collection": {
+            "type": "string",
+            "description": "Nom de la collection."
+          },
+          "filter": {
+            "type": "string",
+            "description": "Chaîne JSON représentant le filtre de recherche (par défaut {})."
+          },
+          "projection": {
+            "type": "string",
+            "description": "Chaîne JSON représentant la projection des champs."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Fichier JSON de destination."
+          }
+        },
+        "required": ["connection_string", "database", "collection", "destination"]
+      }
+    },
+    "mongodb.insert": {
+      "description": "Importe les données d'un fichier (CSV ou JSON) dans une collection MongoDB.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "URI de connexion MongoDB."
+          },
+          "database": {
+            "type": "string",
+            "description": "Nom de la base de données."
+          },
+          "collection": {
+            "type": "string",
+            "description": "Nom de la collection."
+          },
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["insert", "replace"],
+            "default": "insert",
+            "description": "Mode d'insertion : insert (ajout simple) ou replace (vide la collection avant insertion)."
+          }
+        },
+        "required": ["connection_string", "database", "collection", "source"]
       }
     },
     "s3.upload": {
@@ -685,6 +1120,648 @@
           }
         },
         "required": ["bucket", "object_key", "destination", "aws_access_key_id", "aws_secret_access_key"]
+      }
+    },
+    "ai.summarize": {
+      "description": "Génère des résumés concis via LLM d'une colonne textuelle et les écrit dans une colonne cible.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de données source (CSV/JSON)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de destination propre généré."
+          },
+          "column": {
+            "type": "string",
+            "description": "Le nom de la colonne de texte source à résumer."
+          },
+          "target_column": {
+            "type": "string",
+            "description": "Le nom de la colonne de destination recevant le résumé (optionnel, ex: res_col)."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Consignes de prompt système pour guider le résumé (optionnel)."
+          },
+          "model_provider": {
+            "type": "string",
+            "enum": ["openai_compatible", "gemini"],
+            "description": "Le provider de modèle LLM à utiliser (optionnel)."
+          },
+          "model_id": {
+            "type": "string",
+            "description": "L'identifiant du modèle LLM à utiliser pour cette étape (optionnel)."
+          },
+          "base_url": {
+            "type": "string",
+            "description": "URL de base de l'API LLM locale pour cette étape (optionnel)."
+          }
+        },
+        "required": ["source", "destination", "column"]
+      }
+    },
+    "ai.extract": {
+      "description": "Extrait des informations structurées (JSON) via LLM depuis une colonne textuelle vers de nouvelles colonnes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de données source (CSV/JSON)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de destination propre généré."
+          },
+          "column": {
+            "type": "string",
+            "description": "Le nom de la colonne de texte source à analyser."
+          },
+          "schema": {
+            "type": "string",
+            "description": "Le schéma JSON décrivant les propriétés à extraire (ex: {\"properties\": {\"nom\": {\"type\": \"string\"}}})."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Instructions système additionnelles pour guider l'extraction LLM (optionnel)."
+          },
+          "model_provider": {
+            "type": "string",
+            "enum": ["openai_compatible", "gemini"],
+            "description": "Le provider de modèle LLM à utiliser (optionnel)."
+          },
+          "model_id": {
+            "type": "string",
+            "description": "L'identifiant du modèle LLM à utiliser pour cette étape (optionnel)."
+          },
+          "base_url": {
+            "type": "string",
+            "description": "URL de base de l'API LLM locale pour cette étape (optionnel)."
+          }
+        },
+        "required": ["source", "destination", "column", "schema"]
+      }
+    },
+    "core.sub_flow": {
+      "description": "Exécute un ensemble d'étapes imbriquées comme sous-graphe dans la recette principale.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "array",
+            "description": "La liste des étapes imbriquées à exécuter comme sous-flux.",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": ["steps"]
+      }
+    },
+    "data.lookup": {
+      "description": "Recherche et joint des données depuis un référentiel externe (jointure gauche Polars).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données principal (CSV/JSON/Parquet)."
+          },
+          "lookup_file": {
+            "type": "string",
+            "description": "Le fichier dictionnaire / référentiel externe."
+          },
+          "source_key": {
+            "type": "string",
+            "description": "La clé de liaison dans le fichier principal."
+          },
+          "lookup_key": {
+            "type": "string",
+            "description": "La clé de liaison dans le fichier dictionnaire."
+          },
+          "lookup_value": {
+            "type": "string",
+            "description": "La colonne du dictionnaire à ramener dans le fichier principal."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination enrichi."
+          }
+        },
+        "required": ["source", "lookup_file", "source_key", "lookup_key", "lookup_value", "destination"]
+      }
+    },
+    "data.deduplicate": {
+      "description": "Supprime les lignes en doublons basées sur des clés spécifiques.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination nettoyé."
+          },
+          "subset": {
+            "type": "string",
+            "description": "Liste des colonnes de clé de dédoublonnage, séparées par virgules (ex: id,email)."
+          },
+          "keep": {
+            "type": "string",
+            "enum": ["first", "last"],
+            "default": "first",
+            "description": "Laquelle des occurrences en doublons conserver: first ou last."
+          }
+        },
+        "required": ["source", "destination", "subset"]
+      }
+    },
+    "data.anonymize": {
+      "description": "Anonymise et masque les colonnes sensibles (PII) d'un jeu de données.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre."
+          },
+          "rules": {
+            "type": "string",
+            "description": "Mappings de règles d'anonymisation au format col1:strategy1,col2:strategy2. Stratégies: hash, mask, mask_email, replace."
+          }
+        },
+        "required": ["source", "destination", "rules"]
+      }
+    },
+    "data.pivot": {
+      "description": "Pivote une table de données du format long au format large (lignes en colonnes).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre."
+          },
+          "index": {
+            "type": "string",
+            "description": "Nom(s) des colonnes d'index de ligne séparés par des virgules (ex: year,country)."
+          },
+          "on": {
+            "type": "string",
+            "description": "Nom de la colonne dont les valeurs distinctes deviendront les en-têtes des nouvelles colonnes."
+          },
+          "values": {
+            "type": "string",
+            "description": "Nom de la colonne contenant les valeurs à ventiler dans les nouvelles colonnes."
+          },
+          "aggregate": {
+            "type": "string",
+            "enum": ["first", "last", "sum", "mean", "min", "max", "count"],
+            "default": "first",
+            "description": "Fonction d'agrégation à appliquer pour les valeurs."
+          }
+        },
+        "required": ["source", "destination", "index", "on", "values"]
+      }
+    },
+    "data.unpivot": {
+      "description": "Dépivote une table de données du format large au format long (colonnes en lignes).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre."
+          },
+          "index": {
+            "type": "string",
+            "description": "Nom(s) des colonnes d'identifiants à conserver séparées par des virgules (ex: id,name)."
+          },
+          "on": {
+            "type": "string",
+            "description": "Optionnel: Nom(s) des colonnes de mesures à dépivoter séparées par des virgules. Si vide, toutes les autres colonnes."
+          },
+          "variable_name": {
+            "type": "string",
+            "default": "variable",
+            "description": "Nom de la colonne finale contenant les anciens en-têtes (défaut: variable)."
+          },
+          "value_name": {
+            "type": "string",
+            "default": "value",
+            "description": "Nom de la colonne finale contenant les valeurs des mesures (défaut: value)."
+          }
+        },
+        "required": ["source", "destination", "index"]
+      }
+    },
+    "data.delta": {
+      "description": "Compare deux jeux de données (CSV, JSON, Parquet) sur clés primaires pour calculer les différences incrémentales (upserts, deletes et optionnellement synchronisation complète).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source le plus récent."
+          },
+          "target": {
+            "type": "string",
+            "description": "Le fichier de données cible de référence (historique)."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Nom(s) de la ou des clés primaires séparées par des virgules (ex: id,code)."
+          },
+          "destination_upsert": {
+            "type": "string",
+            "description": "Fichier pour enregistrer les nouvelles lignes et les lignes mises à jour (inserts + updates)."
+          },
+          "destination_delete": {
+            "type": "string",
+            "description": "Fichier pour enregistrer les lignes supprimées."
+          },
+          "destination_sync": {
+            "type": "string",
+            "description": "Optionnel: Fichier pour enregistrer le jeu de données consolidé et entièrement synchronisé."
+          }
+        },
+        "required": ["source", "target", "keys", "destination_upsert", "destination_delete"]
+      }
+    },
+    "data.type_cast": {
+      "description": "Convertit et formate les colonnes d'un jeu de données selon des types cibles stricts (integer, float, boolean, string, date).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le fichier de données source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le fichier de destination propre avec les colonnes typées."
+          },
+          "casts": {
+            "type": "string",
+            "description": "Chaîne au format JSON définissant le type des colonnes à convertir (ex: {\"id\": \"int\", \"price\": \"float\", \"date\": \"date:%Y-%m-%d\"})."
+          }
+        },
+        "required": ["source", "destination", "casts"]
+      }
+    },
+    "db.upsert": {
+      "description": "Upsert (mise à jour ou insertion) idempotent des lignes d'un fichier dans une table SQL sur clés primaires de conflit.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "connection_string": {
+            "type": "string",
+            "description": "Chaîne de connexion de la base de données (ex: sqlite://db.sqlite)."
+          },
+          "table_name": {
+            "type": "string",
+            "description": "Le nom de la table cible."
+          },
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Clé(s) primaire(s) pour détecter les doublons et faire la mise à jour, séparées par virgules (ex: id)."
+          },
+          "schema_drift": {
+            "type": "boolean",
+            "default": false,
+            "description": "Activer la dérive de schéma automatique pour ajouter les colonnes manquantes dans la base."
+          }
+        },
+        "required": ["connection_string", "table_name", "source", "keys"]
+      }
+    },
+    "data.split_out": {
+      "description": "Éclate les colonnes contenant des listes ou des chaînes sérialisées JSON vers des lignes distinctes (explode).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier de destination propre éclaté."
+          },
+          "column": {
+            "type": "string",
+            "description": "Le nom de la colonne à éclater."
+          },
+          "delimiter": {
+            "type": "string",
+            "description": "Optionnel: Délimiteur de texte pour éclater si ce n'est pas un tableau JSON direct (ex: virgule)."
+          }
+        },
+        "required": ["source", "destination", "column"]
+      }
+    },
+    "data.zip": {
+      "description": "Compresse un dossier ou un fichier dans une archive ZIP.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Chemin du fichier ou dossier source à compresser."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Chemin de l'archive ZIP destination à générer."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.unzip": {
+      "description": "Décompresse une archive ZIP dans un dossier de destination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Chemin de l'archive ZIP source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Dossier cible pour extraire le contenu."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "core.wait": {
+      "description": "Met en pause l'exécution du workflow pendant une durée spécifiée (secondes ou HH:MM:SS).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "duration": {
+            "type": "string",
+            "description": "Durée de l'attente. Exemples: '5' (5 secondes), '02:30' (2 min 30 s), '01:00:00' (1 heure)."
+          }
+        },
+        "required": ["duration"]
+      }
+    },
+    "core.loop": {
+      "description": "Itère l'exécution d'une liste d'étapes sur des variables, des lignes de fichier ou des chemins de fichiers filtrés.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "loop_over": {
+            "type": "string",
+            "enum": ["variables", "files", "rows"],
+            "description": "Type d'éléments à parcourir."
+          },
+          "items_source": {
+            "type": "string",
+            "description": "Source des éléments (valeurs séparées par des virgules, chemin d'accès au dossier ou fichier)."
+          },
+          "pattern": {
+            "type": "string",
+            "default": "*",
+            "description": "Optionnel (pour files) : Filtre de motif de glob (ex: *.csv)."
+          },
+          "max_age_hours": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Âge maximum du fichier en heures (ex: '24' pour les fichiers modifiés dans les dernières 24h)."
+          },
+          "min_age_hours": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Âge minimum / ancienneté en heures (ex: '72' pour exiger au moins 3 jours d'ancienneté)."
+          },
+          "min_size_mb": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Taille minimale du fichier en Mo (ex: '0.5')."
+          },
+          "max_size_mb": {
+            "type": "string",
+            "description": "Optionnel (pour files) : Taille maximale du fichier en Mo (ex: '10')."
+          },
+          "steps": {
+            "type": "array",
+            "description": "Liste d'étapes enfants à exécuter à chaque itération."
+          }
+        },
+        "required": ["loop_over", "items_source", "steps"]
+      }
+    },
+    "core.switch": {
+      "description": "Primitive d'orchestration logique. Route l'exécution vers différents sous-graphes selon la valeur d'une clé ou d'un paramètre.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "description": "La valeur ou variable à tester (ex: ${ENV_MODE} ou ${STATUS})."
+          },
+          "cases": {
+            "type": "object",
+            "description": "Dictionnaire associant des valeurs de cas à des listes d'étapes d'exécution (ex: {\"dev\": [...], \"prod\": [...]})."
+          }
+        },
+        "required": ["value", "cases"]
+      }
+    },
+    "google.sheets_read": {
+      "description": "Extrait des données depuis Google Sheets vers un fichier local CSV.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "string",
+            "description": "Chemin vers le fichier JSON de credentials Google Service Account."
+          },
+          "spreadsheet_id": {
+            "type": "string",
+            "description": "L'identifiant du spreadsheet Google Sheets."
+          },
+          "worksheet_title": {
+            "type": "string",
+            "description": "Le nom de l'onglet/feuille à lire (optionnel, lit la première feuille si vide)."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Chemin local où sauvegarder les données extraites en CSV."
+          }
+        },
+        "required": ["credentials", "spreadsheet_id", "local_path"]
+      }
+    },
+    "google.sheets_write": {
+      "description": "Écrit des données depuis un fichier local CSV vers Google Sheets.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "string",
+            "description": "Chemin vers le fichier JSON de credentials Google Service Account."
+          },
+          "spreadsheet_id": {
+            "type": "string",
+            "description": "L'identifiant du spreadsheet Google Sheets."
+          },
+          "worksheet_title": {
+            "type": "string",
+            "description": "Le nom de l'onglet/feuille cible (optionnel)."
+          },
+          "local_path": {
+            "type": "string",
+            "description": "Chemin local du fichier CSV à importer."
+          },
+          "clear_sheet": {
+            "type": "boolean",
+            "default": true,
+            "description": "Vider la feuille avant d'écrire les nouvelles données."
+          }
+        },
+        "required": ["credentials", "spreadsheet_id", "local_path"]
+      }
+    },
+    "data.partition": {
+      "description": "Partitionne un dataset en plusieurs fichiers selon les valeurs d'une ou plusieurs colonnes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin d'accès au fichier source (CSV/JSON/Parquet)."
+          },
+          "destination_dir": {
+            "type": "string",
+            "description": "Le répertoire de destination pour les fichiers partitionnés."
+          },
+          "by_columns": {
+            "type": "string",
+            "description": "Les colonnes de partitionnement séparées par des virgules."
+          }
+        },
+        "required": ["source", "destination_dir", "by_columns"]
+      }
+    },
+    "data.scd": {
+      "description": "Gère les dimensions à évolution lente (SCD Type 2) en comparant source et cible.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier source contenant les nouvelles données."
+          },
+          "target": {
+            "type": "string",
+            "description": "Le chemin du fichier cible existant (dimension historique)."
+          },
+          "keys": {
+            "type": "string",
+            "description": "Les colonnes clés de jointure séparées par des virgules."
+          },
+          "compare_columns": {
+            "type": "string",
+            "description": "Les colonnes à comparer pour détecter les changements (optionnel, toutes si vide)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de sortie avec la dimension versionnée."
+          },
+          "valid_from_col": {
+            "type": "string",
+            "default": "valid_from",
+            "description": "Nom de la colonne marquant le début de validité."
+          },
+          "valid_to_col": {
+            "type": "string",
+            "default": "valid_to",
+            "description": "Nom de la colonne marquant la fin de validité."
+          },
+          "is_current_col": {
+            "type": "string",
+            "default": "is_current",
+            "description": "Nom de la colonne indiquant si l'enregistrement est courant."
+          },
+          "valid_from_value": {
+            "type": "string",
+            "description": "Valeur de début de validité (optionnel, ex: date du jour)."
+          }
+        },
+        "required": ["source", "target", "keys", "destination"]
+      }
+    },
+    "data.read": {
+      "description": "Lit un fichier dans tout format supporté (CSV, JSON, Parquet, JSONL/NDJSON) et l'écrit en CSV.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier source (auto-détection du format par extension)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier CSV de sortie."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.write": {
+      "description": "Lit un fichier CSV source et l'écrit dans le format détecté par l'extension de destination (CSV, JSON, Parquet, JSONL/NDJSON).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier CSV source."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de sortie (format auto-détecté par extension)."
+          }
+        },
+        "required": ["source", "destination"]
+      }
+    },
+    "data.convert": {
+      "description": "Convertit un fichier entre tous formats supportés (CSV, JSON, Parquet, JSONL/NDJSON) par auto-détection des extensions source et destination.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Le chemin du fichier source (format auto-détecté par extension)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de destination (format auto-détecté par extension)."
+          }
+        },
+        "required": ["source", "destination"]
       }
     }
   }

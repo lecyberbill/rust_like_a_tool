@@ -26,11 +26,12 @@ echo [INFO] Activation de l'environnement virtuel...
 call .venv\Scripts\activate.bat
 
 echo [INFO] Installation des dependances...
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 
-echo [INFO] Lancement du serveur WebSocket sur le port 8765...
-python brain/orchestrator.py --server
+echo [INFO] Lancement du site et du serveur d'orchestration...
+start "" "http://localhost:8766/"
+.venv\Scripts\python.exe brain/orchestrator.py --server
 
 if %errorlevel% neq 0 (
     echo [ERREUR] Le serveur s'est arrete avec une erreur.

@@ -7,3 +7,4 @@ pub mod data_transform;
 pub mod analytical;
 pub mod db;
 pub mod s3;
+pub mod ai;

@@ -65,8 +65,21 @@ graph TD
 *Objectif : Traiter d'importants volumes de données de manière hautement performante et intégrer de l'intelligence dans les flux.*
 
 | **Moteur Analytique (Rust Polars)** | Opérations de DataFrame hautes performances (jointures, agrégations, groupby) en Rust. | `data.groupby`, `data.join`, `data.aggregate` | **Opérationnel** |
-| **Intégration Stockage & Database** | Lecture et écriture directes depuis/vers des bases de données SQL ou du stockage objet. | `db.query`, `db.sqlite`, `db.s3_sync` | **Moyenne** |
+| **Intégration Stockage & Database** | Lecture et écriture directes depuis/vers des bases de données SQL ou du stockage objet. | `db.query`, `db.insert` (SQLite, Postgres, MySQL) | **Opérationnel** |
+| **Connecteurs Entreprises (Roadmap)** | Intégration physique de pilotes ODBC natifs et de l'API REST Snowflake de production (remplaçant les mocks actuels). | `db.query` (ODBC/Snowflake), `db.insert` (ODBC/Snowflake) | **Planifié (Basse priorité)** |
 | **Transformateur XML Avancé** | Transformations structurales complexes XML via feuilles de style XSLT. | `data.xml_transform` | **Basse** |
 | **Inférence IA / NLP** | Intégration de tâches d'extraction d'entités ou de résumé de texte dans le DAG de données. | `ai.summarize`, `ai.extract` | **Basse** |
 | **Exécution Parallèle** | Parallélisation des étapes indépendantes du DAG au niveau de l'orchestrateur. | `core.parallel_exec` | **Moyenne** |
+
+---
+
+## 4. Évolutions Futures (Post-Débogage & Stabilisation)
+
+*Objectif : Transformer le workbench en une plateforme collaborative sécurisée et multi-utilisateur.*
+
+| Composant / Fonctionnalité | Description | Primitives Cibles | Priorité / Statut |
+| :--- | :--- | :--- | :--- |
+| **Isolation Multi-utilisateur** | Ségrégation stricte des flux, des recettes et des données de prévisualisation par utilisateur. | `auth.isolation` | **Planifié (Basse priorité - Après phase de débogage)** |
+| **Authentification & Contrôle d'Accès** | Gestion des rôles (RBAC) pour la modification et l'exécution des recettes de production. | `auth.login`, `auth.rbac` | **Planifié (Basse priorité)** |
+
 

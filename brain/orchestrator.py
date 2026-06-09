@@ -1,9 +1,12 @@
-# [WFGY] Zone: SAFE | λ: 0.1 | Action: Python orchestrator with WebSocket server & Env loading
+# [WFGY] Zone: SAFE | λ: 0.3 | Action: Send WORKSPACE_CREATED on CREATE_WORKSPACE message
 import os
 import sys
 import json
 import asyncio
 import subprocess
+import time
+import datetime
+import logging
 from pathlib import Path
 import websockets
 
@@ -12,17 +15,34 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s',
+    stream=sys.stdout
+)
+# Suppress noisy library logs
+logging.getLogger("websockets").setLevel(logging.WARNING)
+logging.getLogger("asyncio").setLevel(logging.WARNING)
+log = logging.getLogger("wfgy.orchestrator")
+
 # Dynamically add Chromatix path to sys.path
-sys.path.append(str(Path("d:/image_to_text/chromatix")))
+# Dynamically add Chromatix path to sys.path
+_chromatix_path = os.environ.get("CHROMATIX_PATH") or "d:/image_to_text/chromatix"
+sys.path.append(str(Path(_chromatix_path)))
+
+# Ensure brain/ is on sys.path for imports like from vault import StealthVault
+_brain_dir = str(Path(__file__).parent)
+if _brain_dir not in sys.path:
+    sys.path.insert(0, _brain_dir)
 
 try:
     from chromatix_cps.core import CPSPacket
     from PIL import Image
     HAS_CHROMATIX = True
-    print("[STEALTH VAULT] Chromatix Pixel Standard Engine successfully loaded.")
+    log.info("Chromatix Pixel Standard Engine loaded")
 except ImportError:
     HAS_CHROMATIX = False
-    print("[STEALTH VAULT] Chromatix Engine not found. Running in legacy flat-file fallback mode.")
+    log.warning("Chromatix Engine not found — running in legacy flat-file fallback mode")
 from vault import StealthVault
 
 # Try to import jsonschema for advanced validation, fallback to manual if not present
@@ -35,8 +55,15 @@ except ImportError:
 def load_env(env_name="dev"):
     """
     Rudimentary .env parser to avoid extra dependency like python-dotenv.
+    Supports environment-specific files (.env.test, .env.dev, .env.prod) and falls back to .env.
     """
-    filename = ".env.test" if env_name == "test" else ".env"
+    filename = ".env"
+    if env_name == "test":
+        filename = ".env.test"
+    elif env_name == "prod":
+        filename = ".env.prod"
+    elif env_name == "dev":
+        filename = ".env.dev"
     
     env_path = None
     for candidate_dir in [Path.cwd(), Path(__file__).parent, Path(__file__).parent.parent]:
@@ -45,6 +72,14 @@ def load_env(env_name="dev"):
             env_path = candidate_path
             break
             
+    # Fallback to standard .env
+    if not env_path:
+        for candidate_dir in [Path.cwd(), Path(__file__).parent, Path(__file__).parent.parent]:
+            candidate_path = candidate_dir / ".env"
+            if candidate_path.exists():
+                env_path = candidate_path
+                break
+                
     config = {}
     if env_path and env_path.exists():
         with open(env_path, "r", encoding="utf-8") as f:
@@ -56,6 +91,7 @@ def load_env(env_name="dev"):
                     k, v = line.split("=", 1)
                     config[k.strip()] = v.strip()
         return config
+    return config
 
 def extract_file_headers(filepath: str) -> list[str]:
     path = Path(filepath)
@@ -101,11 +137,87 @@ def extract_file_headers(filepath: str) -> list[str]:
             
     return []
 
+def extract_file_preview(filepath: str, max_rows: int = 10) -> dict:
+    path = Path(filepath)
+    if not path.exists():
+        path = Path.cwd() / filepath
+        if not path.exists():
+            return {"headers": [], "rows": [], "error": f"Fichier introuvable : {filepath}"}
+            
+    ext = path.suffix.lower()
+    headers = []
+    rows = []
+    
+    if ext == ".csv":
+        try:
+            import csv
+            with open(path, "r", encoding="utf-8-sig") as f:
+                sample = f.read(2048)
+                f.seek(0)
+                delim = ","
+                for d in [";", ",", "\t", "|"]:
+                    if d in sample:
+                        delim = d
+                        break
+                reader = csv.reader(f, delimiter=delim)
+                try:
+                    headers = next(reader)
+                except StopIteration:
+                    return {"headers": [], "rows": []}
+                
+                headers = [h.strip().replace('"', '').replace("'", "") for h in headers]
+                
+                count = 0
+                for r in reader:
+                    if count >= max_rows:
+                        break
+                    row_dict = {}
+                    for idx, h in enumerate(headers):
+                        val = r[idx] if idx < len(r) else ""
+                        row_dict[h] = val.strip()
+                    rows.append(row_dict)
+                    count += 1
+                    
+            return {"headers": headers, "rows": rows}
+        except Exception as e:
+            return {"headers": [], "rows": [], "error": f"Erreur de lecture CSV : {str(e)}"}
+            
+    elif ext == ".json":
+        try:
+            import json
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                
+            if isinstance(data, dict):
+                data = [data]
+                
+            if isinstance(data, list) and data:
+                all_keys = []
+                for item in data[:max_rows]:
+                    if isinstance(item, dict):
+                        for k in item.keys():
+                            if k not in all_keys:
+                                all_keys.append(k)
+                headers = all_keys
+                
+                for item in data[:max_rows]:
+                    if isinstance(item, dict):
+                        row_dict = {k: str(item.get(k, "")) for k in headers}
+                        rows.append(row_dict)
+                return {"headers": headers, "rows": rows}
+            return {"headers": [], "rows": []}
+        except Exception as e:
+            return {"headers": [], "rows": [], "error": f"Erreur de lecture JSON : {str(e)}"}
+            
+    return {"headers": [], "rows": [], "error": f"Format d'aperçu non supporté : {ext}"}
+
 # Load environment configuration
 env_mode = os.environ.get("WFGY_ENV", "dev")
 ENV_CONFIG = load_env(env_mode)
 from worker_bridge import WorkerBridge, ERROR_TRANSLATIONS
 from schema_validator import SchemaValidator
+from metrics import METRICS
+from checkpoint import save_checkpoint, load_checkpoint, delete_checkpoint
 
 class Orchestrator:
     """
@@ -115,7 +227,84 @@ class Orchestrator:
         self.root_dir = Path(__file__).parent
         self.validator = SchemaValidator(self.root_dir / "registry.json")
         self.bridge = WorkerBridge(env_config=ENV_CONFIG)
-        self.execution_context = {}
+        import socket
+        import getpass
+        from datetime import datetime
+        now = datetime.now()
+        
+        try:
+            username = getpass.getuser()
+        except Exception:
+            username = os.environ.get("USERNAME", os.environ.get("USER", "unknown"))
+            
+        self.execution_context = {
+            "CURRENT_YEAR": str(now.year),
+            "TODAY": now.strftime("%Y-%m-%d"),
+            "NOW": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "HOSTNAME": socket.gethostname(),
+            "USERNAME": username,
+            "OS_NAME": "windows" if os.name == "nt" else "linux"
+        }
+
+    def get_data_lineage(self, recipe_data: dict) -> dict:
+        """
+        Parses the recipe to build a data lineage map.
+        Identifies which step produces which file, and which steps consume it.
+        """
+        steps = recipe_data.get("steps", [])
+        lineage = {}  # file_path -> {"producer": step_num, "consumers": []}
+
+        # Helper to clean up file paths to make comparisons robust
+        def normalize_path(p):
+            if not p or not isinstance(p, str):
+                return None
+            p_clean = p.strip().replace("\\", "/").lower()
+            # Remove environment variables or placeholders for normalization if matching prefix/suffix
+            return p_clean
+
+        for step in steps:
+            step_num = step.get("step")
+            primitive = step.get("primitive")
+            args = step.get("args", {})
+
+            # List of arguments commonly acting as source (input)
+            inputs = []
+            # List of arguments commonly acting as destination (output)
+            outputs = []
+
+            for k, v in args.items():
+                if not isinstance(v, str):
+                    continue
+                k_lower = k.lower()
+                if "source" in k_lower or "src" in k_lower or "input" in k_lower or k_lower in ["path", "local_path", "file_path", "lookup_file", "target"]:
+                    # Distinguish input vs output based on naming
+                    if "destination" in k_lower or "dest" in k_lower or "output" in k_lower or k_lower == "quarantine":
+                        outputs.append(v)
+                    else:
+                        inputs.append(v)
+                elif "destination" in k_lower or "dest" in k_lower or "output" in k_lower or k_lower == "quarantine":
+                    outputs.append(v)
+
+            # Register producers
+            for out_file in outputs:
+                norm = normalize_path(out_file)
+                if norm:
+                    if norm not in lineage:
+                        lineage[norm] = {"file_path": out_file, "producer": step_num, "consumers": []}
+                    else:
+                        lineage[norm]["producer"] = step_num
+
+            # Register consumers
+            for in_file in inputs:
+                norm = normalize_path(in_file)
+                if norm:
+                    if norm not in lineage:
+                        lineage[norm] = {"file_path": in_file, "producer": None, "consumers": [step_num]}
+                    else:
+                        if step_num not in lineage[norm]["consumers"]:
+                            lineage[norm]["consumers"].append(step_num)
+
+        return lineage
 
     def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev") -> dict:
         resolved = {}
@@ -167,9 +356,9 @@ class Orchestrator:
         steps = recipe_data.get("steps", [])
         local_env = recipe_data.get("env", {})
 
-        print(f"=== Starting Plan Execution ({target_env.upper()}): {plan_id} ===")
-        print(f"User Intent: {intent}")
-        print("==========================================")
+        log.info("Starting plan execution", extra={"plan_id": plan_id, "target_env": target_env, "steps": len(steps)})
+        log.info("User intent", extra={"intent": intent[:200]})
+        METRICS.counter_inc("wfgy_plan_runs_total", {"target_env": target_env})
 
         # 1. Détection de cycles dans le graphe de dépendances (DAG)
         parents = {}
@@ -198,14 +387,51 @@ class Orchestrator:
             step_num = step.get("step")
             if step_num not in visited:
                 if has_cycle(step_num):
-                    err_msg = f"Détection de cycle de dépendances dans la recette (autour de l'étape {step_num})"
-                    print(f"[ORCHESTRATOR ERROR] {err_msg}")
+                    log.error("Cycle detected in recipe DAG", extra={"step": step_num})
                     return False
 
         # 2. Préparation des structures de contrôle asynchrones
         step_events = {step.get("step"): asyncio.Event() for step in steps}
         failed_steps = set()
         completed_steps = set()
+        step_performance = {}
+
+        # Charger le checkpoint SQLite s'il existe pour ce plan_id
+        checkpoint_data = load_checkpoint(plan_id)
+        if checkpoint_data:
+            completed_steps = checkpoint_data["completed_steps"]
+            step_performance = checkpoint_data["step_performance"]
+            # Valider que les fichiers de sortie des étapes complétées existent encore
+            valid_steps = set()
+            for sn in list(completed_steps):
+                s = step_map.get(sn)
+                if s:
+                    dest = s.get("args", {}).get("destination", "")
+                    if dest and Path(dest).exists():
+                        valid_steps.add(sn)
+                    elif not dest:
+                        valid_steps.add(sn)
+            orphaned = completed_steps - valid_steps
+            if orphaned:
+                log.warning("Checkpoint orphaned steps — files missing", extra={"orphaned": list(orphaned)})
+                completed_steps = valid_steps
+            self.execution_context.update(checkpoint_data["execution_context"])
+            for step_num in completed_steps:
+                if step_num in step_events:
+                    step_events[step_num].set()
+            log.info("Resumed from SQLite checkpoint", extra={"plan_id": plan_id, "steps_done": len(completed_steps)})
+
+        def save_current_checkpoint():
+            try:
+                serializable_context = {k: v for k, v in self.execution_context.items() if isinstance(v, (str, int, float, bool))}
+                save_checkpoint(plan_id, list(completed_steps), step_performance, serializable_context)
+            except Exception as save_err:
+                log.warning("Checkpoint save failed", extra={"error": str(save_err)})
+
+        run_start = time.perf_counter()
+
+        # Index des étapes par numéro pour résolution des dépendances
+        step_map = {s.get("step"): s for s in steps}
 
         async def run_single_step(step_item):
             step_num = step_item.get("step")
@@ -213,12 +439,25 @@ class Orchestrator:
             args = step_item.get("args", {})
             dep_list = parents.get(step_num, [])
 
+            if step_num in completed_steps:
+                print(f"[ORCHESTRATOR] Étape {step_num} déjà complétée avec succès (reprise). Passage à l'étape suivante.")
+                if status_callback:
+                    status_callback(step_num, "success", "Étape déjà complétée avec succès (reprise).")
+                step_events[step_num].set()
+                return True
+
             # Attente de tous les parents
             for pid in dep_list:
                 if pid in step_events:
                     await step_events[pid].wait()
                     if pid in failed_steps:
                         failed_steps.add(step_num)
+                        step_performance[step_num] = {
+                            "step": step_num,
+                            "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                            "duration_ms": 0,
+                            "status": "skipped"
+                        }
                         step_events[step_num].set()
                         return False
                 else:
@@ -227,11 +466,78 @@ class Orchestrator:
 
             if failed_steps:
                 failed_steps.add(step_num)
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": 0,
+                    "status": "skipped"
+                }
                 step_events[step_num].set()
                 return False
 
+            # AUTO-RÉSOLUTION : source héritée du parent
+            if dep_list and not args.get("source"):
+                for parent_num in dep_list:
+                    parent_step = step_map.get(parent_num)
+                    if parent_step:
+                        parent_dest = parent_step.get("args", {}).get("destination", "")
+                        if parent_dest:
+                            args["source"] = parent_dest
+                            print(f"[ORCHESTRATOR] Étape {step_num}: source auto-résolue depuis l'étape {parent_num} → {parent_dest}")
+                            break
+
+            # AUTO-GÉNÉRATION : destination si vide
+            if not args.get("destination") and primitive not in ("core.wait", "core.condition", "core.sub_flow", "core.switch", "core.loop", "data.metrics"):
+                args["destination"] = f"workspace/output/step_{step_num}_{primitive.replace('.', '_')}.csv"
+                print(f"[ORCHESTRATOR] Étape {step_num}: destination auto-générée → {args['destination']}")
+
             if status_callback:
                 status_callback(step_num, "running", f"Exécution de l'étape ({target_env.upper()})...")
+
+            step_start = time.perf_counter()
+
+            # Gestion spécifique de core.wait (Primitive d'attente/rétention)
+            if primitive == "core.wait":
+                resolved_args = self.resolve_secrets(args, local_env, target_env)
+                duration_raw = resolved_args.get("duration", "0")
+                duration_seconds = 0
+                
+                # Parsing du format duration (HH:MM:SS, MM:SS, ou secondes brutes)
+                try:
+                    duration_str = str(duration_raw).strip()
+                    if ":" in duration_str:
+                        parts = duration_str.split(":")
+                        if len(parts) == 3:  # HH:MM:SS
+                            duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                        elif len(parts) == 2:  # MM:SS
+                            duration_seconds = int(parts[0]) * 60 + int(parts[1])
+                        else:
+                            raise ValueError("Format temporel invalide")
+                    else:
+                        duration_seconds = float(duration_str)
+                except Exception as wait_err:
+                    print(f"[ORCHESTRATOR ERROR] Durée de wait invalide : {duration_raw} ({wait_err}). Utilisation de 0s.")
+                    duration_seconds = 0
+                
+                print(f"[ORCHESTRATOR] Wait en cours pour {duration_seconds} secondes...")
+                if status_callback:
+                    status_callback(step_num, "running", f"Attente de {duration_seconds} secondes ({duration_raw})...")
+                
+                await asyncio.sleep(duration_seconds)
+                
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Attente {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": "success"
+                }
+                completed_steps.add(step_num)
+                save_current_checkpoint()
+                if status_callback:
+                    status_callback(step_num, "success", f"Attente terminée ({duration_seconds}s).")
+                step_events[step_num].set()
+                return True
 
             # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
@@ -267,19 +573,318 @@ class Orchestrator:
                     sub_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
                     if not sub_success:
                         failed_steps.add(step_num)
+                        step_end = time.perf_counter()
+                        step_performance[step_num] = {
+                            "step": step_num,
+                            "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                            "duration_ms": int((step_end - step_start) * 1000),
+                            "status": "error"
+                        }
                         step_events[step_num].set()
                         return False
+                
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": "success"
+                }
                 completed_steps.add(step_num)
+                save_current_checkpoint()
                 step_events[step_num].set()
                 return True
 
-            # 3. Validation de l'étape de recette
+            # Gestion spécifique de core.sub_flow (Sous-flux)
+            if primitive == "core.sub_flow":
+                sub_steps = args.get("steps", [])
+                print(f"[ORCHESTRATOR] Exécution du sous-flux (Étape {step_num}) comprenant {len(sub_steps)} étapes...")
+                if status_callback:
+                    status_callback(step_num, "running", f"Démarrage du sous-flux ({len(sub_steps)} étapes)...")
+                
+                sub_recipe = {
+                    "plan_id": f"{plan_id}_sub_{step_num}",
+                    "intent_analysis": f"Sous-flux de l'étape {step_num}",
+                    "steps": sub_steps,
+                    "env": local_env
+                }
+                sub_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                
+                step_end = time.perf_counter()
+                status_str = "success" if sub_success else "error"
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Sous-flux {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": status_str
+                }
+                
+                if sub_success:
+                    completed_steps.add(step_num)
+                    save_current_checkpoint()
+                    if status_callback:
+                        status_callback(step_num, "success", "Sous-flux exécuté avec succès.")
+                else:
+                    failed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "error", "Le sous-flux a échoué.")
+                        
+                step_events[step_num].set()
+                return sub_success
+
+            # Gestion spécifique de core.switch (Aiguillage dynamique)
+            if primitive == "core.switch":
+                switch_val_raw = args.get("value", "")
+                cases = args.get("cases", {})
+                
+                # Résoudre les placeholders/variables sur la valeur de switch
+                resolved_args = self.resolve_secrets({"val": switch_val_raw}, local_env, target_env)
+                resolved_val = resolved_args.get("val", "")
+                
+                print(f"[ORCHESTRATOR] Évaluation core.switch Étape {step_num} (Valeur résolue : '{resolved_val}')")
+                if status_callback:
+                    status_callback(step_num, "running", f"Évaluation de l'aiguillage switch = '{resolved_val}'...")
+
+                # Trouver les étapes associées à cette valeur
+                sub_steps = cases.get(resolved_val)
+                if sub_steps is None:
+                    # Tenter un cas par défaut "default" s'il est déclaré
+                    sub_steps = cases.get("default", [])
+                    print(f"[ORCHESTRATOR] Valeur '{resolved_val}' non trouvée dans les cas. Utilisation du cas par défaut.")
+                    
+                print(f"[ORCHESTRATOR] Exécution de la branche sélectionnée ({len(sub_steps)} étapes)...")
+                
+                sub_recipe = {
+                    "plan_id": f"{plan_id}_switch_{step_num}_{resolved_val}",
+                    "intent_analysis": f"Branche '{resolved_val}' de l'étape {step_num}",
+                    "steps": sub_steps,
+                    "env": local_env
+                }
+                switch_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                
+                step_end = time.perf_counter()
+                status_str = "success" if switch_success else "error"
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Aiguillage {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": status_str
+                }
+                
+                if switch_success:
+                    completed_steps.add(step_num)
+                    save_current_checkpoint()
+                    if status_callback:
+                        status_callback(step_num, "success", f"Branche '{resolved_val}' exécutée avec succès.")
+                else:
+                    failed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "error", f"La branche '{resolved_val}' a échoué.")
+                        
+                step_events[step_num].set()
+                return switch_success
+
+
+            # Gestion spécifique de core.loop (Boucle d'exécution)
+            if primitive == "core.loop":
+                loop_over = args.get("loop_over")
+                items_source_raw = args.get("items_source", "")
+                sub_steps = args.get("steps", [])
+                
+                # Resolve secrets & environment variables in the source path/string
+                resolved_args = self.resolve_secrets({"src": items_source_raw}, local_env, target_env)
+                items_source = resolved_args.get("src", "")
+
+                print(f"[ORCHESTRATOR] Boucle Étape {step_num} sur '{loop_over}' (Source: {items_source})")
+                if status_callback:
+                    status_callback(step_num, "running", f"Démarrage de la boucle ({loop_over})...")
+
+                # 1. Collect elements to iterate over
+                items = []
+                if loop_over == "variables":
+                    items = [x.strip() for x in items_source.split(",") if x.strip()]
+                elif loop_over == "files":
+                    src_path = Path(items_source)
+                    pattern = args.get("pattern", "*")
+                    if src_path.exists() and src_path.is_dir():
+                        candidates = [f for f in src_path.glob(pattern) if f.is_file()]
+                        
+                        # Récupérer les filtres
+                        max_age_hours = args.get("max_age_hours")
+                        min_age_hours = args.get("min_age_hours")
+                        min_size_mb = args.get("min_size_mb")
+                        max_size_mb = args.get("max_size_mb")
+                        
+                        filtered_files = []
+                        now_ts = time.time()  # epoch timestamp locale (toujours comparée de manière homogène)
+                        
+                        for f in candidates:
+                            stat = f.stat()
+                            mtime = stat.st_mtime
+                            size_bytes = stat.st_size
+                            size_mb = size_bytes / (1024 * 1024)
+                            
+                            # Calcul de l'âge du fichier en heures
+                            age_hours = (now_ts - mtime) / 3600.0
+                            
+                            # Filtre âge maximal
+                            if max_age_hours is not None and max_age_hours != "" and str(max_age_hours).lower() != "none":
+                                if age_hours > float(max_age_hours):
+                                    continue
+                                    
+                            # Filtre âge minimal (ancienneté)
+                            if min_age_hours is not None and min_age_hours != "" and str(min_age_hours).lower() != "none":
+                                if age_hours < float(min_age_hours):
+                                    continue
+                                    
+                            # Filtre taille minimale
+                            if min_size_mb is not None and min_size_mb != "" and str(min_size_mb).lower() != "none":
+                                if size_mb < float(min_size_mb):
+                                    continue
+                                    
+                            # Filtre taille maximale
+                            if max_size_mb is not None and max_size_mb != "" and str(max_size_mb).lower() != "none":
+                                if size_mb > float(max_size_mb):
+                                    continue
+                                    
+                            filtered_files.append(str(f.resolve()))
+                        items = filtered_files
+                    else:
+                        print(f"[ORCHESTRATOR WARNING] Dossier source introuvable pour la boucle files : {items_source}")
+                elif loop_over == "rows":
+                    src_file = Path(items_source)
+                    if src_file.exists():
+                        ext = src_file.suffix.lower()
+                        if ext == ".csv":
+                            try:
+                                import csv
+                                with open(src_file, "r", encoding="utf-8-sig") as f:
+                                    # Sniff delimiter
+                                    sample = f.read(2048)
+                                    f.seek(0)
+                                    delim = ","
+                                    for d in [";", ",", "\t", "|"]:
+                                        if d in sample:
+                                            delim = d
+                                            break
+                                    reader = csv.reader(f, delimiter=delim)
+                                    headers = next(reader)
+                                    headers = [h.strip().replace('"', '').replace("'", "") for h in headers]
+                                    for row in reader:
+                                        row_dict = {}
+                                        for idx, h in enumerate(headers):
+                                            val = row[idx] if idx < len(row) else ""
+                                            row_dict[h] = val.strip()
+                                        items.append(json.dumps(row_dict, ensure_ascii=False))
+                            except Exception as csv_err:
+                                print(f"[ORCHESTRATOR ERROR] Failed to read CSV for loop rows: {csv_err}")
+                        elif ext == ".json":
+                            try:
+                                with open(src_file, "r", encoding="utf-8") as f:
+                                    data = json.load(f)
+                                if isinstance(data, list):
+                                    items = [json.dumps(item, ensure_ascii=False) if isinstance(item, (dict, list)) else str(item) for item in data]
+                                elif isinstance(data, dict):
+                                    items = [json.dumps(data, ensure_ascii=False)]
+                            except Exception as json_err:
+                                print(f"[ORCHESTRATOR ERROR] Failed to read JSON for loop rows: {json_err}")
+                    else:
+                        print(f"[ORCHESTRATOR WARNING] Fichier source introuvable pour la boucle rows : {items_source}")
+
+                print(f"[ORCHESTRATOR] Boucle initialisée avec {len(items)} éléments à traiter.")
+
+                # 2. Save existing ITER_ITEM keys to restore them later (for nested loops)
+                previous_iter_keys = {}
+                for k, v in list(self.execution_context.items()):
+                    if k == "ITER_ITEM" or k.startswith("ITER_ITEM."):
+                        previous_iter_keys[k] = v
+                        del self.execution_context[k]
+
+                loop_success = True
+                try:
+                    for idx, item in enumerate(items):
+                        # Clear current iteration keys from context
+                        for k in list(self.execution_context.keys()):
+                            if k == "ITER_ITEM" or k.startswith("ITER_ITEM."):
+                                del self.execution_context[k]
+                                
+                        iter_env = local_env.copy() if local_env else {}
+                        self.execution_context["ITER_ITEM"] = item
+                        
+                        try:
+                            parsed_item = json.loads(item)
+                            if isinstance(parsed_item, dict):
+                                for prop_k, prop_v in parsed_item.items():
+                                    self.execution_context[f"ITER_ITEM.{prop_k}"] = str(prop_v)
+                        except Exception:
+                            pass
+
+                        print(f"[ORCHESTRATOR] --- Itération {idx+1}/{len(items)} : ITER_ITEM={item} ---")
+                        
+                        sub_recipe = {
+                            "plan_id": f"{plan_id}_loop_{step_num}_iter_{idx}",
+                            "intent_analysis": f"Itération {idx} de l'étape {step_num}",
+                            "steps": sub_steps,
+                            "env": iter_env
+                        }
+                        
+                        iter_success = await self.run_recipe(sub_recipe, status_callback, ask_user_callback, target_env)
+                        if not iter_success:
+                            print(f"[ORCHESTRATOR ERROR] L'itération {idx+1} a échoué.")
+                            loop_success = False
+                            break
+                finally:
+                    # Clean current iteration keys
+                    for k in list(self.execution_context.keys()):
+                        if k == "ITER_ITEM" or k.startswith("ITER_ITEM."):
+                            del self.execution_context[k]
+                    # Restore previous iteration keys
+                    self.execution_context.update(previous_iter_keys)
+
+                # 3. Handle status and performance telemetry
+                step_end = time.perf_counter()
+                status_str = "success" if loop_success else "error"
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Boucle {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": status_str
+                }
+
+                if loop_success:
+                    completed_steps.add(step_num)
+                    save_current_checkpoint()
+                    if status_callback:
+                        status_callback(step_num, "success", f"Boucle terminée avec succès ({len(items)} itérations).")
+                else:
+                    failed_steps.add(step_num)
+                    if status_callback:
+                        status_callback(step_num, "error", f"La boucle a échoué à l'itération {idx+1}.")
+
+                step_events[step_num].set()
+                return loop_success
+
+            # 3. Injection des valeurs par défaut du registre
+            prim_spec = self.validator.registry.get("primitives", {}).get(primitive, {})
+            param_specs = prim_spec.get("parameters", {}).get("properties", {})
+            for pname, pspec in param_specs.items():
+                if pname not in args and "default" in pspec:
+                    args[pname] = pspec["default"]
+
+            # 4. Validation de l'étape de recette
             is_valid, err_msg = self.validator.validate_step(primitive, args)
             if not is_valid:
+                METRICS.counter_inc("wfgy_validation_errors_total", {"primitive": primitive, "step": str(step_num)})
                 print(f"[ERROR] Validation failed for Step {step_num}: {err_msg}")
                 if status_callback:
                     status_callback(step_num, "error", f"Validation failed: {err_msg}")
                 failed_steps.add(step_num)
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": 0,
+                    "status": "error"
+                }
                 step_events[step_num].set()
                 return False
 
@@ -313,9 +918,10 @@ class Orchestrator:
             stdout = ""
             stderr = ""
 
+            step_timeout = retry_cfg.get("timeout_seconds", 300)
             for attempt in range(1, attempts + 1):
                 resolved_args = self.resolve_secrets(args, local_env, target_env)
-                code, stdout, stderr = await self.bridge.execute(primitive, resolved_args)
+                code, stdout, stderr = await self.bridge.execute(primitive, resolved_args, timeout_seconds=step_timeout)
 
                 if code == 0:
                     break
@@ -333,11 +939,19 @@ class Orchestrator:
                 print(f"[RUST STDERR] (Step {step_num}):\n{stderr.strip()}")
 
             if code != 0:
+                METRICS.counter_inc("wfgy_step_failures_total", {"primitive": primitive, "code": str(code)})
                 print(f"[ERROR] Step {step_num} failed after {attempts} attempts. Code: {code}")
                 if status_callback:
                     translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
                     status_callback(step_num, "error", f"{translated_error} | Détails: {stderr.strip()}")
                 failed_steps.add(step_num)
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num,
+                    "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000),
+                    "status": "error"
+                }
                 step_events[step_num].set()
                 return False
 
@@ -370,16 +984,122 @@ class Orchestrator:
                 except Exception as e:
                     print(f"[ORCHESTRATOR WARNING] Failed to parse metrics stdout: {e}")
 
+            step_end = time.perf_counter()
+            duration_ms = int((step_end - step_start) * 1000)
+            METRICS.observe("wfgy_step_duration_seconds", duration_ms / 1000.0, {"primitive": primitive})
+            METRICS.counter_inc("wfgy_steps_total", {"primitive": primitive, "status": "success"})
+            step_performance[step_num] = {
+                "step": step_num,
+                "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                "duration_ms": duration_ms,
+                "status": "success"
+            }
+
             if status_callback:
                 status_callback(step_num, "success", stdout.strip())
 
             completed_steps.add(step_num)
+            save_current_checkpoint()
             step_events[step_num].set()
             return True
 
         # Lancement de toutes les étapes en tâches concurrentes
         tasks = [asyncio.create_task(run_single_step(step)) for step in steps]
         await asyncio.gather(*tasks)
+
+        run_end = time.perf_counter()
+        total_duration_ms = int((run_end - run_start) * 1000)
+
+        # Nettoyer le checkpoint si le run s'est terminé avec succès
+        if len(failed_steps) == 0:
+            delete_checkpoint(plan_id)
+            log.info("Checkpoint deleted after successful run", extra={"plan_id": plan_id})
+
+        # Enregistrement de l'historique des runs
+        try:
+            import datetime
+            run_record = {
+                "run_id": f"run_{int(time.time())}",
+                "workspace_id": plan_id,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "status": "error" if failed_steps else "success",
+                "duration_ms": total_duration_ms,
+                "steps": list(step_performance.values())
+            }
+
+            history_path = Path(__file__).parent / "run_history.json"
+            history_data = []
+            if history_path.exists():
+                try:
+                    with open(history_path, "r", encoding="utf-8") as f:
+                        history_data = json.load(f)
+                except Exception:
+                    history_data = []
+
+            history_data.insert(0, run_record)
+            history_data = history_data[:100]
+
+            with open(history_path, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, indent=2, ensure_ascii=False)
+
+            # --- JOURNAL D'AUDIT IMMUABLE (LOT B) ---
+            audit_path = Path(__file__).parent / "audit_trail.json"
+            audit_data = []
+            if audit_path.exists():
+                try:
+                    with open(audit_path, "r", encoding="utf-8") as f:
+                        audit_data = json.load(f)
+                except Exception:
+                    audit_data = []
+
+            # Calcul du lineage pour le run courant
+            recipe_lineage = self.get_data_lineage(recipe_data)
+
+            audit_entry = {
+                "run_id": run_record["run_id"],
+                "workspace_id": plan_id,
+                "timestamp": run_record["timestamp"],
+                "username": self.execution_context.get("USERNAME", "unknown"),
+                "hostname": self.execution_context.get("HOSTNAME", "localhost"),
+                "os_name": self.execution_context.get("OS_NAME", "unknown"),
+                "status": run_record["status"],
+                "duration_ms": total_duration_ms,
+                "steps_executed": [
+                    {
+                        "step": step_perf.get("step"),
+                        "label": step_perf.get("label"),
+                        "status": step_perf.get("status"),
+                        "duration_ms": step_perf.get("duration_ms")
+                    } for step_perf in step_performance.values()
+                ],
+                "data_lineage": {
+                    f: {"producer": info["producer"], "consumers": info["consumers"]}
+                    for f, info in recipe_lineage.items()
+                }
+            }
+
+            audit_data.insert(0, audit_entry)
+            audit_data = audit_data[:200]  # Limite d'audit de 200 entrées historiques
+
+            with open(audit_path, "w", encoding="utf-8") as f:
+                json.dump(audit_data, f, indent=2, ensure_ascii=False)
+
+            from registry import broadcast
+            asyncio.create_task(broadcast(json.dumps({
+                "type": "RUN_HISTORY_UPDATE",
+                "workspace_id": plan_id,
+                "last_run": run_record
+            }, ensure_ascii=False)))
+            
+            # Diffuser la mise à jour de l'audit
+            asyncio.create_task(broadcast(json.dumps({
+                "type": "AUDIT_TRAIL_UPDATE",
+                "audit": audit_entry
+            }, ensure_ascii=False)))
+        except Exception as e:
+            print(f"[ORCHESTRATOR WARNING] Failed to save run history: {e}")
+
+        return len(failed_steps) == 0
 from planner import RecipePlanner
 from registry import load_workspaces_registry, save_workspaces_registry, broadcast, broadcast_workspaces_list, ACTIVE_CONNECTIONS
 from scheduler import cron_scheduler_loop, directory_watcher_loop, handle_http_request, get_next_cron_execution
@@ -399,6 +1119,7 @@ async def handler(websocket, path=None):
     saved_secrets = vault.load_secrets()
     
     ACTIVE_CONNECTIONS.add(websocket)
+    METRICS.gauge_set("wfgy_active_connections", len(ACTIVE_CONNECTIONS))
     print(f"[WS SERVER] Client connected. Sending loaded vault secrets & workspace list...")
     try:
         await websocket.send(json.dumps({
@@ -446,10 +1167,12 @@ async def handler(websocket, path=None):
             }))
 
         async for message in websocket:
-            print(f"[WS SERVER] Received message: {message}")
             try:
                 data = json.loads(message)
+                msg_type = data.get("type", "unknown")
+                print(f"[WS SERVER] Received message type: {msg_type}")
             except json.JSONDecodeError:
+                print(f"[WS SERVER] Received invalid JSON message: {message[:100]}...")
                 await websocket.send(json.dumps({"type": "LOG", "message": "Invalid JSON format"}))
                 continue
 
@@ -474,6 +1197,81 @@ async def handler(websocket, path=None):
                     "type": "SCHEMA_DETAILS",
                     "filepath": filepath,
                     "headers": headers
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_PRIMITIVE_DOC":
+                prim_name = data.get("primitive", "")
+                registry_path = Path(__file__).parent / "registry.json"
+                if registry_path.exists():
+                    with open(registry_path, "r", encoding="utf-8") as f:
+                        reg = json.load(f)
+                    spec = reg.get("primitives", {}).get(prim_name, {})
+                    await websocket.send(json.dumps({
+                        "type": "PRIMITIVE_DOC",
+                        "primitive": prim_name,
+                        "description": spec.get("description", ""),
+                        "parameters": spec.get("parameters", {})
+                    }, ensure_ascii=False))
+                else:
+                    await websocket.send(json.dumps({
+                        "type": "PRIMITIVE_DOC",
+                        "primitive": prim_name,
+                        "description": "",
+                        "parameters": {}
+                    }))
+                continue
+
+            if data.get("type") == "GET_RUN_HISTORY":
+                history_path = Path(__file__).parent / "run_history.json"
+                history_data = []
+                if history_path.exists():
+                    try:
+                        with open(history_path, "r", encoding="utf-8") as f:
+                            history_data = json.load(f)
+                    except Exception as e:
+                        print(f"[WS SERVER] Failed to read run history: {e}")
+                await websocket.send(json.dumps({
+                    "type": "RUN_HISTORY_RESULT",
+                    "history": history_data
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_AUDIT_TRAIL":
+                audit_path = Path(__file__).parent / "audit_trail.json"
+                audit_data = []
+                if audit_path.exists():
+                    try:
+                        with open(audit_path, "r", encoding="utf-8") as f:
+                            audit_data = json.load(f)
+                    except Exception as e:
+                        print(f"[WS SERVER] Failed to read audit trail: {e}")
+                await websocket.send(json.dumps({
+                    "type": "AUDIT_TRAIL_RESULT",
+                    "audit": audit_data
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_DATA_LINEAGE":
+                # Compute lineage dynamically for current_recipe if active
+                recipe_lineage = {}
+                if current_recipe:
+                    recipe_lineage = orchestrator.get_data_lineage(current_recipe)
+                await websocket.send(json.dumps({
+                    "type": "DATA_LINEAGE_RESULT",
+                    "lineage": recipe_lineage
+                }, ensure_ascii=False))
+                continue
+
+            if data.get("type") == "GET_DATA_PREVIEW":
+                filepath = data.get("filepath", "")
+                preview = extract_file_preview(filepath, max_rows=10)
+                await websocket.send(json.dumps({
+                    "type": "DATA_PREVIEW_RESULT",
+                    "filepath": filepath,
+                    "headers": preview.get("headers", []),
+                    "rows": preview.get("rows", []),
+                    "error": preview.get("error")
                 }, ensure_ascii=False))
                 continue
 
@@ -514,6 +1312,11 @@ async def handler(websocket, path=None):
                 }
                 save_workspaces_registry(registry)
                 await websocket.send(json.dumps({"type": "LOG", "message": f"Flux '{name}' créé avec succès."}))
+                await websocket.send(json.dumps({
+                    "type": "WORKSPACE_CREATED",
+                    "workspace_id": w_id,
+                    "name": name
+                }))
                 await broadcast_workspaces_list()
                 continue
 
@@ -837,6 +1640,7 @@ async def handler(websocket, path=None):
         print(f"[WS SERVER] Error: {e}")
     finally:
         ACTIVE_CONNECTIONS.discard(websocket)
+        METRICS.gauge_set("wfgy_active_connections", len(ACTIVE_CONNECTIONS))
         print("[WS SERVER] Cleaning up pending confirmations...")
         for step_num, fut in list(pending_confirmations.items()):
             if not fut.done():
@@ -844,28 +1648,37 @@ async def handler(websocket, path=None):
         pending_confirmations.clear()
 
 async def main():
-    # Security Enforce: Refuse startup if SECRET_VAULT_KEY is missing
     vault_key = os.environ.get("SECRET_VAULT_KEY") or ENV_CONFIG.get("SECRET_VAULT_KEY")
     if not vault_key:
-        print("[CRITICAL SECURITY ERROR] SECRET_VAULT_KEY is not defined in environment variables.")
-        print("Please configure SECRET_VAULT_KEY in your environment before running the orchestrator.")
+        log.critical("SECRET_VAULT_KEY not configured — aborting")
         sys.exit(1)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--server":
         port = int(ENV_CONFIG.get("PORT", 8765))
-        print(f"[WS SERVER] Starting WebSocket server on port {port} in '{env_mode}' mode...")
+        ssl_cert = ENV_CONFIG.get("SSL_CERT")
+        ssl_key = ENV_CONFIG.get("SSL_KEY")
+        ssl_context = None
+        if ssl_cert and ssl_key:
+            import ssl
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+            log.info("SSL enabled", extra={"cert": ssl_cert})
         
-        # Start background tasks
-        asyncio.create_task(cron_scheduler_loop())
-        asyncio.create_task(directory_watcher_loop())
+        proto = "wss" if ssl_context else "ws"
+        log.info("Starting WebSocket server", extra={"port": port, "env": env_mode, "proto": proto})
         
-        # Start Webhook HTTP Server
-        http_port = 8766
-        print(f"[HTTP SERVER] Starting Webhook HTTP server on port {http_port}...")
-        http_server = await asyncio.start_server(handle_http_request, "localhost", http_port)
-        
-        async with websockets.serve(handler, "localhost", port):
-            await asyncio.Future()  # Keep running forever
+        async with websockets.serve(handler, "0.0.0.0", port, ssl=ssl_context):
+            log.info(f"WebSocket ready on {proto}://0.0.0.0:{port}")
+            
+            http_port = int(ENV_CONFIG.get("HTTP_PORT", 8766))
+            log.info("Starting HTTP webhook server", extra={"port": http_port})
+            http_server = await asyncio.start_server(handle_http_request, "0.0.0.0", http_port)
+            log.info(f"HTTP ready on http://0.0.0.0:{http_port}")
+            
+            asyncio.create_task(cron_scheduler_loop())
+            asyncio.create_task(directory_watcher_loop())
+            
+            await asyncio.Future()
     else:
         if len(sys.argv) < 2:
             print("Usage:")
@@ -886,7 +1699,7 @@ async def main():
             sys.exit(1)
 
         orchestrator = Orchestrator()
-        success = orchestrator.run_recipe(recipe)
+        success = await orchestrator.run_recipe(recipe)
         sys.exit(0 if success else 1)
 
 if __name__ == "__main__":

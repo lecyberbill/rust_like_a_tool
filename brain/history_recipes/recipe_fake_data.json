@@ -10,8 +10,8 @@
         "label": "Nettoyage & Calcul Majorité",
         "color": "#4A90E2",
         "position": {
-          "x": 150,
-          "y": 180
+          "x": 56,
+          "y": 94
         },
         "mappings": [
           {
@@ -63,37 +63,45 @@
             "defaultVal": ""
           },
           {
-            "sourceCol": "",
+            "sourceCol": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
             "expression": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
             "destCol": "majeur",
             "defaultVal": ""
           }
-        ]
+        ],
+        "variables": []
       },
       "args": {
-        "source": "fake_data.csv",
-        "destination": "fake_data_clean.csv",
+        "source": "C:\\Users\\lecyb\\Downloads\\fake_data.csv",
+        "destination": "C:\\Users\\lecyb\\Downloads\\fake_data_clean.csv",
         "select_columns": "id,prenom,nom,email,cotisation_a_jour,adresse,cp,date_naissance,majeur",
-        "derive_columns": "majeur=IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'"
+        "derive_columns": "majeur=IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
+        "rename_columns": "",
+        "fill_na": ""
       }
     },
     {
       "step": 2,
       "primitive": "data.filter",
       "depends_on": [
-        1
+        1,
+        4
       ],
       "ui": {
         "label": "Filtrer les Mineurs",
         "color": "#F5A623",
         "position": {
-          "x": 480,
-          "y": 180
+          "x": 593,
+          "y": 168
+        },
+        "connection_labels": {
+          "1": "test",
+          "4": ""
         }
       },
       "args": {
-        "source": "fake_data_clean.csv",
-        "destination": "minors.csv",
+        "source": "C:\\Users\\lecyb\\Downloads\\fake_data_clean.csv",
+        "destination": "C:\\Users\\lecyb\\Downloads\\minors.csv",
         "column_name": "majeur",
         "operator": "equals",
         "value": "false",
@@ -110,30 +118,82 @@
         "label": "Insert MySQL (sql.free.fr)",
         "color": "#7ED321",
         "position": {
-          "x": 800,
-          "y": 180
+          "x": 1260,
+          "y": 159
         }
       },
       "args": {
-        "connection_string": "mysql://${SECRET_MYSQL_USER}:${SECRET_MYSQL_PASSWORD}@sql.free.fr:3306/db_name",
+        "connection_string": "postgresql://${SECRET_MYSQL_USER}:${SECRET_MYSQL_PASSWORD}@127.0.0.1:5432/etl",
         "table_name": "mineurs",
-        "source": "minors.csv",
+        "source": "C:\\Users\\lecyb\\Downloads\\minors.csv",
         "mode": "replace"
+      }
+    },
+    {
+      "step": 4,
+      "primitive": "io.copy",
+      "depends_on": [],
+      "args": {
+        "source": "",
+        "destination": "",
+        "overwrite": true
+      },
+      "ui": {
+        "label": "Copier des fichiers (4)",
+        "position": {
+          "x": 88,
+          "y": 225
+        }
+      }
+    },
+    {
+      "step": 5,
+      "primitive": "ai.summarize",
+      "depends_on": [
+        2
+      ],
+      "args": {
+        "source": "",
+        "destination": "",
+        "text_column": "",
+        "summary_column": "",
+        "model_provider": "",
+        "model_id": "",
+        "base_url": ""
+      },
+      "ui": {
+        "label": "Résumé de texte NLP (5)",
+        "position": {
+          "x": 959,
+          "y": 397
+        }
+      }
+    },
+    {
+      "step": 6,
+      "primitive": "io.write_file",
+      "depends_on": [
+        5
+      ],
+      "args": {
+        "content": "",
+        "destination": ""
+      },
+      "ui": {
+        "label": "Écrire un fichier (6)",
+        "position": {
+          "x": 1482,
+          "y": 352
+        }
       }
     }
   ],
   "env": {
     "dev": {
-      "SECRET_MYSQL_USER": "votre_utilisateur",
-      "SECRET_MYSQL_PASSWORD": "votre_password"
+      "SECRET_MYSQL_USER": "user_dev",
+      "SECRET_MYSQL_PASSWORD": "user_dev"
     },
-    "test": {
-      "SECRET_MYSQL_USER": "votre_utilisateur",
-      "SECRET_MYSQL_PASSWORD": "votre_password"
-    },
-    "prod": {
-      "SECRET_MYSQL_USER": "votre_utilisateur",
-      "SECRET_MYSQL_PASSWORD": "votre_password"
-    }
+    "test": {},
+    "prod": {}
   }
 }

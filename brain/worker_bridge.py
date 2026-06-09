@@ -4,6 +4,9 @@ import os
 import asyncio
 from pathlib import Path
 
+import logging
+log = logging.getLogger("wfgy.bridge")
+
 # International Error Translation Mapping for Rust exit codes
 ERROR_TRANSLATIONS = {
     1: "Erreur système générique ou argument invalide.",
@@ -12,7 +15,25 @@ ERROR_TRANSLATIONS = {
     4: "Impossible de créer le répertoire cible de destination.",
     5: "Échec du déplacement physique inter-disques (le secours par copie a échoué).",
     6: "Impossible de déplacer l'élément dans la corbeille locale.",
-    7: "Erreur réseau (téléchargement ou téléversement impossible)."
+    7: "Erreur réseau (téléchargement ou téléversement impossible).",
+    8: "Argument obligatoire manquant.",
+    9: "Valeur d'argument invalide.",
+    10: "Échec de validation des données.",
+    11: "Erreur d'entrée/sortie système.",
+    12: "Erreur de parsing (JSON/CSV/XLSX).",
+    13: "Primitive non supportée.",
+    14: "Timeout d'exécution dépassé."
+}
+
+# Args that are metadata-only (orchestrator/UI) and must NOT be forwarded to Rust CLI
+METADATA_ARGS = {
+    "destination_variable", "ui", "depends_on", "retry",
+    "loop_over", "items_source", "steps", "cases", "pattern",
+    "then_steps", "else_steps", "expression", "duration",
+    "max_age_hours", "min_age_hours", "max_size_mb", "min_size_mb",
+    "format",  # routing hint for io.read_file; not understood by Rust io.copy handler
+    "sheet_name",  # only meaningful for data.to_xlsx exporter
+    "root_element", "row_element",  # only for json_to_xml
 }
 
 class WorkerBridge:
@@ -36,9 +57,10 @@ class WorkerBridge:
             else:
                 self.binary_path = None
 
-    async def execute(self, primitive_name: str, args: dict) -> tuple[int, str, str]:
+    async def execute(self, primitive_name: str, args: dict, timeout_seconds: int = 300) -> tuple[int, str, str]:
         """
         Executes a primitive by calling the Rust binary or falling back to cargo run.
+        Filters metadata-only args (Phase 2c) and enforces timeout (Phase 2d).
         """
         if self.binary_path and self.binary_path.exists():
             cmd = [str(self.binary_path), primitive_name]
@@ -49,6 +71,9 @@ class WorkerBridge:
             cmd = ["cargo", "run", "--manifest-path", str(cargo_toml), "--", primitive_name]
 
         for key, value in args.items():
+            if key in METADATA_ARGS:
+                log.debug("Filtered metadata arg", extra={"key": key})
+                continue
             kebab_key = key.replace("_", "-")
             if isinstance(value, bool):
                 val_str = str(value).lower()
@@ -56,11 +81,25 @@ class WorkerBridge:
                 val_str = str(value)
             cmd.extend([f"--{kebab_key}", val_str])
 
-        print(f"[ORCHESTRATOR] Executing: {' '.join(cmd)}")
+        log.info("Executing primitive", extra={
+            "primitive": primitive_name,
+            "cmd": " ".join(cmd),
+            "timeout": timeout_seconds
+        })
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await proc.communicate()
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            log.error("Primitive timeout", extra={"primitive": primitive_name, "timeout": timeout_seconds})
+            return 14, "", f"ERR_TIMEOUT: Primitive '{primitive_name}' exceeded {timeout_seconds}s timeout"
+
         return proc.returncode, stdout.decode('utf-8', errors='ignore'), stderr.decode('utf-8', errors='ignore')

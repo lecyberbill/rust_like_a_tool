@@ -1,0 +1,626 @@
+<!-- [WFGY] Zone: SAFE | λ: 0.2 | Action: Add prompt history to intent box with quick restore -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>RLT Workbench</title>
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header id="app-header">
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div class="logo-title">RLT (Rust Like A Tool)</div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">📊 Tableau de Bord</button>
+                <button class="nav-tab" id="tab-btn-workshop" onclick="switchTab('workshop')">Atelier (Conception)</button>
+            </div>
+            <!-- Theme Toggle Button -->
+            <button class="toggle-logs-btn" onclick="toggleTheme()" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">🌗 Thème</button>
+        </div>
+        
+        <!-- Workshop canvas control actions (visible only in Workshop view) -->
+        <div id="workshop-actions" style="display: none; gap: 8px; align-items: center;">
+            <button class="toggle-logs-btn" onclick="toggleCatalog()">🧩 Catalogue</button>
+            <button class="toggle-logs-btn" id="btn-toggle-lineage" onclick="toggleDataLineageMode()" style="color: var(--accent); border-color: var(--accent);">📊 Lignage (Lineage)</button>
+            <button class="toggle-logs-btn" onclick="triggerUpload()">📂 Charger</button>
+            <button class="toggle-logs-btn" onclick="downloadRecipe()">💾 Sauvegarder</button>
+            <button class="toggle-logs-btn" onclick="clearRecipe()">🗑️ Effacer</button>
+            <button class="toggle-logs-btn" onclick="toggleEnv()">🔧 Secrets</button>
+            <button class="toggle-logs-btn" onclick="toggleLogs()">📜 Logs</button>
+            <button class="toggle-logs-btn" onclick="runRecipe()" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800;">▶ Exécuter</button>
+            <input type="file" id="recipe-upload" onchange="uploadRecipe(event)" style="display: none;" accept=".json">
+        </div>
+        <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
+            <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
+        </div>
+    </header>
+
+    <!-- SECTION 1: DASHBOARD VIEW -->
+    <div id="dashboard-view" class="view-section active">
+        <div class="dashboard-header">
+            <div class="dashboard-title">Tableau de Bord des Flux ETL</div>
+            <div id="connection-status" style="font-size: 0.9rem; color: var(--error); font-weight: bold; display: flex; align-items: center; gap: 6px;"><span style="width:8px; height:8px; border-radius:50%; background:var(--error); display:inline-block;"></span> Serveur Déconnecté</div>
+        </div>
+        
+        <div class="dashboard-table-container">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Statut</th>
+                        <th>Nom du Flux</th>
+                        <th>Déclencheur actif</th>
+                        <th>Dernière Exécution</th>
+                        <th>Prochain Déclenchement</th>
+                        <th style="text-align: right; width: 340px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="workspaces-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 30px;">Chargement des flux...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section Historique des Runs et Télémétrie de Performance -->
+        <div id="dashboard-run-history" style="margin-top: 30px; display: grid; grid-template-columns: 350px 1fr; gap: 24px; min-height: 300px;">
+            <!-- Colonne Gauche: Timeline des Exécutions -->
+            <div class="dashboard-panel" style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column;">
+                <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--accent); margin-top: 0; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;">📜 Historique des Exécutions</h3>
+                <div id="run-history-timeline" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; max-height: 400px; padding-right: 6px;">
+                    <div style="color: var(--text-muted); font-style: italic; font-size: 0.9rem; text-align: center; padding-top: 40px;">Aucun run enregistré</div>
+                </div>
+            </div>
+ 
+            <!-- Colonne Droite: Analyse de Performance par Étape -->
+            <div class="dashboard-panel" style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--success); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Télémétrie de Performance (DAG ms)</h3>
+                    <div id="selected-run-meta" style="font-size: 0.85rem; color: var(--text-muted); font-family: 'Roboto Mono', monospace;">Sélectionnez un run</div>
+                </div>
+                <div id="run-performance-bars" style="flex: 1; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; max-height: 400px; padding-right: 6px;">
+                    <div style="color: var(--text-muted); font-style: italic; font-size: 0.9rem; text-align: center; padding-top: 40px;">Sélectionnez une exécution à gauche pour afficher les métriques</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: WORKSHOP VIEW -->
+    <div id="workshop-view" class="view-section" style="flex: 1; display: none; flex-direction: column; overflow: hidden; position: relative;">
+        <div id="main-container">
+            <!-- Catalogue de Primitives (Gauche) -->
+            <aside id="primitives-catalog" class="collapsed">
+                <div class="panel-header">
+                    <h3 style="margin: 0; font-size: 0.85rem; font-weight: 800; color: var(--accent); text-transform: uppercase;">🧩 Catalogue</h3>
+                    <button class="toggle-logs-btn" onclick="toggleCatalog()">✖</button>
+                </div>
+                <div class="panel-desc">
+                    Cliquer sur une fonction pour l'ajouter au flux courant.
+                </div>
+                <div id="primitives-list-container" style="flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Groupes de primitives injectés dynamiquement -->
+                </div>
+            </aside>
+            <div id="canvas-wrapper">
+            <!-- Drill-down Navigation Breadcrumb, search box and undo/redo controls -->
+            <div id="nested-nav-breadcrumb" style="position: absolute; top: 16px; left: 16px; right: 16px; z-index: 80; display: flex; align-items: center; justify-content: space-between; background: rgba(10, 10, 25, 0.85); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.8rem; font-family: 'Roboto Mono', monospace; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--accent); font-weight: bold;">📍 Flux Principal</span>
+                    <span id="breadcrumb-items" style="display: flex; align-items: center; gap: 6px;"></span>
+                    <button id="nested-drillup-btn" class="toggle-logs-btn" style="display: none; padding: 2px 8px; font-size: 0.75rem; border-color: var(--success); color: var(--success); background: rgba(0, 255, 102, 0.05);" onclick="drillUp()">⬆ Remonter</button>
+                </div>
+                <!-- Search and Undo/Redo tools -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="text" id="canvas-node-search" placeholder="Rechercher nœud..." oninput="searchCanvasNodes(this.value)" style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: var(--text); font-size: 0.75rem; width: 160px; outline: none;">
+                        <button class="toggle-logs-btn" onclick="clearCanvasNodeSearch()" style="padding: 4px 8px; font-size: 0.75rem;">✖</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; border-left: 1px solid var(--border); padding-left: 10px;">
+                        <button class="toggle-logs-btn" onclick="undoAction()" title="Annuler (Ctrl+Z)" style="padding: 4px 8px; font-size: 0.75rem;">↩️ Annuler</button>
+                        <button class="toggle-logs-btn" onclick="redoAction()" title="Rétablir (Ctrl+Y)" style="padding: 4px 8px; font-size: 0.75rem;">↪️ Rétablir</button>
+                    </div>
+                </div>
+            </div>
+            
+            <svg id="connections-svg"></svg>
+            <div id="canvas">
+                <!-- Workflow Nodes will be injected here -->
+            </div>
+
+            <!-- Zoom and Magnify tool controls -->
+            <div id="zoom-controls">
+                <button class="zoom-btn" onclick="zoomOut()" title="Zoom Arrière">➖</button>
+                <span class="zoom-level" id="zoom-level-val">100%</span>
+                <button class="zoom-btn" onclick="zoomIn()" title="Zoom Avant">➕</button>
+                <button class="zoom-btn" onclick="zoomReset()" title="Ajuster l'Écran">🔍</button>
+                <button class="zoom-btn" id="btn-pan-mode" onclick="togglePanMode()" title="Déplacer le canevas (Main)">✋</button>
+            </div>
+            
+            <!-- Data Preview Panel (Bottom Docked) -->
+            <div id="data-preview-panel" class="collapsed">
+                <div class="panel-header" style="padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: rgba(0, 240, 255, 0.02);">
+                    <div style="display: flex; align-items: center; gap: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <h3 style="font-size: 0.85rem; font-weight: 800; color: var(--accent); text-transform: uppercase; margin: 0; letter-spacing: 0.5px; white-space: nowrap;">🔍 Aperçu des Données (10 lignes)</h3>
+                        <span id="data-preview-filepath" style="font-size: 0.75rem; color: var(--text-muted); font-family: 'Roboto Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Aucun fichier sélectionné</span>
+                    </div>
+                    <button class="toggle-logs-btn" style="padding: 2px 8px; font-size: 0.75rem;" onclick="closeDataPreview()">✖</button>
+                </div>
+                <div id="data-preview-content" style="flex: 1; overflow: auto; padding: 10px;">
+                    <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 15px; font-size: 0.85rem;">Sélectionnez une étape avec un fichier de données pour charger l'aperçu.</div>
+                </div>
+            </div>
+            
+            <!-- Bottom-Left Environmental Control Pod -->
+            <div class="env-pod">
+                <button class="env-pod-btn active" data-env="dev" onclick="changeEnvPod('dev')">🛠️ DEV</button>
+                <button class="env-pod-btn" data-env="test" onclick="changeEnvPod('test')">🧪 TEST</button>
+                <button class="env-pod-btn" data-env="prod" onclick="changeEnvPod('prod')">🚀 PROD</button>
+            </div>
+
+            <!-- Floating Settings Gear Button (Bottom-Left side) -->
+            <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+
+            <!-- Settings Drawer (Bottom-Left Panel) -->
+            <div id="settings-drawer">
+                <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px; margin-bottom: 16px;">Configuration IA</h4>
+                
+                <div class="settings-input-group">
+                    <label>Moteur LLM (Provider)</label>
+                    <select id="setting-provider" class="settings-select" onchange="updateSettingsModelOptions()">
+                        <option value="openai_compatible">Local (LM Studio / Ollama)</option>
+                        <option value="gemini">API Cloud (Gemini)</option>
+                    </select>
+                </div>
+
+                <div class="settings-input-group">
+                    <label>Modèle Cible (Model ID)</label>
+                    <select id="setting-model" class="settings-select">
+                        <!-- Filled dynamically -->
+                    </select>
+                </div>
+
+                <div class="settings-input-group">
+                    <label>URL du Serveur Local (Base URL)</label>
+                    <input type="text" id="setting-base-url" class="editor-input" style="background: rgba(0, 0, 0, 0.3);" value="http://localhost:1234/v1">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                    <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
+                    <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
+                </div>
+            </div>
+
+            <!-- Bottom-Right Floating Prompt Trigger Bubble -->
+            <button class="floating-bubble" onclick="togglePromptDrawer()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+
+            <!-- Bottom-Right Floating Prompt Drawer -->
+            <div id="prompt-drawer">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px;">Intention d'Orchestration</h4>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem; border-color: var(--accent); color: var(--accent);" onclick="togglePromptHistory()">📜 Historique</button>
+                        <div class="study-toggle-container">
+                            <input type="checkbox" id="study-mode-checkbox" class="study-checkbox">
+                            <label for="study-mode-checkbox" style="cursor: pointer; user-select: none;">🧪 Mode Étude</label>
+                        </div>
+                    </div>
+                </div>
+                <!-- Prompt History List -->
+                <div id="prompt-history-list" style="display: none; max-height: 150px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 6px; background: rgba(0,0,0,0.4);">
+                    <!-- Injected dynamically -->
+                </div>
+                <textarea id="intent-input" style="width: 100%; margin-left: 0; margin-bottom: 12px; background: rgba(0,0,0,0.5); border-radius: 8px;" placeholder="Décrivez votre flux de travail (ex: Copier test_src.txt vers test_dest.txt)...
+Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button class="toggle-logs-btn" onclick="togglePromptDrawer()" style="border-color: transparent;">Fermer</button>
+                    <button class="toggle-logs-btn" onclick="submitIntent()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">🚀 Soumettre</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panneau des Variables d'Environnement locales au flux -->
+        <aside id="env-panel" class="collapsed">
+            <div class="panel-header">
+                <h3 id="env-panel-title">Secrets (DEV)</h3>
+                <button class="toggle-logs-btn" onclick="toggleEnv()">✖</button>
+            </div>
+            <div class="panel-desc">
+                Ces variables sont locales à ce workflow et spécifiques à l'environnement sélectionné.
+            </div>
+            <div id="env-vars-container" style="flex: 1; padding: 20px; overflow-y: auto;">
+                <div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>
+            </div>
+            <div style="padding: 20px; border-top: 1px solid var(--border);">
+                <button class="save-secrets-btn" onclick="saveGlobalSecrets()">💾 Sauvegarder dans le Coffre</button>
+            </div>
+        </aside>
+
+        <!-- Panneau de modification visuelle de l'étape sélectionnée -->
+        <aside id="node-editor-panel" class="collapsed">
+            <div class="panel-header">
+                <h3 id="node-editor-title">Éditer l'étape</h3>
+                <button class="toggle-logs-btn" onclick="closeNodeEditor()">✖</button>
+            </div>
+            <div class="panel-desc" id="node-editor-desc">
+                Sélectionnez un nœud ou cliquez sur son badge d'édition pour modifier ses paramètres.
+            </div>
+            <div id="node-editor-container" style="flex: 1; padding: 20px; overflow-y: auto;">
+                <!-- Formulaire d'édition injecté dynamiquement -->
+                <div class="no-vars-msg">Aucune étape sélectionnée.</div>
+            </div>
+        </aside>
+        
+        <aside id="log-panel" class="collapsed">
+            <div class="panel-header">
+                <h3>Console Moteur</h3>
+                <button class="toggle-logs-btn" onclick="toggleLogs()">✖</button>
+            </div>
+            <div id="logs">
+                <div class="log-entry"><span class="log-time">[System]</span><span class="log-info">Prêt. Entrez une intention pour commencer.</span></div>
+            </div>
+        </aside>
+    </div>
+    </div> <!-- Close #workshop-view -->
+
+    <!-- Modal AiMapper -->
+    <div id="aimapper-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2, 2, 5, 0.95); backdrop-filter: blur(20px); z-index: 110; align-items: center; justify-content: center;">
+        <div style="width: 90vw; height: 85vh; min-width: 800px; min-height: 450px; max-width: 98vw; max-height: 98vh; resize: both; overflow: hidden; background: rgba(10, 10, 25, 0.85); border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 16px; display: flex; flex-direction: column; position: relative;">
+            <!-- Header -->
+            <div style="padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 240, 255, 0.02);">
+                <div>
+                    <h2 style="font-weight: 800; font-size: 1.25rem; background: linear-gradient(90deg, var(--accent), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">🗺️ AiMapper (tMapping Visuel)</h2>
+                    <div id="aimapper-source-path" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; font-family: 'Roboto Mono', monospace;">Source : -</div>
+                </div>
+                <!-- Relation Join Configuration -->
+                <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; font-size: 0.75rem;">
+                    <span style="color: var(--accent); font-weight: bold;">🔗 Jointure :</span>
+                    <input type="text" id="aimapper-join-right-source" placeholder="Table droite..." style="width: 140px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;" oninput="onJoinRightSourceChanged()">
+                    <select id="aimapper-join-type" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                        <option value="left">LEFT</option>
+                        <option value="inner">INNER</option>
+                        <option value="outer">OUTER</option>
+                    </select>
+                    <select id="aimapper-join-left-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                        <option value="">Clé Gauche</option>
+                    </select>
+                    <select id="aimapper-join-right-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                        <option value="">Clé Droite</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="toggle-logs-btn" onclick="closeAiMapper()" style="border-color: transparent; padding: 6px 14px; font-size: 0.8rem;">Annuler</button>
+                    <button class="toggle-logs-btn" onclick="applyAiMapper()" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem;">💾 Appliquer</button>
+                </div>
+            </div>
+            
+            <!-- Main Columns -->
+            <div style="flex: 1; display: flex; overflow: hidden;">
+                <!-- Left: Source columns list & Local Variables -->
+                <div style="width: 220px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15); height: 100%;">
+                    <!-- Source Columns Section -->
+                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                        <div style="padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                            <h4 style="color: var(--accent); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Colonnes Source</h4>
+                            <input type="text" id="aimapper-search-source" placeholder="Filtrer..." oninput="filterSourceColumns()" style="width:100%; margin-top:6px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--text); font-size:0.75rem; outline:none;">
+                        </div>
+                        <div id="aimapper-source-list" style="flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+                    
+                    <!-- Local Variables Section -->
+                    <div style="height: 180px; border-top: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.25); overflow: hidden;">
+                        <div style="padding: 6px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="color: #c084fc; text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Variables Locales</h4>
+                            <button class="toggle-logs-btn" onclick="addLocalVariable()" style="padding: 1px 4px; font-size: 0.7rem; border-color: #c084fc; color: #c084fc;">➕</button>
+                        </div>
+                        <div id="aimapper-variables-list" style="flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Middle: Mapping grid -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.05); overflow: hidden;">
+                    <div style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="color: var(--success); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Table de Correspondance (Transformations)</h4>
+                        <button class="toggle-logs-btn" onclick="addMappingRow()" style="padding: 4px 10px; font-size: 0.75rem; border-color: var(--success); color: var(--success);">➕ Ajouter Colonne</button>
+                    </div>
+                    <div style="flex: 1; overflow-y: auto; padding: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <th style="padding: 6px 8px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Colonne Entrée / Formule</th>
+                                    <th style="padding: 6px 8px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 200px;">Colonne Sortie</th>
+                                    <th style="padding: 6px 8px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 150px;">Valeur par défaut (Null)</th>
+                                    <th style="padding: 6px 8px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; width: 50px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aimapper-mapping-body">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Right: Destination Schema Summary -->
+                <div style="width: 190px; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
+                    <div style="padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <h4 style="color: var(--running); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Colonnes Sortie</h4>
+                    </div>
+                    <div id="aimapper-dest-list" style="flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Formula Helper -->
+    <div id="aimapper-formula-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2, 2, 5, 0.85); backdrop-filter: blur(10px); z-index: 120; align-items: center; justify-content: center;">
+        <div style="width: 700px; height: 500px; min-width: 500px; min-height: 350px; max-width: 95vw; max-height: 95vh; resize: both; overflow: hidden; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 16px; display: flex; flex-direction: column; padding: 20px; gap: 15px; position: relative;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: var(--accent); font-size: 1.2rem; font-weight: 800;">📝 Éditeur de Formule & Aide Syntaxe</h3>
+                <button class="toggle-logs-btn" onclick="closeFormulaEditor()" style="border-color: transparent; padding: 4px 10px; font-size: 0.8rem;">✖</button>
+            </div>
+
+            <!-- Editor Input Area -->
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Formule en cours de saisie</label>
+                <textarea id="formula-editor-textarea" style="width: 100%; height: 100px; font-family: 'Roboto Mono', monospace; font-size: 0.85rem; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: var(--text); outline: none; resize: none;"></textarea>
+            </div>
+
+            <!-- Helper Area: Split Left and Right -->
+            <div style="flex: 1; display: flex; gap: 15px; overflow: hidden;">
+                <!-- Left: Columns & Variables list -->
+                <div style="flex: 1.2; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15); overflow: hidden;">
+                    <div style="padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--accent); font-weight: 800; text-transform: uppercase; background: rgba(255,255,255,0.02);">Champs & Variables (Clic pour insérer)</div>
+                    <div id="formula-editor-fields" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        <!-- Populate dynamically -->
+                    </div>
+                </div>
+
+                <!-- Right: Keywords & Syntax templates -->
+                <div style="flex: 1.8; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: rgba(0,0,0,0.15); overflow: hidden;">
+                    <div style="padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--success); font-weight: 800; text-transform: uppercase; background: rgba(255,255,255,0.02);">Mots-clés & Aide Syntaxe</div>
+                    <div style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Mots clés -->
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; margin-bottom: 4px;">Logique & Opérateurs</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('IF ')">IF</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('THEN ')">THEN</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('ELSE ')">ELSE</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('CONTAINS ')">CONTAINS</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('AND ')">AND</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('OR ')">OR</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('NOT ')">NOT</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('+ ')">+</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('- ')">-</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('* ')">*</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('/ ')">/</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('== ')">==</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('!= ')">!=</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('&lt; ')">&lt;</button>
+                                <button class="toggle-logs-btn" style="padding: 2px 6px; font-size: 0.75rem;" onclick="insertTextAtCursor('&gt; ')">&gt;</button>
+                            </div>
+                        </div>
+
+                        <!-- Modèles de syntaxe -->
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; margin-bottom: 4px;">Exemples de Syntaxe (Clic pour charger)</div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="padding: 4px 8px; background: rgba(0,255,102,0.02); border: 1px solid rgba(0,255,102,0.1); border-radius: 4px; font-size: 0.72rem; cursor: pointer; font-family: monospace;" onclick="setFormulaText('IF age >= 18 THEN \'adulte\' ELSE \'mineur\'')">
+                                    💡 <b>Conditionnel :</b> IF age &gt;= 18 THEN 'adulte' ELSE 'mineur'
+                                </div>
+                                <div style="padding: 4px 8px; background: rgba(0,255,102,0.02); border: 1px solid rgba(0,255,102,0.1); border-radius: 4px; font-size: 0.72rem; cursor: pointer; font-family: monospace;" onclick="setFormulaText('IF email CONTAINS \'@gmail.com\' THEN \'Gmail\' ELSE \'Autre\'')">
+                                    💡 <b>Recherche :</b> IF email CONTAINS '@gmail.com' THEN 'Gmail' ELSE 'Autre'
+                                </div>
+                                <div style="padding: 4px 8px; background: rgba(0,255,102,0.02); border: 1px solid rgba(0,255,102,0.1); border-radius: 4px; font-size: 0.72rem; cursor: pointer; font-family: monospace;" onclick="setFormulaText('quantity * price')">
+                                    💡 <b>Calcul :</b> quantity * price
+                                </div>
+                                <div style="padding: 4px 8px; background: rgba(0,255,102,0.02); border: 1px solid rgba(0,255,102,0.1); border-radius: 4px; font-size: 0.72rem; cursor: pointer; font-family: monospace;" onclick="setFormulaText('prenom + \' \' + nom')">
+                                    💡 <b>Concaténation :</b> prenom + ' ' + nom
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
+                <button class="toggle-logs-btn" onclick="closeFormulaEditor()" style="border-color: transparent; padding: 6px 14px; font-size: 0.8rem;">Annuler</button>
+                <button class="toggle-logs-btn" onclick="applyFormulaEditor()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem;">💾 Valider la Formule</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de configuration de connexion (Liaison) -->
+    <div id="connection-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(10px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 480px; text-align: left;">
+            <div class="modal-title" style="color: var(--accent); font-weight: 800; margin-bottom: 20px;">🔗 Configurer la liaison</div>
+            
+            <div id="connection-modal-desc" style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4;">
+                <!-- Description dynamique -->
+            </div>
+            
+            <div class="settings-input-group" style="margin-bottom: 20px;">
+                <label>Nom ou Label de la liaison</label>
+                <input type="text" id="connection-modal-label" class="editor-input" placeholder="Ex: Fichiers filtrés..." style="width: 100%;">
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+                <button class="toggle-logs-btn" id="connection-modal-delete-btn" style="background: rgba(239, 68, 68, 0.1); color: var(--error); border-color: rgba(239, 68, 68, 0.3);">🗑️ Supprimer la liaison</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="toggle-logs-btn" onclick="closeConnectionModal()" style="border-color: transparent;">Annuler</button>
+                    <button class="toggle-logs-btn" id="connection-modal-save-btn" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--success-glow); font-weight: 800;">💾 Appliquer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boîte de dialogue interactive pour la résolution des conflits -->
+    <div id="conflict-modal">
+        <div class="modal-content">
+            <div class="modal-title">⚠️ Résolution de Conflit</div>
+            <div id="conflict-message" class="modal-message">Le fichier existe déjà. Que souhaitez-vous faire ?</div>
+            <div id="conflict-actions" class="modal-actions">
+                <!-- Les boutons d'action seront injectés dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal du Chat du Mode Étude -->
+    <div id="study-chat-modal">
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>🧪 Mode Étude : Alignement du Flux</h3>
+                <button class="toggle-logs-btn" onclick="closeStudyChat()">✖ Fermer</button>
+            </div>
+            <div id="study-chat-messages" class="chat-messages">
+                <!-- Les messages s'affichent ici -->
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="study-chat-input" class="chat-input-field" placeholder="Répondez aux questions de l'IA pour l'aider à concevoir le flux...">
+                <button class="chat-send-btn" onclick="sendStudyChatReply()">Envoyer</button>
+                <button class="chat-generate-btn" onclick="generateStudyRecipe()">Générer le Flux</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de configuration des déclencheurs -->
+    <div id="trigger-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(10px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 480px; text-align: left;">
+            <div class="modal-title" style="color: var(--accent); font-weight: 800; margin-bottom: 20px;">⚙️ Configurer le Déclencheur</div>
+            
+            <input type="hidden" id="trigger-workspace-id">
+            
+            <div class="editor-checkbox-group" style="margin-bottom: 20px;">
+                <input type="checkbox" id="trigger-enabled" style="width: 18px; height: 18px;">
+                <label for="trigger-enabled" style="font-size: 1rem; font-weight: 600; color: var(--text);">Activer le déclencheur automatique</label>
+            </div>
+            
+            <div class="settings-input-group" style="margin-bottom: 16px;">
+                <label>Type de Déclencheur</label>
+                <select id="trigger-type" class="settings-select" onchange="toggleTriggerInputs()" style="width: 100%;">
+                    <option value="none">Aucun (Manuel)</option>
+                    <option value="cron">⏰ Planificateur Cron</option>
+                    <option value="event">📁 Observateur de Dossier (File Watcher)</option>
+                    <option value="webhook">🌐 Webhook API HTTP</option>
+                </select>
+            </div>
+            
+            <!-- Cron inputs -->
+            <div id="trigger-cron-fields" class="trigger-fields" style="display: none; margin-bottom: 16px;">
+                <div class="settings-input-group">
+                    <label>Expression Cron (ex: */5 * * * * pour toutes les 5 mins)</label>
+                    <input type="text" id="trigger-cron-expr" class="editor-input" value="*/5 * * * *">
+                </div>
+            </div>
+            
+            <!-- File Watcher inputs -->
+            <div id="trigger-event-fields" class="trigger-fields" style="display: none; margin-bottom: 16px;">
+                <div class="settings-input-group" style="margin-bottom: 10px;">
+                    <label>Dossier à surveiller (chemin local)</label>
+                    <input type="text" id="trigger-event-dir" class="editor-input" value="test_results/inbox">
+                </div>
+                <div class="settings-input-group">
+                    <label>Pattern de fichier (glob, ex: *.csv)</label>
+                    <input type="text" id="trigger-event-pattern" class="editor-input" value="*.csv">
+                </div>
+            </div>
+            
+            <!-- Webhook inputs -->
+            <div id="trigger-webhook-fields" class="trigger-fields" style="display: none; margin-bottom: 20px;">
+                <div class="settings-input-group">
+                    <label>URL du Webhook Local (Copier pour appeler)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="trigger-webhook-url" class="editor-input" style="flex: 1; background: rgba(0,0,0,0.3); font-family: monospace; font-size: 0.8rem;" readonly>
+                        <button class="toggle-logs-btn" onclick="copyWebhookUrl()">📋 Copier</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                <button class="toggle-logs-btn" onclick="closeTriggerModal()" style="border-color: transparent;">Annuler</button>
+                <button class="toggle-logs-btn" onclick="saveTriggerConfig()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Journal d'Audit (Lot B) -->
+    <div id="audit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 80vw; max-width: 1000px; height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: #c084fc; font-weight: 800; font-size: 1.3rem; margin: 0;">📜 Journal d'Audit Immuable (Audit Trail)</div>
+                <button class="toggle-logs-btn" onclick="closeAuditTrailModal()">✖ Fermer</button>
+            </div>
+            
+            <div style="flex: 1; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-weight: bold;">
+                            <th style="padding: 10px;">Horodatage</th>
+                            <th style="padding: 10px;">ID du Flux</th>
+                            <th style="padding: 10px;">Utilisateur</th>
+                            <th style="padding: 10px;">Hôte / OS</th>
+                            <th style="padding: 10px;">Statut</th>
+                            <th style="padding: 10px;">Durée (ms)</th>
+                            <th style="padding: 10px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">Chargement du journal d'audit...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails Audit (Lot B) -->
+    <div id="audit-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 105; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 550px; text-align: left; padding: 24px; background: rgba(15,15,30,0.98); border: 1px solid var(--border); border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 16px;">
+                <h4 style="color: var(--accent); margin: 0; font-weight: 800;">🔍 Détails de l'Audit d'Exécution</h4>
+                <button class="toggle-logs-btn" onclick="closeAuditDetailsModal()">✖</button>
+            </div>
+            <div id="audit-details-content" style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+                <!-- Rempli dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Documentation des Primitives -->
+    <div id="primitive-doc-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.88); backdrop-filter: blur(12px); z-index: 130; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: min(700px, 90vw); max-height: 80vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.97); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+                <h4 style="color: var(--accent); margin: 0; font-weight: 800;">📖 Documentation</h4>
+                <button class="toggle-logs-btn" onclick="closePrimitiveDocModal()">✖</button>
+            </div>
+            <div id="primitive-doc-container" style="flex: 1; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; padding-right: 8px;">
+                <!-- Rempli dynamiquement par showPrimitiveDoc() -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/canvas.js"></script>
+    <script src="js/aimapper.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/modals.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

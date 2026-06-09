@@ -1,10 +1,13 @@
 # Ignorer les fichiers d'environnement locaux et les secrets
 .env
 .env.test
+.env.prod
 etl_vault.png
 etl_vault.json
 /rust_muscle/target/
 __pycache__/
+.pytest_cache/
+.venv/
 *.exe
 *.log
 *.txt
@@ -14,7 +17,17 @@ __pycache__/
 /*.json
 .trash/
 extracted_links.json
+downloaded_test_images/
 
 # Fichiers générés par les tests
 test_results/dirty_users.csv
 test_results/clean_users.csv
+test_results/*.csv
+test_results/*.xlsx
+test_results/*.xml
+workspace/output/
+brain/run_history.json
+brain/audit_trail.json
+brain/.run_checkpoint.db
+brain/.run_checkpoint.json
+

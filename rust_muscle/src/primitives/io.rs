@@ -17,7 +17,7 @@ pub fn handle_io_write_file(args: &[String]) -> Result<(), MuscleError> {
                     path = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --path".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --path".to_string()));
                 }
             }
             "--content" => {
@@ -25,17 +25,17 @@ pub fn handle_io_write_file(args: &[String]) -> Result<(), MuscleError> {
                     content = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --content".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --content".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let path = path.ok_or_else(|| MuscleError::Generic("Missing required argument --path".to_string()))?;
-    let content = content.ok_or_else(|| MuscleError::Generic("Missing required argument --content".to_string()))?;
+    let path = path.ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
+    let content = content.ok_or_else(|| MuscleError::MissingArg("Missing required argument --content".to_string()))?;
 
     io_write_file(path, content)
 }
@@ -70,7 +70,7 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--destination" => {
@@ -78,7 +78,7 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             "--mode" => {
@@ -86,7 +86,7 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     mode = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --mode".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --mode".to_string()));
                 }
             }
             "--conflict" => {
@@ -94,17 +94,17 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     conflict = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --conflict".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --conflict".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
     copy_file(source, destination, &mode, &conflict)
 }
@@ -118,7 +118,7 @@ fn copy_file(source: &str, destination: &str, mode: &str, conflict: &str) -> Res
     }
 
     if src_path.is_dir() {
-        return Err(MuscleError::Generic("Directory copy not supported in basic io.copy file mode".to_string()));
+        return Err(MuscleError::InvalidArg("Directory copy not supported in basic io.copy file mode".to_string()));
     }
 
     let mut resolved_dest = dest_path.to_path_buf();
@@ -134,7 +134,7 @@ fn copy_file(source: &str, destination: &str, mode: &str, conflict: &str) -> Res
             }
             resolved_dest = dest_path.join(filename);
         } else {
-            return Err(MuscleError::Generic("Failed to resolve filename from source path".to_string()));
+            return Err(MuscleError::IoError("Failed to resolve filename from source path".to_string()));
         }
     } else {
         if let Some(parent) = dest_path.parent() {
@@ -155,8 +155,8 @@ fn copy_file(source: &str, destination: &str, mode: &str, conflict: &str) -> Res
                 let src_meta = src_path.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source metadata: {}", e)))?;
                 let dest_meta = resolved_dest.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read destination metadata: {}", e)))?;
                 
-                let src_modified = src_meta.modified().map_err(|e| MuscleError::Generic(format!("Failed to read source modified time: {}", e)))?;
-                let dest_modified = dest_meta.modified().map_err(|e| MuscleError::Generic(format!("Failed to read destination modified time: {}", e)))?;
+                let src_modified = src_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read source modified time: {}", e)))?;
+                let dest_modified = dest_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read destination modified time: {}", e)))?;
                 
                 if src_modified <= dest_modified {
                     println!("SUCCESS: Skipped copying. Source is not newer than destination.");
@@ -207,7 +207,7 @@ pub fn handle_io_move(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--destination" => {
@@ -215,7 +215,7 @@ pub fn handle_io_move(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             "--conflict" => {
@@ -223,17 +223,17 @@ pub fn handle_io_move(args: &[String]) -> Result<(), MuscleError> {
                     conflict = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --conflict".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --conflict".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
     move_file(source, destination, &conflict)
 }
@@ -259,7 +259,7 @@ fn move_file(source: &str, destination: &str, conflict: &str) -> Result<(), Musc
             }
             resolved_dest = dest_path.join(filename);
         } else {
-            return Err(MuscleError::Generic("Failed to resolve filename from source path".to_string()));
+            return Err(MuscleError::IoError("Failed to resolve filename from source path".to_string()));
         }
     } else {
         if let Some(parent) = dest_path.parent() {
@@ -280,8 +280,8 @@ fn move_file(source: &str, destination: &str, conflict: &str) -> Result<(), Musc
                 let src_meta = src_path.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source metadata: {}", e)))?;
                 let dest_meta = resolved_dest.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read destination metadata: {}", e)))?;
                 
-                let src_modified = src_meta.modified().map_err(|e| MuscleError::Generic(format!("Failed to read source modified time: {}", e)))?;
-                let dest_modified = dest_meta.modified().map_err(|e| MuscleError::Generic(format!("Failed to read destination modified time: {}", e)))?;
+                let src_modified = src_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read source modified time: {}", e)))?;
+                let dest_modified = dest_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read destination modified time: {}", e)))?;
                 
                 if src_modified <= dest_modified {
                     println!("SUCCESS: Skipped moving. Source is not newer than destination.");
@@ -326,9 +326,9 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), MuscleError> {
         .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read directory '{}': {}", src.to_string_lossy(), e)))?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| MuscleError::Generic(format!("Error reading directory entry: {}", e)))?;
+        let entry = entry.map_err(|e| MuscleError::IoError(format!("Error reading directory entry: {}", e)))?;
         let file_type = entry.file_type()
-            .map_err(|e| MuscleError::Generic(format!("Failed to read file type: {}", e)))?;
+            .map_err(|e| MuscleError::IoError(format!("Failed to read file type: {}", e)))?;
         
         let src_entry_path = entry.path();
         let dst_entry_path = dst.join(entry.file_name());
@@ -356,7 +356,7 @@ pub fn handle_io_delete(args: &[String]) -> Result<(), MuscleError> {
                     path = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --path".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --path".to_string()));
                 }
             }
             "--secure" => {
@@ -364,26 +364,26 @@ pub fn handle_io_delete(args: &[String]) -> Result<(), MuscleError> {
                     secure = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --secure".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --secure".to_string()));
                 }
             }
             "--retention-days" => {
                 if i + 1 < args.len() {
                     let parsed = args[i + 1].parse::<u64>()
-                        .map_err(|_| MuscleError::Generic("Invalid integer for --retention-days".to_string()))?;
+                        .map_err(|_| MuscleError::InvalidArg("Invalid integer for --retention-days".to_string()))?;
                     retention_days = Some(parsed);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --retention-days".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --retention-days".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let path = path.ok_or_else(|| MuscleError::Generic("Missing required argument --path".to_string()))?;
+    let path = path.ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
     
     delete_file_or_dir(path, &secure)?;
 
@@ -426,7 +426,7 @@ fn delete_file_or_dir(target: &str, secure: &str) -> Result<(), MuscleError> {
             
             println!("SUCCESS: Moved '{}' to local trash bin: '{}'", target, dest_path.to_string_lossy());
         } else {
-            return Err(MuscleError::Generic("Failed to resolve filename from path for trashing".to_string()));
+            return Err(MuscleError::IoError("Failed to resolve filename from path for trashing".to_string()));
         }
     } else {
         if target_path.is_file() {
@@ -493,16 +493,16 @@ pub fn handle_io_metadata(args: &[String]) -> Result<(), MuscleError> {
                     path = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --path".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --path".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let path_str = path.ok_or_else(|| MuscleError::Generic("Missing required argument --path".to_string()))?;
+    let path_str = path.ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
     let path = Path::new(path_str);
 
     if !path.exists() {
@@ -530,3 +530,238 @@ pub fn handle_io_metadata(args: &[String]) -> Result<(), MuscleError> {
 
     Ok(())
 }
+
+pub fn handle_io_zip(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+
+    run_archive_helper("zip", source, destination)
+}
+
+pub fn handle_io_unzip(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+
+    run_archive_helper("unzip", source, destination)
+}
+
+fn run_archive_helper(mode: &str, source: &str, destination: &str) -> Result<(), MuscleError> {
+    use std::process::Command;
+    let py_path = if cfg!(windows) { ".venv\\Scripts\\python.exe" } else { ".venv/bin/python" };
+    let helper_path = "brain/archive_helper.py";
+
+    let mut cmd = Command::new(py_path);
+    cmd.arg(helper_path).arg(mode).arg(source).arg(destination);
+
+    let output = cmd.output().map_err(|e| {
+        MuscleError::IoError(format!("Failed to execute Python archive helper: {}", e))
+    })?;
+
+    if !output.status.success() {
+        let err_msg = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(MuscleError::IoError(format!("Archive helper failed: {}", err_msg)));
+    }
+
+    let stdout_msg = String::from_utf8_lossy(&output.stdout).to_string();
+    print!("{}", stdout_msg);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    fn s(item: &str) -> String { item.to_string() }
+
+    fn write_test_file(dir: &TempDir, name: &str, content: &str) -> String {
+        let path = dir.path().join(name);
+        let mut f = fs::File::create(&path).unwrap();
+        f.write_all(content.as_bytes()).unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    // --- io.copy ---
+
+    #[test]
+    fn test_io_copy_basic() {
+        let tmp = TempDir::new().unwrap();
+        let src = write_test_file(&tmp, "src.txt", "hello");
+        let dst = tmp.path().join("dst.txt").to_string_lossy().to_string();
+        let args: Vec<String> = vec![s("--source"), s(&src), s("--destination"), s(&dst)];
+        let result = handle_io_copy(&args);
+        assert!(result.is_ok());
+        assert!(std::path::Path::new(&dst).exists());
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_io_copy_missing_source() {
+        let tmp = TempDir::new().unwrap();
+        let dst = tmp.path().join("nope.txt").to_string_lossy().to_string();
+        let args: Vec<String> = vec![s("--source"), s("/nonexistent/file"), s("--destination"), s(&dst)];
+        let result = handle_io_copy(&args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_io_copy_mode_binary() {
+        let tmp = TempDir::new().unwrap();
+        let src = write_test_file(&tmp, "a.bin", "hello");
+        let dst = tmp.path().join("b.bin").to_string_lossy().to_string();
+        let args: Vec<String> = vec![s("--source"), s(&src), s("--destination"), s(&dst), s("--mode"), s("binary")];
+        let result = handle_io_copy(&args);
+        assert!(result.is_ok());
+        assert!(std::path::Path::new(&dst).exists());
+    }
+
+    #[test]
+    fn test_io_copy_conflict_skip() {
+        let tmp = TempDir::new().unwrap();
+        let src = write_test_file(&tmp, "src.txt", "hello");
+        let dst = write_test_file(&tmp, "dst.txt", "existing");
+        let args: Vec<String> = vec![s("--source"), s(&src), s("--destination"), s(&dst), s("--conflict"), s("skip")];
+        let result = handle_io_copy(&args);
+        assert!(result.is_ok());
+        assert_eq!(fs::read_to_string(&dst).unwrap(), "existing");
+    }
+
+    #[test]
+    fn test_io_copy_missing_args() {
+        let args: Vec<String> = vec![s("--source"), s("x")];
+        let result = handle_io_copy(&args);
+        assert!(result.is_err());
+    }
+
+    // --- io.move ---
+
+    #[test]
+    fn test_io_move_basic() {
+        let tmp = TempDir::new().unwrap();
+        let src = write_test_file(&tmp, "mov_src.txt", "move me");
+        let dst = tmp.path().join("mov_dst.txt").to_string_lossy().to_string();
+        let args: Vec<String> = vec![s("--source"), s(&src), s("--destination"), s(&dst)];
+        let result = handle_io_move(&args);
+        assert!(result.is_ok());
+        assert!(std::path::Path::new(&dst).exists());
+        assert!(!std::path::Path::new(&src).exists());
+    }
+
+    // --- io.delete ---
+
+    #[test]
+    fn test_io_delete_basic() {
+        let tmp = TempDir::new().unwrap();
+        let path = write_test_file(&tmp, "del.txt", "delete me");
+        let args: Vec<String> = vec![s("--path"), s(&path), s("--secure"), s("permanent")];
+        let result = handle_io_delete(&args);
+        assert!(result.is_ok());
+        assert!(!std::path::Path::new(&path).exists());
+    }
+
+    #[test]
+    fn test_io_delete_missing_file() {
+        let args: Vec<String> = vec![s("--path"), s("/nonexistent/file"), s("--secure"), s("permanent")];
+        let result = handle_io_delete(&args);
+        assert!(result.is_ok()); // handler returns Ok if path does not exist
+    }
+
+    // --- io.metadata ---
+
+    #[test]
+    fn test_io_metadata_file() {
+        let tmp = TempDir::new().unwrap();
+        let path = write_test_file(&tmp, "meta.txt", "metadata test");
+        let args: Vec<String> = vec![s("--path"), s(&path)];
+        let result = handle_io_metadata(&args);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_io_metadata_nonexistent() {
+        let args: Vec<String> = vec![s("--path"), s("/nonexistent")];
+        let result = handle_io_metadata(&args);
+        assert!(result.is_ok());
+    }
+
+    // --- io.write_file ---
+
+    #[test]
+    fn test_io_write_file_basic() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join("written.txt").to_string_lossy().to_string();
+        let args: Vec<String> = vec![s("--path"), s(&path), s("--content"), s("hello world")];
+        let result = handle_io_write_file(&args);
+        assert!(result.is_ok());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_io_write_file_overwrite() {
+        let tmp = TempDir::new().unwrap();
+        let path = write_test_file(&tmp, "overwrite.txt", "old");
+        let args: Vec<String> = vec![s("--path"), s(&path), s("--content"), s("new")];
+        let result = handle_io_write_file(&args);
+        assert!(result.is_ok());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new");
+    }
+}
+

@@ -3,7 +3,7 @@ use polars::prelude::*;
 use std::path::Path;
 
 /// Détecte le format de fichier et charge un LazyFrame Polars
-fn read_df(file_path: &str) -> Result<LazyFrame, String> {
+pub fn read_df(file_path: &str) -> Result<LazyFrame, String> {
     let path = Path::new(file_path);
     let ext = path.extension()
         .and_then(|s| s.to_str())
@@ -30,12 +30,19 @@ fn read_df(file_path: &str) -> Result<LazyFrame, String> {
             LazyFrame::scan_parquet(file_path, ScanArgsParquet::default())
                 .map_err(|e| format!("Erreur de lecture Parquet Polars: {}", e))
         },
+        "jsonl" | "ndjson" => {
+            let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+            let df = JsonLineReader::new(f)
+                .finish()
+                .map_err(|e| format!("Erreur de lecture JSON Lines Polars: {}", e))?;
+            Ok(df.lazy())
+        },
         other => Err(format!("Format de fichier non supporte par le moteur analytique : .{}", other))
     }
 }
 
 /// Écrit un LazyFrame collecté vers la destination selon le format
-fn write_df(df: DataFrame, file_path: &str) -> Result<(), String> {
+pub fn write_df(df: DataFrame, file_path: &str) -> Result<(), String> {
     let path = Path::new(file_path);
     let ext = path.extension()
         .and_then(|s| s.to_str())
@@ -66,6 +73,12 @@ fn write_df(df: DataFrame, file_path: &str) -> Result<(), String> {
             let writer = ParquetWriter::new(f);
             writer.finish(&mut df.clone())
                 .map_err(|e| format!("Erreur d'ecriture Parquet: {}", e))?;
+        },
+        "jsonl" | "ndjson" => {
+            let mut writer = JsonWriter::new(f)
+                .with_json_format(JsonFormat::JsonLines);
+            writer.finish(&mut df.clone())
+                .map_err(|e| format!("Erreur d'ecriture JSON Lines: {}", e))?;
         },
         other => return Err(format!("Format d'ecriture non supporte : .{}", other))
     }
@@ -411,6 +424,22 @@ fn parse_simple_expr(s: &str) -> Result<Expr, String> {
 }
 
 fn parse_comparison_expr(s: &str) -> Result<Expr, String> {
+    if let Some(idx) = s.to_uppercase().find(" CONTAINS ") {
+        let left_part = s[..idx].trim();
+        let right_part = s[idx + 10..].trim();
+        let left_expr = parse_simple_expr(left_part)?;
+        
+        let right_clean = right_part.trim();
+        let right_val = if right_clean.starts_with('\'') && right_clean.ends_with('\'') && right_clean.len() >= 2 {
+            right_clean[1..right_clean.len() - 1].to_string()
+        } else if right_clean.starts_with('"') && right_clean.ends_with('"') && right_clean.len() >= 2 {
+            right_clean[1..right_clean.len() - 1].to_string()
+        } else {
+            right_clean.to_string()
+        };
+        return Ok(left_expr.str().contains(lit(right_val), false));
+    }
+
     let operators = [("==", "eq"), ("!=", "ne"), (">=", "gt_eq"), (">", "gt"), ("<=", "lt_eq"), ("<", "lt")];
     for (op, op_name) in &operators {
         if let Some(idx) = s.find(op) {
@@ -466,8 +495,32 @@ pub fn clean(
     fill_na: Option<Vec<(String, String)>>,
     drop_na: bool,
     derive_columns: Option<Vec<(String, String)>>,
+    right_source: Option<String>,
+    left_on: Option<String>,
+    right_on: Option<String>,
+    how_join: Option<String>,
 ) -> Result<(), String> {
     let mut lf = read_df(source)?;
+
+    // 0. Jointure relationnelle optionnelle
+    if let Some(r_src) = right_source {
+        let l_on = left_on.ok_or_else(|| "left_on est requis pour la jointure".to_string())?;
+        let r_on = right_on.ok_or_else(|| "right_on est requis pour la jointure".to_string())?;
+        let r_lf = read_df(&r_src)?;
+
+        let join_type = match how_join.as_deref().unwrap_or("left").to_lowercase().as_str() {
+            "inner" => JoinType::Inner,
+            "outer" => JoinType::Outer { coalesce: true },
+            _ => JoinType::Left,
+        };
+
+        lf = lf.join(
+            r_lf,
+            vec![col(&l_on)],
+            vec![col(&r_on)],
+            join_type.into(),
+        );
+    }
 
     // 1. Derive columns if specified (must happen first so they can use original columns)
     if let Some(derives) = derive_columns {
@@ -527,9 +580,827 @@ pub fn clean(
         lf = lf.sort(&sort_col, sort_options);
     }
 
+    // Support streaming option
+    if std::env::var("POLARS_STREAMING").map(|v| v == "true").unwrap_or(false) {
+        lf = lf.with_streaming(true);
+    }
+
     let df = lf.collect().map_err(|e| format!("Erreur lors de la collection de nettoyage : {}", e))?;
     write_df(df, destination)?;
 
     println!("SUCCESS: Cleaned dataset '{}' -> '{}'", source, destination);
     Ok(())
 }
+
+/// Valide les lignes d'un jeu de données par rapport à un ensemble de règles et sépare les rejets
+pub fn validate(
+    source: &str,
+    destination: &str,
+    quarantine: &str,
+    rules_json: &str,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+
+
+    let rules: serde_json::Value = serde_json::from_str(rules_json)
+        .map_err(|e| format!("Erreur lors du parsing des regles JSON: {}", e))?;
+
+    let rules_arr = rules.as_array()
+        .ok_or_else(|| "Les regles de validation doivent former un tableau JSON".to_string())?;
+
+    if rules_arr.is_empty() {
+        let df = lf.collect().map_err(|e| e.to_string())?;
+        write_df(df.clone(), destination)?;
+        let empty_df = df.clear();
+        write_df(empty_df, quarantine)?;
+        return Ok(());
+    }
+
+    let mut combined_expr: Option<Expr> = None;
+
+    for rule in rules_arr {
+        let col_name = rule.get("column")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Regle manquante : 'column'".to_string())?;
+
+        let op = rule.get("operator")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Regle manquante : 'operator'".to_string())?;
+
+        let val = rule.get("value")
+            .ok_or_else(|| "Regle manquante : 'value'".to_string())?;
+
+        let expr = match op.to_lowercase().as_str() {
+            "equals" | "==" => {
+                if let Some(s) = val.as_str() {
+                    col(col_name).eq(lit(s))
+                } else if let Some(i) = val.as_i64() {
+                    col(col_name).eq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).eq(lit(f))
+                } else if let Some(b) = val.as_bool() {
+                    col(col_name).eq(lit(b))
+                } else {
+                    return Err(format!("Type de valeur non supporte pour l'operateur '{}'", op));
+                }
+            },
+            "not_equals" | "!=" => {
+                if let Some(s) = val.as_str() {
+                    col(col_name).neq(lit(s))
+                } else if let Some(i) = val.as_i64() {
+                    col(col_name).neq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).neq(lit(f))
+                } else if let Some(b) = val.as_bool() {
+                    col(col_name).neq(lit(b))
+                } else {
+                    return Err(format!("Type de valeur non supporte pour l'operateur '{}'", op));
+                }
+            },
+            "contains" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'contains' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().contains(lit(s), true)
+            },
+            "starts_with" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'starts_with' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().starts_with(lit(s))
+            },
+            "ends_with" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'ends_with' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().ends_with(lit(s))
+            },
+            "regex" | "matches" => {
+                let s = val.as_str().ok_or_else(|| "L'operateur 'regex' necessite une chaine de caracteres".to_string())?;
+                col(col_name).str().contains(lit(s), false)
+            },
+            "greater_than" | ">" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).gt(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).gt(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "less_than" | "<" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).lt(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).lt(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "greater_than_or_equal" | ">=" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).gt_eq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).gt_eq(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "less_than_or_equal" | "<=" => {
+                if let Some(i) = val.as_i64() {
+                    col(col_name).lt_eq(lit(i))
+                } else if let Some(f) = val.as_f64() {
+                    col(col_name).lt_eq(lit(f))
+                } else {
+                    return Err(format!("L'operateur '{}' necessite une valeur numerique", op));
+                }
+            },
+            "is_null" => {
+                col(col_name).is_null()
+            },
+            "is_not_null" => {
+                col(col_name).is_not_null()
+            },
+            other => return Err(format!("Operateur de validation non supporte : '{}'", other)),
+        };
+
+        combined_expr = Some(match combined_expr {
+            Some(curr) => curr.and(expr),
+            None => expr,
+        });
+    }
+
+    let filter_expr = combined_expr.ok_or_else(|| "Aucune regle de validation definie".to_string())?;
+
+    // Filtrer les lignes valides
+    let mut valid_lf = lf.clone().filter(filter_expr.clone());
+    if std::env::var("POLARS_STREAMING").map(|v| v == "true").unwrap_or(false) {
+        valid_lf = valid_lf.with_streaming(true);
+    }
+    let valid_df = valid_lf.collect().map_err(|e| format!("Erreur lors de la collection des lignes valides: {}", e))?;
+    let valid_count = valid_df.height();
+    write_df(valid_df, destination)?;
+
+    // Filtrer les lignes rejetees (negation du filtre combiné)
+    let mut invalid_lf = lf.filter(filter_expr.not());
+    if std::env::var("POLARS_STREAMING").map(|v| v == "true").unwrap_or(false) {
+        invalid_lf = invalid_lf.with_streaming(true);
+    }
+    let invalid_df = invalid_lf.collect().map_err(|e| format!("Erreur lors de la collection des lignes rejetees: {}", e))?;
+    let invalid_count = invalid_df.height();
+    write_df(invalid_df, quarantine)?;
+
+    println!("SUCCESS: Validated dataset. Valid: {}, Quarantine: {}", valid_count, invalid_count);
+    Ok(())
+}
+
+/// Recherche et fusionne des informations de référentiel externe (jointure gauche Polars)
+pub fn lookup(
+    source: &str,
+    lookup_file: &str,
+    source_key: &str,
+    lookup_key: &str,
+    lookup_value: &str,
+    destination: &str,
+) -> Result<(), String> {
+    let left_lf = read_df(source)?;
+    let right_lf = read_df(lookup_file)?;
+
+    // Projection de la table dictionnaire pour ne garder que lookup_key et lookup_value
+    let right_projected = right_lf.select([col(lookup_key), col(lookup_value)]);
+
+    let result_df = left_lf.join(
+        right_projected,
+        vec![col(source_key)],
+        vec![col(lookup_key)],
+        JoinType::Left.into(),
+    )
+    .collect()
+    .map_err(|e| format!("Erreur lors du lookup Polars: {}", e))?;
+
+    write_df(result_df, destination)?;
+    println!("SUCCESS: Lookup join executed on '{}' using dictionary '{}' -> '{}'", source, lookup_file, destination);
+    Ok(())
+}
+
+/// Supprime les lignes en doublons basées sur des clés spécifiques
+pub fn deduplicate(
+    source: &str,
+    destination: &str,
+    subset: Vec<String>,
+    keep: &str,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+
+    let strategy = match keep.to_lowercase().as_str() {
+        "last" => UniqueKeepStrategy::Last,
+        _ => UniqueKeepStrategy::First,
+    };
+
+    let subset_refs: Vec<String> = subset.iter().map(|s| s.clone()).collect();
+    let result_df = lf.unique(Some(subset_refs), strategy)
+        .collect()
+        .map_err(|e| format!("Erreur lors du dedoublonnage Polars: {}", e))?;
+
+    write_df(result_df, destination)?;
+    println!("SUCCESS: Deduplicated dataset '{}' -> '{}' keeping {}", source, destination, keep);
+    Ok(())
+}
+
+fn fnv1a_hash(s: &str) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in s.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{:016x}", hash)
+}
+
+fn mask_string(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let len = chars.len();
+    if len <= 2 {
+        return "*".repeat(len);
+    }
+    let mut result = String::new();
+    result.push(chars[0]);
+    for _ in 1..len - 1 {
+        result.push('*');
+    }
+    result.push(chars[len - 1]);
+    result
+}
+
+fn mask_email(s: &str) -> String {
+    if let Some(pos) = s.find('@') {
+        let (local, domain) = s.split_at(pos);
+        let masked_local = mask_string(local);
+        format!("{}{}", masked_local, domain)
+    } else {
+        mask_string(s)
+    }
+}
+
+/// Anonymise les colonnes spécifiées selon les règles (colonne:stratégie)
+pub fn anonymize(
+    source: &str,
+    destination: &str,
+    rules: Vec<(String, String)>,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+
+    for (col_name, strategy) in rules {
+        let strategy_clone = strategy.clone();
+        lf = lf.with_column(
+            col(&col_name).cast(DataType::String).map(move |s| {
+                let ca = s.str()?;
+                let anonymized: StringChunked = ca.into_iter().map(|opt_val| {
+                    opt_val.map(|val| {
+                        match strategy_clone.as_str() {
+                            "replace" => "[REDACTED]".to_string(),
+                            "hash" => fnv1a_hash(val),
+                            "mask" => mask_string(val),
+                            "mask_email" => mask_email(val),
+                            _ => "[REDACTED]".to_string()
+                        }
+                    })
+                }).collect();
+                Ok(Some(anonymized.into_series()))
+            }, GetOutput::from_type(DataType::String)).alias(&col_name)
+        );
+    }
+
+    let df = lf.collect().map_err(|e| format!("Erreur lors de la collection de l'anonymisation : {}", e))?;
+    write_df(df, destination)?;
+    println!("SUCCESS: Anonymized dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// Pivote une table du format long au format large (lignes en colonnes)
+pub fn pivot(
+    source: &str,
+    destination: &str,
+    index: Vec<String>,
+    on: &str,
+    values: &str,
+    aggregate: &str,
+) -> Result<(), String> {
+    let df = read_df(source)?.collect()
+        .map_err(|e| format!("Erreur de lecture du fichier source pour pivot : {}", e))?;
+
+    let pivot_agg = match aggregate.to_lowercase().as_str() {
+        "sum" => col(values).sum(),
+        "mean" => col(values).mean(),
+        "min" => col(values).min(),
+        "max" => col(values).max(),
+        "count" => col(values).count(),
+        "last" => col(values).last(),
+        _ => col(values).first(),
+    };
+
+    let index_refs: Vec<&str> = index.iter().map(|s| s.as_str()).collect();
+
+    let res_df = polars::prelude::pivot::pivot(
+        &df,
+        &[values],
+        &index_refs,
+        &[on],
+        true, // sort_columns
+        Some(pivot_agg),
+        None, // separator
+    ).map_err(|e| format!("Erreur lors de l'execution du pivot Polars : {}", e))?;
+
+    write_df(res_df, destination)?;
+    println!("SUCCESS: Pivoted dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// Dépivote une table du format large au format long (colonnes en lignes)
+pub fn unpivot(
+    source: &str,
+    destination: &str,
+    index: Vec<String>,
+    on: Option<Vec<String>>,
+    variable_name: &str,
+    value_name: &str,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+
+    let id_vars = index.into_iter().map(|s| s.into()).collect();
+    let value_vars = on.unwrap_or_default().into_iter().map(|s| s.into()).collect();
+
+    let var_name_opt = if variable_name.is_empty() { None } else { Some(variable_name.to_string().into()) };
+    let val_name_opt = if value_name.is_empty() { None } else { Some(value_name.to_string().into()) };
+
+    let melt_args = polars::prelude::MeltArgs {
+        id_vars,
+        value_vars,
+        variable_name: var_name_opt,
+        value_name: val_name_opt,
+        streamable: false,
+    };
+
+    let res_lf = lf.melt(melt_args);
+    let res_df = res_lf.collect().map_err(|e| format!("Erreur lors du depivotement Melt Polars : {}", e))?;
+
+    write_df(res_df, destination)?;
+    println!("SUCCESS: Unpivoted dataset '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// Calcule les différences incrémentales entre un fichier source et cible sur clés primaires
+pub fn delta(
+    source: &str,
+    target: &str,
+    keys: Vec<String>,
+    destination_upsert: &str,
+    destination_delete: &str,
+    destination_sync: Option<&str>,
+) -> Result<(), String> {
+    let source_lf = read_df(source)?;
+    let target_lf = read_df(target)?;
+
+    // Les clés de jointure sous forme d'expressions
+    let key_exprs: Vec<Expr> = keys.iter().map(|k| col(k)).collect();
+
+    // 1. Les deletes : présents dans target mais absents de source (anti-join)
+    let deletes_lf = target_lf.clone().join(
+        source_lf.clone(),
+        key_exprs.clone(),
+        key_exprs.clone(),
+        JoinType::Anti.into(),
+    );
+    let deletes_df = deletes_lf.collect().map_err(|e| format!("Erreur lors du calcul des deletes : {}", e))?;
+    write_df(deletes_df, destination_delete)?;
+
+    // 2. Les upserts : tous les enregistrements du fichier source (inserts + updates)
+    let source_df = source_lf.clone().collect().map_err(|e| format!("Erreur lors de la collection de source : {}", e))?;
+    write_df(source_df.clone(), destination_upsert)?;
+
+    // 3. Si destination_sync est spécifiée, on écrit la table finale synchronisée
+    if let Some(dest_sync) = destination_sync {
+        let kept_target_lf = target_lf.join(
+            source_lf,
+            key_exprs.clone(),
+            key_exprs,
+            JoinType::Anti.into(),
+        );
+        let kept_target_df = kept_target_lf.collect().map_err(|e| format!("Erreur lors du calcul des conservations : {}", e))?;
+
+        let synced_df = if kept_target_df.height() > 0 {
+            let synced_lf = concat(
+                vec![source_df.lazy(), kept_target_df.lazy()],
+                UnionArgs::default(),
+            ).map_err(|e| format!("Erreur lors de la fusion du sync : {}", e))?;
+            synced_lf.collect().map_err(|e| format!("Erreur de collection du sync : {}", e))?
+        } else {
+            source_df
+        };
+        write_df(synced_df, dest_sync)?;
+    }
+
+    println!("SUCCESS: Computed delta CDC from '{}' and '{}'", source, target);
+    Ok(())
+}
+
+/// Convertit les types de colonnes selon une configuration JSON
+pub fn type_cast(
+    source: &str,
+    destination: &str,
+    casts_json: &str,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+    
+    let casts: serde_json::Map<String, serde_json::Value> = serde_json::from_str(casts_json)
+        .map_err(|e| format!("Invalid JSON casts specification: {}", e))?;
+
+    for (col_name, type_val) in casts {
+        let type_str = type_val.as_str()
+            .ok_or_else(|| format!("Cast value for column '{}' must be a string", col_name))?;
+        
+        let col_expr = col(&col_name);
+        
+        let cast_expr = if type_str.starts_with("date") {
+            let fmt = if type_str.contains(':') {
+                type_str.split(':').nth(1).unwrap_or("%Y-%m-%d")
+            } else {
+                "%Y-%m-%d"
+            };
+            col_expr.cast(DataType::String).str().strptime(
+                DataType::Date,
+                StrptimeOptions {
+                    format: Some(fmt.to_string()),
+                    strict: false,
+                    exact: false,
+                    cache: false,
+                },
+                lit("raise")
+            )
+        } else if type_str.starts_with("datetime") {
+            let fmt = if type_str.contains(':') {
+                type_str.split(':').nth(1).unwrap_or("%Y-%m-%d %H:%M:%S")
+            } else {
+                "%Y-%m-%d %H:%M:%S"
+            };
+            col_expr.cast(DataType::String).str().strptime(
+                DataType::Datetime(TimeUnit::Milliseconds, None),
+                StrptimeOptions {
+                    format: Some(fmt.to_string()),
+                    strict: false,
+                    exact: false,
+                    cache: false,
+                },
+                lit("raise")
+            )
+        } else {
+            match type_str.to_lowercase().as_str() {
+                "integer" | "int" | "i64" => col_expr.cast(DataType::Int64),
+                "float" | "double" | "f64" => col_expr.cast(DataType::Float64),
+                "boolean" | "bool" => col_expr.cast(DataType::Boolean),
+                "string" | "str" | "varchar" => col_expr.cast(DataType::String),
+                other => return Err(format!("Unsupported cast target type '{}' for column '{}'", other, col_name)),
+            }
+        };
+        
+        lf = lf.with_column(cast_expr.alias(&col_name));
+    }
+
+    let df = lf.collect().map_err(|e| format!("Erreur lors de l'execution du type_cast Polars : {}", e))?;
+    write_df(df, destination)?;
+    println!("SUCCESS: Executed type_cast on '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+fn read_rows(source: &str) -> Result<Vec<serde_json::Value>, String> {
+    let path = Path::new(source);
+    if !path.exists() {
+        return Err(format!("Fichier source introuvable : {}", source));
+    }
+    let ext = path.extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "csv".to_string());
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+
+    if ext == "json" {
+        let val: serde_json::Value = serde_json::from_reader(file).map_err(|e| e.to_string())?;
+        if let Some(arr) = val.as_array() {
+            Ok(arr.clone())
+        } else {
+            Ok(vec![val])
+        }
+    } else {
+        let mut reader = csv::Reader::from_reader(file);
+        let headers = reader.headers().map_err(|e| e.to_string())?.clone();
+        let mut results = Vec::new();
+        for result in reader.records() {
+            let record = result.map_err(|e| e.to_string())?;
+            let mut map = serde_json::Map::new();
+            for (i, h) in headers.iter().enumerate() {
+                let val_str = record.get(i).unwrap_or("");
+                let val = if val_str.is_empty() {
+                    serde_json::Value::Null
+                } else if let Ok(i_val) = val_str.parse::<i64>() {
+                    serde_json::Value::Number(i_val.into())
+                } else if let Ok(f_val) = val_str.parse::<f64>() {
+                    serde_json::Number::from_f64(f_val).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null)
+                } else if let Ok(b_val) = val_str.parse::<bool>() {
+                    serde_json::Value::Bool(b_val)
+                } else {
+                    serde_json::Value::String(val_str.to_string())
+                };
+                map.insert(h.to_string(), val);
+            }
+            results.push(serde_json::Value::Object(map));
+        }
+        Ok(results)
+    }
+}
+
+fn write_rows(rows: Vec<serde_json::Value>, destination: &str) -> Result<(), String> {
+    let path = Path::new(destination);
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    let ext = path.extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "csv".to_string());
+    let file = std::fs::File::create(path).map_err(|e| e.to_string())?;
+
+    if ext == "json" {
+        serde_json::to_writer_pretty(file, &rows).map_err(|e| e.to_string())?;
+    } else {
+        let mut writer = csv::Writer::from_writer(file);
+        if rows.is_empty() {
+            return Ok(());
+        }
+        if let Some(first_obj) = rows[0].as_object() {
+            let headers: Vec<String> = first_obj.keys().cloned().collect();
+            writer.write_record(&headers).map_err(|e| e.to_string())?;
+            for row_val in rows {
+                if let Some(obj) = row_val.as_object() {
+                    let record: Vec<String> = headers.iter().map(|h| {
+                        let v = obj.get(h).unwrap_or(&serde_json::Value::Null);
+                        match v {
+                            serde_json::Value::Null => "".to_string(),
+                            serde_json::Value::String(s) => s.clone(),
+                            other => other.to_string()
+                        }
+                    }).collect();
+                    writer.write_record(&record).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+        writer.flush().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Partitionne un jeu de données en plusieurs sous-fichiers selon les valeurs uniques de certaines colonnes
+pub fn partition(
+    source: &str,
+    destination_dir: &str,
+    by_columns: Vec<String>,
+) -> Result<(), String> {
+    let lf = read_df(source)?;
+    let _df = lf.clone().collect().map_err(|e| format!("Erreur lors de la collection de la source pour partition : {}", e))?;
+
+    // Sélectionner les colonnes de partition et obtenir les lignes uniques
+    let by_cols_expr: Vec<Expr> = by_columns.iter().map(|c| col(c)).collect();
+    let unique_groups = lf.clone().select(by_cols_expr).unique(None, UniqueKeepStrategy::First)
+        .collect()
+        .map_err(|e| format!("Erreur lors de la récupération des groupes de partition : {}", e))?;
+
+    let num_groups = unique_groups.height();
+    let num_cols = by_columns.len();
+
+    // Détecter l'extension du fichier source
+    let src_path = Path::new(source);
+    let ext = src_path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("csv");
+
+    for row_idx in 0..num_groups {
+        let mut filter_expr = lit(true);
+        let mut folder_parts = Vec::new();
+
+        for col_idx in 0..num_cols {
+            let col_name = &by_columns[col_idx];
+            let series = unique_groups.column(col_name)
+                .map_err(|e| format!("Colonne '{}' introuvable : {}", col_name, e))?;
+            let any_val = series.get(row_idx)
+                .map_err(|e| format!("Erreur de lecture de la valeur unique : {}", e))?;
+            let val_str = any_val.to_string().replace("\"", "");
+
+            filter_expr = filter_expr.and(col(col_name).eq(lit(val_str.clone())));
+            folder_parts.push(format!("{}={}", col_name, val_str));
+        }
+
+        // Filtrer la dataframe originale pour ce groupe
+        let filtered_lf = lf.clone().filter(filter_expr);
+        let filtered_df = filtered_lf.collect()
+            .map_err(|e| format!("Erreur lors du filtrage du groupe : {}", e))?;
+
+        // Construire le chemin de destination
+        let part_dir = Path::new(destination_dir);
+        let mut target_dir = part_dir.to_path_buf();
+        for part in &folder_parts {
+            target_dir = target_dir.join(part);
+        }
+
+        std::fs::create_dir_all(&target_dir)
+            .map_err(|e| format!("Impossible de créer le répertoire de partition : {}", e))?;
+
+        let dest_file = target_dir.join(format!("data.{}", ext));
+        let dest_file_str = dest_file.to_str().ok_or("Invalid path encoding")?;
+
+        write_df(filtered_df, dest_file_str)?;
+    }
+
+    println!("SUCCESS: Partitioned '{}' into '{}' by columns {:?}", source, destination_dir, by_columns);
+    Ok(())
+}
+
+/// Gère l'historisation Slowly Changing Dimensions (SCD Type 2)
+pub fn scd(
+    source: &str,
+    target: &str,
+    keys: Vec<String>,
+    compare_columns: Vec<String>,
+    destination: &str,
+    valid_from_col: &str,
+    valid_to_col: &str,
+    is_current_col: &str,
+    valid_from_value: &str,
+) -> Result<(), String> {
+    let source_rows = read_rows(source)?;
+    
+    // Si le fichier target n'existe pas, on initialise l'historique avec les lignes sources
+    let target_rows = if Path::new(target).exists() {
+        read_rows(target)?
+    } else {
+        Vec::new()
+    };
+
+    let mut active_target_rows = std::collections::HashMap::new();
+    let mut inactive_target_rows = Vec::new();
+
+    // Séparer les lignes actives et inactives de la cible
+    for mut row in target_rows {
+        if let Some(obj) = row.as_object_mut() {
+            let is_active = obj.get(is_current_col)
+                .and_then(|v| {
+                    if let Some(b) = v.as_bool() {
+                        Some(b)
+                    } else if let Some(s) = v.as_str() {
+                        Some(s == "true" || s == "1")
+                    } else if let Some(i) = v.as_i64() {
+                        Some(i == 1)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(true); // Par défaut actif si absent
+
+            if is_active {
+                // Générer la clé de recherche unique
+                let mut key_parts = Vec::new();
+                for k in &keys {
+                    let val = obj.get(k).cloned().unwrap_or(serde_json::Value::Null);
+                    key_parts.push(val.to_string());
+                }
+                let key_str = key_parts.join("|");
+                active_target_rows.insert(key_str, obj.clone());
+            } else {
+                inactive_target_rows.push(row);
+            }
+        }
+    }
+
+    let mut new_or_updated_rows = Vec::new();
+    let mut seen_keys = std::collections::HashSet::new();
+
+    // Parcourir le nouveau flux source
+    for row in source_rows {
+        if let Some(source_obj) = row.as_object() {
+            // Générer la clé
+            let mut key_parts = Vec::new();
+            for k in &keys {
+                let val = source_obj.get(k).cloned().unwrap_or(serde_json::Value::Null);
+                key_parts.push(val.to_string());
+            }
+            let key_str = key_parts.join("|");
+            seen_keys.insert(key_str.clone());
+
+            match active_target_rows.get_mut(&key_str) {
+                None => {
+                    // 1. Nouvelle ligne (n'existe pas dans active_target)
+                    let mut new_row = source_obj.clone();
+                    new_row.insert(valid_from_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+                    new_row.insert(valid_to_col.to_string(), serde_json::Value::Null);
+                    new_row.insert(is_current_col.to_string(), serde_json::Value::Bool(true));
+                    new_or_updated_rows.push(serde_json::Value::Object(new_row));
+                }
+                Some(active_row) => {
+                    // 2. Ligne existante : comparer les colonnes surveillées
+                    let cols_to_compare = if compare_columns.is_empty() {
+                        source_obj.keys().cloned().collect::<Vec<String>>()
+                    } else {
+                        compare_columns.clone()
+                    };
+
+                    let mut has_changes = false;
+                    for col in &cols_to_compare {
+                        let source_val = source_obj.get(col).unwrap_or(&serde_json::Value::Null);
+                        let target_val = active_row.get(col).unwrap_or(&serde_json::Value::Null);
+                        if source_val != target_val {
+                            has_changes = true;
+                            break;
+                        }
+                    }
+
+                    if has_changes {
+                        // a. Historiser l'ancienne ligne (is_current = false, valid_to = valid_from_value)
+                        active_row.insert(is_current_col.to_string(), serde_json::Value::Bool(false));
+                        active_row.insert(valid_to_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+                        new_or_updated_rows.push(serde_json::Value::Object(active_row.clone()));
+
+                        // b. Insérer la nouvelle version de la ligne
+                        let mut new_row = source_obj.clone();
+                        new_row.insert(valid_from_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+                        new_row.insert(valid_to_col.to_string(), serde_json::Value::Null);
+                        new_row.insert(is_current_col.to_string(), serde_json::Value::Bool(true));
+                        new_or_updated_rows.push(serde_json::Value::Object(new_row));
+                    } else {
+                        // Inchangée, on garde la ligne cible active
+                        new_or_updated_rows.push(serde_json::Value::Object(active_row.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Traiter les lignes supprimées : présentes dans active_target mais absentes de source
+    for (key_str, active_row) in &mut active_target_rows {
+        if !seen_keys.contains(key_str) {
+            // Clôturer l'historique
+            active_row.insert(is_current_col.to_string(), serde_json::Value::Bool(false));
+            active_row.insert(valid_to_col.to_string(), serde_json::Value::String(valid_from_value.to_string()));
+            new_or_updated_rows.push(serde_json::Value::Object(active_row.clone()));
+        }
+    }
+
+    // Rassembler toutes les lignes
+    let mut final_rows = inactive_target_rows;
+    final_rows.extend(new_or_updated_rows);
+
+    write_rows(final_rows, destination)?;
+    println!("SUCCESS: Executed SCD Type 2 on '{}' and '{}' -> '{}'", source, target, destination);
+    Ok(())
+}
+
+/// Éclate les valeurs d'une colonne contenant des listes ou des chaînes sérialisées JSON vers des lignes distinctes (explode)
+pub fn split_out(
+    source: &str,
+    destination: &str,
+    column: &str,
+    delimiter: Option<&str>,
+) -> Result<(), String> {
+    let mut lf = read_df(source)?;
+
+    // On convertit les lignes de la DataFrame si nécessaire
+    // Si c'est un délimiteur de chaîne de caractères (ex: comma-separated values) :
+    let lf_result = if let Some(delim) = delimiter {
+        lf.with_column(
+            col(column)
+                .str()
+                .split(lit(delim))
+                .alias(column)
+        ).explode(vec![col(column)])
+    } else {
+        // Tenter de parser comme tableau JSON. Si Polars ne peut pas directement faire du lazy json parsing, 
+        // nous pouvons le mapper via des expressions ou en forçant le chargement en DataFrame et le parsing en mémoire.
+        // Pour rester robuste et compatible sans feature polars-json avancée, on éclate par défaut sur virgule 
+        // après nettoyage des crochets [] si c'est détecté comme chaîne JSON.
+        let parsed_expr = col(column)
+            .str()
+            .replace_all(lit("\\["), lit(""), false)
+            .str()
+            .replace_all(lit("\\]"), lit(""), false)
+            .str()
+            .replace_all(lit("\""), lit(""), false)
+            .str()
+            .split(lit(","))
+            .alias(column);
+        
+        lf.with_column(parsed_expr).explode(vec![col(column)])
+    };
+
+    let df_result = lf_result.collect()
+        .map_err(|e| format!("Erreur lors de l'exécution de split_out: {}", e))?;
+
+    write_df(df_result, destination)?;
+    println!("SUCCESS: Executed split_out on '{}' -> '{}' for column '{}'", source, destination, column);
+    Ok(())
+}
+
+
+
+

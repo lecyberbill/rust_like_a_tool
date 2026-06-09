@@ -20,7 +20,7 @@ pub fn handle_csv_to_json(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--destination" => {
@@ -28,7 +28,7 @@ pub fn handle_csv_to_json(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             "--delimiter" => {
@@ -36,7 +36,7 @@ pub fn handle_csv_to_json(args: &[String]) -> Result<(), MuscleError> {
                     delimiter = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --delimiter".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --delimiter".to_string()));
                 }
             }
             "--has_headers" | "--has-headers" => {
@@ -44,17 +44,17 @@ pub fn handle_csv_to_json(args: &[String]) -> Result<(), MuscleError> {
                     has_headers = args[i + 1].parse::<bool>().unwrap_or(true);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --has_headers".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --has_headers".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
     csv_to_json(source, destination, &delimiter, has_headers)
 }
@@ -114,7 +114,7 @@ fn csv_to_json(source: &str, destination: &str, delimiter: &str, has_headers: bo
     }
 
     let json_bytes = serde_json::to_vec_pretty(&json_list)
-        .map_err(|e| MuscleError::Generic(format!("Failed to serialize JSON: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to serialize JSON: {}", e)))?;
 
     fs::write(dest_path, json_bytes)
         .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write JSON target: {}", e)))?;
@@ -137,7 +137,7 @@ pub fn handle_json_to_csv(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--destination" => {
@@ -145,7 +145,7 @@ pub fn handle_json_to_csv(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             "--delimiter" => {
@@ -153,7 +153,7 @@ pub fn handle_json_to_csv(args: &[String]) -> Result<(), MuscleError> {
                     delimiter = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --delimiter".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --delimiter".to_string()));
                 }
             }
             "--has_headers" | "--has-headers" => {
@@ -161,17 +161,17 @@ pub fn handle_json_to_csv(args: &[String]) -> Result<(), MuscleError> {
                     has_headers = args[i + 1].parse::<bool>().unwrap_or(true);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --has_headers".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --has_headers".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
     json_to_csv(source, destination, &delimiter, has_headers)
 }
@@ -186,10 +186,10 @@ fn json_to_csv(source: &str, destination: &str, delimiter: &str, has_headers: bo
         .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source file: {}", e)))?;
 
     let json_val: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| MuscleError::Generic(format!("Failed to parse JSON: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to parse JSON: {}", e)))?;
 
     let array = json_val.as_array().ok_or_else(|| {
-        MuscleError::Generic("JSON source must be an array of objects".to_string())
+        MuscleError::InvalidArg("JSON source must be an array of objects".to_string())
     })?;
 
     if array.is_empty() {
@@ -209,7 +209,7 @@ fn json_to_csv(source: &str, destination: &str, delimiter: &str, has_headers: bo
     }
 
     if headers.is_empty() {
-        return Err(MuscleError::Generic("JSON array objects have no keys to form headers".to_string()));
+        return Err(MuscleError::InvalidArg("JSON array objects have no keys to form headers".to_string()));
     }
 
     let dest_path = Path::new(destination);
@@ -238,7 +238,7 @@ fn json_to_csv(source: &str, destination: &str, delimiter: &str, has_headers: bo
 
     if has_headers {
         wtr.write_record(&headers)
-            .map_err(|e| MuscleError::Generic(format!("Failed to write CSV headers: {}", e)))?;
+            .map_err(|e| MuscleError::IoError(format!("Failed to write CSV headers: {}", e)))?;
     }
 
     for item in array {
@@ -260,11 +260,11 @@ fn json_to_csv(source: &str, destination: &str, delimiter: &str, has_headers: bo
             record.push(val_str);
         }
         wtr.write_record(&record)
-            .map_err(|e| MuscleError::Generic(format!("Failed to write CSV record: {}", e)))?;
+            .map_err(|e| MuscleError::IoError(format!("Failed to write CSV record: {}", e)))?;
     }
 
     wtr.flush()
-        .map_err(|e| MuscleError::Generic(format!("Failed to flush CSV writer: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to flush CSV writer: {}", e)))?;
 
     println!("SUCCESS: Converted JSON '{}' to CSV '{}'. Rows: {}", source, destination, array.len());
     Ok(())
@@ -282,7 +282,7 @@ pub fn handle_xml_to_json(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--destination" => {
@@ -290,17 +290,17 @@ pub fn handle_xml_to_json(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
     xml_to_json(source, destination)
 }
@@ -373,7 +373,7 @@ fn xml_to_json(source: &str, destination: &str) -> Result<(), MuscleError> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => return Err(MuscleError::Generic(format!("Error parsing XML on line {}: {}", reader.buffer_position(), e))),
+                Err(e) => return Err(MuscleError::ParseError(format!("Error parsing XML on line {}: {}", reader.buffer_position(), e))),
             _ => {}
         }
         buf.clear();
@@ -392,7 +392,7 @@ fn xml_to_json(source: &str, destination: &str) -> Result<(), MuscleError> {
     }
 
     let json_bytes = serde_json::to_vec_pretty(&serde_json::Value::Object(root_obj))
-        .map_err(|e| MuscleError::Generic(format!("Failed to serialize final XML-to-JSON structure: {}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to serialize final XML-to-JSON structure: {}", e)))?;
 
     fs::write(dest_path, json_bytes)
         .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write JSON output: {}", e)))?;
@@ -414,7 +414,7 @@ pub fn handle_xml_transform(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
                 }
             }
             "--stylesheet" => {
@@ -422,7 +422,7 @@ pub fn handle_xml_transform(args: &[String]) -> Result<(), MuscleError> {
                     stylesheet = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --stylesheet".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --stylesheet".to_string()));
                 }
             }
             "--destination" => {
@@ -430,18 +430,18 @@ pub fn handle_xml_transform(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::Generic("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
                 }
             }
             other => {
-                return Err(MuscleError::Generic(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::Generic("Missing required argument --source".to_string()))?;
-    let stylesheet = stylesheet.ok_or_else(|| MuscleError::Generic("Missing required argument --stylesheet".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::Generic("Missing required argument --destination".to_string()))?;
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let stylesheet = stylesheet.ok_or_else(|| MuscleError::MissingArg("Missing required argument --stylesheet".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
     xml_transform(source, stylesheet, destination)
 }
@@ -480,9 +480,9 @@ fn xml_transform(source: &str, stylesheet: &str, destination: &str) -> Result<()
     };
 
     let src_doc = make_from_str(&src_content)
-        .map_err(|e| MuscleError::Generic(format!("Failed to parse source XML: {:?}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to parse source XML: {:?}", e)))?;
     let style_doc = make_from_str(&style_content)
-        .map_err(|e| MuscleError::Generic(format!("Failed to parse stylesheet XSLT: {:?}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("Failed to parse stylesheet XSLT: {:?}", e)))?;
 
     let mut static_context = StaticContextBuilder::new()
         .message(|_| Ok(()))
@@ -495,14 +495,14 @@ fn xml_transform(source: &str, stylesheet: &str, destination: &str) -> Result<()
         None,
         make_from_str,
         |_| Ok(String::new())
-    ).map_err(|e| MuscleError::Generic(format!("Failed to compile stylesheet: {:?}", e)))?;
+    ).map_err(|e| MuscleError::IoError(format!("Failed to compile stylesheet: {:?}", e)))?;
 
     let src_item = Item::Node(src_doc);
     ctxt.context(vec![src_item], 0);
     ctxt.result_document(RNode::new_document());
 
     let seq = ctxt.evaluate(&mut static_context)
-        .map_err(|e| MuscleError::Generic(format!("XSLT evaluation failed: {:?}", e)))?;
+        .map_err(|e| MuscleError::IoError(format!("XSLT evaluation failed: {:?}", e)))?;
 
     let output_str = seq.to_xml();
 
@@ -519,4 +519,158 @@ fn xml_transform(source: &str, stylesheet: &str, destination: &str) -> Result<()
 
     println!("SUCCESS: Applied XML transformation from '{}' using stylesheet '{}' to '{}'", source, stylesheet, destination);
     Ok(())
+}
+
+fn run_format_helper(mode: &str, args: &[&str]) -> Result<(), MuscleError> {
+    use std::process::Command;
+    let python_path = if cfg!(target_os = "windows") {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    let mut cmd = cmd.arg("brain/format_helper.py").arg(mode);
+    for arg in args {
+        cmd = cmd.arg(arg);
+    }
+    
+    let output = cmd.output()
+        .map_err(|e| MuscleError::IoError(format!("Failed to start Python format helper: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::IoError(format!("Format helper execution failed: {}", stderr.trim())))
+    }
+}
+
+pub fn handle_to_xlsx(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut sheet_name = String::from("Sheet1");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --source".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --destination".to_string())); }
+            }
+            "--sheet-name" | "--sheet_name" => {
+                if i + 1 < args.len() { sheet_name = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --sheet-name".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+
+    run_format_helper("xlsx", &[source, destination, &sheet_name])
+}
+
+pub fn handle_json_to_xml(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut root_element = String::from("root");
+    let mut row_element = String::from("row");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => {
+                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --source".to_string())); }
+            }
+            "--destination" => {
+                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --destination".to_string())); }
+            }
+            "--root-element" | "--root_element" => {
+                if i + 1 < args.len() { root_element = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --root-element".to_string())); }
+            }
+            "--row-element" | "--row_element" => {
+                if i + 1 < args.len() { row_element = args[i+1].clone(); i += 2; }
+                else { return Err(MuscleError::MissingArg("Missing value for --row-element".to_string())); }
+            }
+            other => {
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+
+    run_format_helper("xml", &[source, destination, &root_element, &row_element])
+}
+
+/// data.read — lit tout format supporté (CSV, JSON, Parquet, JSONL) et écrit en CSV
+pub fn handle_data_read(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => { source = args.get(i+1).map(|s| s.as_str()); i += 2; }
+            "--destination" => { destination = args.get(i+1).map(|s| s.as_str()); i += 2; }
+            other => { return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other))); }
+        }
+    }
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing --destination".to_string()))?;
+    let df = analytical_engine::read_df(source)
+        .map_err(|e| MuscleError::IoError(format!("Read error: {}", e)))?
+        .collect()
+        .map_err(|e| MuscleError::IoError(format!("Collect error: {}", e)))?;
+    analytical_engine::write_df(df, destination)
+        .map_err(|e| MuscleError::IoError(format!("Write error: {}", e)))?;
+    println!("SUCCESS: Read '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// data.write — lit CSV source, écrit dans le format détecté par l'extension destination
+pub fn handle_data_write(args: &[String]) -> Result<(), MuscleError> {
+    let mut source = None;
+    let mut destination = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--source" => { source = args.get(i+1).map(|s| s.as_str()); i += 2; }
+            "--destination" => { destination = args.get(i+1).map(|s| s.as_str()); i += 2; }
+            other => { return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other))); }
+        }
+    }
+    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing --source".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing --destination".to_string()))?;
+    let df = analytical_engine::read_df(source)
+        .map_err(|e| MuscleError::IoError(format!("Read error: {}", e)))?
+        .collect()
+        .map_err(|e| MuscleError::IoError(format!("Collect error: {}", e)))?;
+    analytical_engine::write_df(df, destination)
+        .map_err(|e| MuscleError::IoError(format!("Write error: {}", e)))?;
+    println!("SUCCESS: Wrote '{}' -> '{}'", source, destination);
+    Ok(())
+}
+
+/// data.convert — convertit entre tous formats supportés (auto-détection par extension)
+pub fn handle_data_convert(args: &[String]) -> Result<(), MuscleError> {
+    handle_data_read(args)
 }

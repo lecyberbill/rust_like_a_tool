@@ -18,8 +18,14 @@ The RLAT architecture is built on a strict segregation of concerns:
    - A high-performance compiled binary executing atomic steps (I/O, network requests, format conversions, SQL queries, S3 object transfers).
    - Communicates using standardized numeric exit codes, translated dynamically into localized error messages by the Python orchestrator.
 3. **The Vitrine (Vanilla HTML/CSS/JS)**:
-   - A sleek Tableau de Bord (Dashboard) for tracking active scheduler triggers.
+   - A sleek Tableau de Bord (Dashboard) for tracking active scheduler triggers, run logs, and execution performance telemetry timeline.
    - An interactive workbench interface for visualizing the real-time execution of steps via bi-directional WebSockets.
+   - **Visual Connection Handles**: Draw connections dynamically by dragging output handles to input handles.
+   - **Canvas Node Search**: Instantly filter and highlight workflow nodes by name on the fly.
+   - **Node Duplication**: Clone existing nodes with all their configured parameters.
+   - **Cycle Prevention**: Live topological DAG verification rejecting loops on link creation.
+   - **Undo/Redo Engine**: History state stack allowing structural modifications rollback (via toolbar or shortcuts `Ctrl+Z` / `Ctrl+Y`).
+   - **Zoom & Theme Controls**: Switch between dark and light modes, and adjust canvas scale (zoom in, out, reset to fit).
 
 ---
 
@@ -47,8 +53,16 @@ The workspace is organized into clean, dedicated directories to keep the root di
 │   ├── registry.json             <-- Primitive specifications JSON Schema
 │   ├── workspaces.json           <-- Active workflow configurations
 │   └── history_recipes/          <-- Local history of generated JSON recipes
-├── vitrine/                      <-- The Vitrine (Frontend Client)
-│   └── interface_du_moteur_etl.html <-- Glassmorphic Visual workbench
+├── vitrine/                      <-- The Vitrine (Frontend Client modularized)
+│   ├── index.html                <-- UI Entrypoint served on port 8766
+│   ├── css/style.css             <-- Premium Glassmorphism styling sheets
+│   └── js/                       <-- Frontend JavaScript modules
+│       ├── canvas.js             <-- Canvas drawing, zoom, themes, and cycles
+│       ├── aimapper.js           <-- Schema mapping and formula popup logic
+│       ├── editor.js             <-- Node parameters sidebar configuration
+│       ├── modals.js             <-- Modal popups and audit view controllers
+│       ├── api.js                <-- WebSocket outgoing client API commands
+│       └── app.js                <-- Global states, custom element, and routing
 ├── rust_muscle/                  <-- The Muscle (Rust Primitives Engine)
 │   ├── Cargo.toml
 │   ├── src/
@@ -76,16 +90,31 @@ The Rust binary executes performance-critical tasks categorized by domain:
   - `net.download`: Asynchronous downloading of remote files.
   - `net.upload`: Multipart file upload with custom headers.
   - `net.http_request`: General-purpose HTTP requests with Regex links extraction.
+  - `net.ftp_download` & `net.ftp_upload`: Transfer files to/from FTP servers (delegated to Python `ftplib` helper).
+  - `net.notify`: SMTP Email and Webhook telemetry alert dispatches.
 - **Data & Formatting (`data.*`)**:
   - `data.csv_to_json` & `data.json_to_csv`: High-speed format converters.
   - `data.xml_to_json`: High-speed hierarchical XML parser using `quick-xml`.
   - `data.filter`: Filter dataset rows based on regular expressions and comparison operators.
   - `data.metrics`: Compute aggregates (sum, mean, min, max) using **Polars**.
   - `data.chunk_cumulative`: Partition files and compute running cumulative aggregates using **Polars**.
+  - `data.clean`: Clean datasets, reorder schemas, rename columns and compile IF-THEN-ELSE/arithmetic formulas via Polars.
+  - `data.validate`: Evaluate row assertions and direct rejets to a Quarantine (DLQ) path.
+  - `data.lookup`: Join external dictionary reference files using Polars left joins.
+  - `data.deduplicate`: Eliminate duplicate rows based on subset keys (first/last strategy).
+  - `data.to_xlsx`: Format and export JSON/CSV to Microsoft Excel using `openpyxl`.
+  - `data.json_to_xml`: Structure datasets into formatted XML files.
+  - `data.delta`: Compare datasets on primary keys to calculate incremental changes (Change Data Capture) and synced results.
+  - `data.type_cast`: Convert and format column data types strictly (integer, float, boolean, string, date/datetime) with format parsing.
+- **AI & NLP (`ai.*`)**:
+  - `ai.summarize` & `ai.extract`: Perform LLM summary and structural entity extraction (overriding models per step).
 - **Databases (`db.*`)**:
-  - `db.query` & `db.insert`: Unified queries supporting SQLite, PostgreSQL, MySQL, Snowflake REST, and custom ODBC drivers.
+  - `db.query` & `db.insert`: Unified queries and high-performance chunked batch insertions (SQLite, PostgreSQL, MySQL).
 - **Cloud Storage (`s3.*`)**:
-  - `s3.upload` & `s3.download`: File transfers supporting AWS S3 and MinIO local instances.
+  - `s3.upload` & `s3.download`: File transfers supporting AWS S3 and MinIO.
+- **Orchestration / Flow (`core.*`)**:
+  - `core.sub_flow`: Nest sub-graphs recursively inside execution plans.
+  - `core.loop`: Iterate workflows over files, rows, or variables injecting `${ITER_ITEM}`.
 
 ---
 
@@ -117,7 +146,7 @@ This script automatically:
 3. Launches the Python orchestrator (WebSocket on port `8765` and HTTP API on port `8766`).
 
 ### 3. Open the UI
-Open the frontend file [interface_du_moteur_etl.html](file:///d:/image_to_text/RUST_LIKE_A_TOOL/vitrine/interface_du_moteur_etl.html) in your browser.
+Access the workbench in your browser at: **`http://localhost:8766/`** (served dynamically by the integrated web server).
 
 ---
 
@@ -126,7 +155,150 @@ Open the frontend file [interface_du_moteur_etl.html](file:///d:/image_to_text/R
 The server actively polls configured workflow schedules:
 - **Cron**: Run recipes based on Cron expressions (e.g. `*/5 * * * *` to run every 5 minutes).
 - **File Watcher**: Scans directory folders and triggers a run when matching file formats are added.
-- **Webhook API**: Fire execution runs instantly by sending HTTP requests:
-  ```bash
-  curl "http://localhost:8766/trigger?workspace=default_workflow"
-  ```
+   - **Webhook API**: Fire execution runs instantly by sending HTTP requests:
+   ```bash
+   curl "http://localhost:8766/trigger?workspace=default_workflow"
+   ```
+
+---
+
+## 📡 API Documentation
+
+### WebSocket API (port 8765)
+
+Le Brain expose un serveur WebSocket pour la communication temps réel avec la Vitrine.
+
+**Connexion :**
+```
+ws://localhost:8765
+```
+
+**Messages reçus (Brain → Client) :**
+
+| Type | Payload | Description |
+|------|---------|-------------|
+| `system_info` | `{ orchestrator, version, os, primitives, enums }` | État du serveur et catalogue complet |
+| `step_status` | `{ step_id, status, output? }` | Mise à jour d'une étape en cours |
+| `plan_complete` | `{ plan_id, status, results }` | Fin d'exécution d'un plan |
+| `plan_error` | `{ plan_id, error }` | Erreur fatale lors de l'exécution |
+| `log` | `{ level, message, step_id? }` | Log temps réel |
+| `error` | `{ message, code }` | Erreur générique |
+| `current_state` | `{ state, workspace? }` | État de connexion |
+
+**Messages envoyés (Client → Brain) :**
+
+| Commande | Payload | Description |
+|----------|---------|-------------|
+| `execute_plan` | `{ plan_id, steps, workspace }` | Lancer un plan ETL |
+| `cancel_plan` | `{ plan_id }` | Annuler un plan en cours |
+| `get_system_info` | `{}` | Demander le catalogue primitives |
+| `get_plans` | `{}` | Lister les plans historiques |
+| `get_workspaces` | `{}` | Lister les workspaces |
+| `save_workspace` | `{ name, steps, connections }` | Sauvegarder un workspace |
+| `delete_workspace` | `{ name }` | Supprimer un workspace |
+| `load_workspace` | `{ name }` | Charger un workspace |
+
+### HTTP API (port 8766)
+
+Endpoint REST pour les déclencheurs externes et les métriques.
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/` | Servir la Vitrine (index.html) |
+| `GET` | `/trigger?workspace=<nom>` | Déclencher un workspace |
+| `GET` | `/cancel` | Annuler le plan en cours |
+| `GET` | `/metrics` | Endpoint Prometheus |
+
+### Métriques Prometheus exposées
+
+| Métrique | Type | Labels | Description |
+|----------|------|--------|-------------|
+| `wfgy_plan_runs_total` | counter | `target_env` | Nombre total de plans exécutés |
+| `wfgy_steps_total` | counter | `primitive, status` | Nombre total d'étapes exécutées |
+| `wfgy_step_failures_total` | counter | `primitive, code` | Nombre total d'échecs d'étapes |
+| `wfgy_validation_errors_total` | counter | `primitive, step` | Erreurs de validation de recette |
+| `wfgy_step_duration_seconds` | histogram | `primitive` | Durée d'exécution des étapes (buckets: 0.01s à 60s) |
+| `wfgy_active_connections` | gauge | — | Connexions WebSocket actives |
+
+## 🐳 Installation Docker
+
+```bash
+# 1. Construire l'image
+docker build -t wfgy-core-v3 .
+
+# 2. Créer le fichier .env (cf. Configuration ci-dessus)
+
+# 3. Lancer le conteneur
+docker run -d --name wfgy-etl \
+  -p 8765:8765 -p 8766:8766 \
+  -v "$(pwd)/.env:/app/.env" \
+  -v "$(pwd)/workspace:/app/workspace" \
+  wfgy-core-v3
+
+# 4. Ouvrir http://localhost:8766/
+```
+
+## 📊 Monitoring Grafana
+
+1. Ajouter une source Prometheus pointant vers `http://localhost:8766/metrics`
+2. Importer le dashboard : `grafana/wfgy_dashboard.json`
+3. Le dashboard expose 10 panneaux :
+   - **Statistiques instantanées** : connexions actives, plans, échecs, erreurs de validation
+   - **Série temporelle** : latence P50/P95/P99 des étapes
+   - **Répartition** : étapes par primitive, taux succès/échec
+   - **Détail** : échecs par primitive, plans par environnement, erreurs de validation par primitive
+
+## 🔧 Installation depuis les sources
+
+### Prérequis
+- **Rust** 1.82+ (build muscle)
+- **Python** 3.10+ (brain)
+- **Cargo** (pour la compilation)
+
+### Étapes
+
+```bash
+# 1. Compiler le moteur Rust
+cd rust_muscle
+cargo build --release
+cp target/release/rust_muscle /usr/local/bin/
+
+# 2. Installer les dépendances Python
+cd ..
+python -m venv .venv
+source .venv/bin/activate  # ou .venv\Scripts\activate sous Windows
+pip install -r requirements.txt
+
+# 3. Configurer l'environnement
+cp .env.prod .env
+# Éditer .env avec vos paramètres (LLM, ports, etc.)
+
+# 4. Lancer le serveur
+python brain/orchestrator.py --server
+```
+
+### Tests
+
+```bash
+# Rust (26 tests unitaires)
+cd rust_muscle && cargo test
+
+# Python (41 tests d'intégration)
+cd .. && pytest brain/tests/ -v
+
+# Stress test (10K lignes × 8 étapes)
+python test_advanced_etl.py
+
+# Benchmarks
+python test_results/bench_primitives.py
+
+# Suite complète cross-platform
+./run_all_tests.py
+```
+
+## 🏗️ Références complémentaires
+
+- `PRIMITIVE_REFERENCE.md` — Documentation exhaustive des 54 primitives
+- `TECHNICAL_REPORT.md` — Invariants structurels et changelog
+- `ROADMAP_MODULES.md` — Feuille de route des modules
+- `grafana/wfgy_dashboard.json` — Dashboard Grafana importable
