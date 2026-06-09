@@ -44,6 +44,7 @@ except ImportError:
     HAS_CHROMATIX = False
     log.warning("Chromatix Engine not found — running in legacy flat-file fallback mode")
 from vault import StealthVault
+from auth import validate_token, get_tenant_id
 
 # Try to import jsonschema for advanced validation, fallback to manual if not present
 try:
@@ -1171,7 +1172,28 @@ async def handler(websocket, path=None):
     if not vault_key:
         print("[CRITICAL SECURITY ERROR] SECRET_VAULT_KEY is not defined in environment variables.")
         sys.exit(1)
-    vault = StealthVault(vault_key)
+    
+    # ── Authentification ────────────────────────────────────────
+    tenant_id = "default"
+    try:
+        auth_msg = await asyncio.wait_for(websocket.recv(), timeout=10)
+        auth_data = json.loads(auth_msg)
+        if auth_data.get("type") == "AUTH":
+            token = auth_data.get("token", "")
+            payload = validate_token(token)
+            if payload:
+                tenant_id = payload.get("tenant_id", "default")
+                print(f"[WS SERVER] Authenticated: {payload.get('username')} (tenant: {tenant_id})")
+                await websocket.send(json.dumps({"type": "AUTH_OK", "tenant_id": tenant_id}))
+            else:
+                print("[WS SERVER] Invalid token — using default tenant")
+                await websocket.send(json.dumps({"type": "AUTH_OK", "tenant_id": "default", "warning": "Invalid token, default tenant used"}))
+        else:
+            print(f"[WS SERVER] First message was not AUTH — using default tenant")
+    except asyncio.TimeoutError:
+        print("[WS SERVER] No AUTH message within 10s — using default tenant")
+    
+    vault = StealthVault(vault_key, tenant_id=tenant_id)
     saved_secrets = vault.load_secrets()
     
     ACTIVE_CONNECTIONS.add(websocket)

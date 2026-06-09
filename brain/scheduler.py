@@ -232,7 +232,61 @@ async def handle_http_request(reader, writer):
             parts = req_line.split()
             if len(parts) >= 2:
                 method, path = parts[0], parts[1]
-                if path == "/metrics":
+                if path == "/api/register" and method == "POST":
+                    body_data = data.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in data else "{}"
+                    try:
+                        from auth import register
+                        creds = json.loads(body_data)
+                        result = register(creds.get("username", ""), creds.get("password", ""))
+                        resp_body = json.dumps(result)
+                        resp = (
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: application/json\r\n"
+                            "Access-Control-Allow-Origin: *\r\n"
+                            f"Content-Length: {len(resp_body.encode('utf-8'))}\r\n"
+                            "Connection: close\r\n\r\n"
+                            f"{resp_body}"
+                        )
+                    except ValueError as e:
+                        resp_body = json.dumps({"error": str(e)})
+                        resp = (
+                            "HTTP/1.1 400 Bad Request\r\n"
+                            "Content-Type: application/json\r\n"
+                            "Access-Control-Allow-Origin: *\r\n"
+                            f"Content-Length: {len(resp_body.encode('utf-8'))}\r\n"
+                            "Connection: close\r\n\r\n"
+                            f"{resp_body}"
+                        )
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif path == "/api/login" and method == "POST":
+                    body_data = data.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in data else "{}"
+                    try:
+                        from auth import login as auth_login
+                        creds = json.loads(body_data)
+                        result = auth_login(creds.get("username", ""), creds.get("password", ""))
+                        resp_body = json.dumps(result)
+                        resp = (
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: application/json\r\n"
+                            "Access-Control-Allow-Origin: *\r\n"
+                            f"Content-Length: {len(resp_body.encode('utf-8'))}\r\n"
+                            "Connection: close\r\n\r\n"
+                            f"{resp_body}"
+                        )
+                    except ValueError as e:
+                        resp_body = json.dumps({"error": str(e)})
+                        resp = (
+                            "HTTP/1.1 401 Unauthorized\r\n"
+                            "Content-Type: application/json\r\n"
+                            "Access-Control-Allow-Origin: *\r\n"
+                            f"Content-Length: {len(resp_body.encode('utf-8'))}\r\n"
+                            "Connection: close\r\n\r\n"
+                            f"{resp_body}"
+                        )
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif path == "/metrics":
                     body = METRICS.render()
                     resp = (
                         "HTTP/1.1 200 OK\r\n"
