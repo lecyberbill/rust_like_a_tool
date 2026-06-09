@@ -1,9 +1,8 @@
 // [WFGY] Zone: SAFE | λ: 0.2 | Action: RFC 4180 CSV filter implementation
 
+use crate::MuscleError;
 use std::fs;
 use std::path::Path;
-use std::io::Write;
-use crate::MuscleError;
 
 pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
     let mut source = None;
@@ -23,7 +22,9 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -31,7 +32,9 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             "--delimiter" => {
@@ -39,17 +42,22 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     delimiter = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --delimiter".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --delimiter".to_string(),
+                    ));
                 }
             }
             "--column_index" | "--column-index" => {
                 if i + 1 < args.len() {
-                    let parsed = args[i + 1].parse::<usize>()
-                        .map_err(|_| MuscleError::InvalidArg("Invalid integer for --column-index".to_string()))?;
+                    let parsed = args[i + 1].parse::<usize>().map_err(|_| {
+                        MuscleError::InvalidArg("Invalid integer for --column-index".to_string())
+                    })?;
                     column_index = Some(parsed);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --column-index".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --column-index".to_string(),
+                    ));
                 }
             }
             "--column_name" | "--column-name" => {
@@ -57,7 +65,9 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     column_name = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --column-name".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --column-name".to_string(),
+                    ));
                 }
             }
             "--operator" => {
@@ -65,7 +75,9 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     operator = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --operator".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --operator".to_string(),
+                    ));
                 }
             }
             "--value" => {
@@ -73,29 +85,49 @@ pub fn handle_data_filter(args: &[String]) -> Result<(), MuscleError> {
                     value = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --value".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --value".to_string(),
+                    ));
                 }
             }
             "--has_headers" | "--has-headers" => {
                 if i + 1 < args.len() {
-                    has_headers = args[i + 1].parse::<bool>()
-                        .unwrap_or(false);
+                    has_headers = args[i + 1].parse::<bool>().unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --has-headers".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --has-headers".to_string(),
+                    ));
                 }
             }
             _ => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", args[i])));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    args[i]
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
-    let operator = operator.ok_or_else(|| MuscleError::MissingArg("Missing required argument --operator".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
+    let operator = operator.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --operator".to_string())
+    })?;
 
-    filter_data(source, destination, &delimiter, column_index, column_name.map(|s| s.as_str()), operator, &value, has_headers)
+    filter_data(
+        source,
+        destination,
+        &delimiter,
+        column_index,
+        column_name.map(|s| s.as_str()),
+        operator,
+        &value,
+        has_headers,
+    )
 }
 
 fn filter_data(
@@ -110,7 +142,10 @@ fn filter_data(
 ) -> Result<(), MuscleError> {
     let src_path = Path::new(source);
     if !src_path.exists() {
-        return Err(MuscleError::SourceNotFound(format!("Source file '{}' does not exist", source)));
+        return Err(MuscleError::SourceNotFound(format!(
+            "Source file '{}' does not exist",
+            source
+        )));
     }
 
     let delim_byte = delimiter.as_bytes().first().copied().unwrap_or(b',');
@@ -124,37 +159,50 @@ fn filter_data(
     let dest_path = Path::new(destination);
     if let Some(parent) = dest_path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create destination directories: {}", e)))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                MuscleError::DestDirCreation(format!(
+                    "Failed to create destination directories: {}",
+                    e
+                ))
+            })?;
         }
     }
 
     let mut writer = csv::WriterBuilder::new()
         .delimiter(delim_byte)
         .from_path(dest_path)
-        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to create destination CSV writer: {}", e)))?;
+        .map_err(|e| {
+            MuscleError::PermissionDenied(format!("Failed to create destination CSV writer: {}", e))
+        })?;
 
     let mut resolved_index = column_index;
-    let headers = reader.headers()
+    let headers = reader
+        .headers()
         .map_err(|e| MuscleError::IoError(format!("Failed to read CSV headers: {}", e)))?
         .clone();
 
     if has_headers {
-        writer.write_record(&headers)
-            .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write CSV headers: {}", e)))?;
+        writer.write_record(&headers).map_err(|e| {
+            MuscleError::PermissionDenied(format!("Failed to write CSV headers: {}", e))
+        })?;
 
         if let Some(col_name) = column_name {
             if let Some(idx) = headers.iter().position(|h| h.trim() == col_name.trim()) {
                 resolved_index = Some(idx);
             } else {
-                return Err(MuscleError::IoError(format!("Header column '{}' not found in headers row: {:?}", col_name, headers)));
+                return Err(MuscleError::IoError(format!(
+                    "Header column '{}' not found in headers row: {:?}",
+                    col_name, headers
+                )));
             }
         }
     }
 
     let regex_pattern = if operator == "regex" {
-        Some(regex::Regex::new(value)
-            .map_err(|e| MuscleError::InvalidArg(format!("Invalid Regex pattern: {}", e)))?)
+        Some(
+            regex::Regex::new(value)
+                .map_err(|e| MuscleError::InvalidArg(format!("Invalid Regex pattern: {}", e)))?,
+        )
     } else {
         None
     };
@@ -162,8 +210,9 @@ fn filter_data(
     let mut matched_count = 0;
 
     for result in reader.records() {
-        let record = result.map_err(|e| MuscleError::IoError(format!("Error reading CSV record: {}", e)))?;
-        
+        let record =
+            result.map_err(|e| MuscleError::IoError(format!("Error reading CSV record: {}", e)))?;
+
         let target_field = match resolved_index {
             Some(idx) => {
                 if idx < record.len() {
@@ -172,7 +221,7 @@ fn filter_data(
                     ""
                 }
             }
-            None => ""
+            None => "",
         };
 
         let line_to_match = if resolved_index.is_none() {
@@ -182,14 +231,36 @@ fn filter_data(
         };
 
         let is_match = match operator {
-            "equals" => (resolved_index.is_none() && line_to_match == value) || (resolved_index.is_some() && target_field == value),
-            "not_equals" => (resolved_index.is_none() && line_to_match != value) || (resolved_index.is_some() && target_field != value),
-            "contains" => (resolved_index.is_none() && line_to_match.contains(value)) || (resolved_index.is_some() && target_field.contains(value)),
-            "not_contains" => (resolved_index.is_none() && !line_to_match.contains(value)) || (resolved_index.is_some() && !target_field.contains(value)),
-            "starts_with" => (resolved_index.is_none() && line_to_match.starts_with(value)) || (resolved_index.is_some() && target_field.starts_with(value)),
-            "ends_with" => (resolved_index.is_none() && line_to_match.ends_with(value)) || (resolved_index.is_some() && target_field.ends_with(value)),
+            "equals" => {
+                (resolved_index.is_none() && line_to_match == value)
+                    || (resolved_index.is_some() && target_field == value)
+            }
+            "not_equals" => {
+                (resolved_index.is_none() && line_to_match != value)
+                    || (resolved_index.is_some() && target_field != value)
+            }
+            "contains" => {
+                (resolved_index.is_none() && line_to_match.contains(value))
+                    || (resolved_index.is_some() && target_field.contains(value))
+            }
+            "not_contains" => {
+                (resolved_index.is_none() && !line_to_match.contains(value))
+                    || (resolved_index.is_some() && !target_field.contains(value))
+            }
+            "starts_with" => {
+                (resolved_index.is_none() && line_to_match.starts_with(value))
+                    || (resolved_index.is_some() && target_field.starts_with(value))
+            }
+            "ends_with" => {
+                (resolved_index.is_none() && line_to_match.ends_with(value))
+                    || (resolved_index.is_some() && target_field.ends_with(value))
+            }
             "regex" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 if let Some(re) = &regex_pattern {
                     re.is_match(target)
                 } else {
@@ -197,7 +268,11 @@ fn filter_data(
                 }
             }
             "greater_than" | "gt" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 if let (Ok(f_val), Ok(t_val)) = (target.parse::<f64>(), value.parse::<f64>()) {
                     f_val > t_val
                 } else {
@@ -205,7 +280,11 @@ fn filter_data(
                 }
             }
             "greater_or_equal" | "greater_than_or_equal" | "gte" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 if let (Ok(f_val), Ok(t_val)) = (target.parse::<f64>(), value.parse::<f64>()) {
                     f_val >= t_val
                 } else {
@@ -213,7 +292,11 @@ fn filter_data(
                 }
             }
             "less_than" | "lt" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 if let (Ok(f_val), Ok(t_val)) = (target.parse::<f64>(), value.parse::<f64>()) {
                     f_val < t_val
                 } else {
@@ -221,7 +304,11 @@ fn filter_data(
                 }
             }
             "less_or_equal" | "less_than_or_equal" | "lte" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 if let (Ok(f_val), Ok(t_val)) = (target.parse::<f64>(), value.parse::<f64>()) {
                     f_val <= t_val
                 } else {
@@ -229,35 +316,61 @@ fn filter_data(
                 }
             }
             "is_null" | "is_empty" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 target.is_empty()
             }
             "is_not_null" | "is_not_empty" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 !target.is_empty()
             }
             "in" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 value.split(',').any(|v| v.trim() == target)
             }
             "not_in" => {
-                let target = if resolved_index.is_none() { &line_to_match } else { target_field };
+                let target = if resolved_index.is_none() {
+                    &line_to_match
+                } else {
+                    target_field
+                };
                 value.split(',').all(|v| v.trim() != target)
             }
-            _ => return Err(MuscleError::InvalidArg(format!("Unsupported operator '{}'", operator))),
+            _ => {
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unsupported operator '{}'",
+                    operator
+                )));
+            }
         };
 
         if is_match {
-            writer.write_record(&record)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write CSV record: {}", e)))?;
+            writer.write_record(&record).map_err(|e| {
+                MuscleError::PermissionDenied(format!("Failed to write CSV record: {}", e))
+            })?;
             matched_count += 1;
         }
     }
 
-    writer.flush()
+    writer
+        .flush()
         .map_err(|e| MuscleError::PermissionDenied(format!("Failed to flush CSV writer: {}", e)))?;
 
-    println!("SUCCESS: Filtered data from '{}' to '{}'. Matched rows: {}", source, destination, matched_count);
+    println!(
+        "SUCCESS: Filtered data from '{}' to '{}'. Matched rows: {}",
+        source, destination, matched_count
+    );
     Ok(())
 }
 
@@ -274,7 +387,9 @@ pub fn handle_data_split(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination-prefix" | "--destination_prefix" => {
@@ -282,7 +397,9 @@ pub fn handle_data_split(args: &[String]) -> Result<(), MuscleError> {
                     destination_prefix = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination-prefix".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination-prefix".to_string(),
+                    ));
                 }
             }
             "--by-column" | "--by_column" => {
@@ -290,18 +407,27 @@ pub fn handle_data_split(args: &[String]) -> Result<(), MuscleError> {
                     by_column = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --by-column".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --by-column".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing argument --source".to_string()))?;
-    let destination_prefix = destination_prefix.ok_or_else(|| MuscleError::MissingArg("Missing argument --destination-prefix".to_string()))?;
-    let by_column = by_column.ok_or_else(|| MuscleError::MissingArg("Missing argument --by-column".to_string()))?;
+    let source =
+        source.ok_or_else(|| MuscleError::MissingArg("Missing argument --source".to_string()))?;
+    let destination_prefix = destination_prefix.ok_or_else(|| {
+        MuscleError::MissingArg("Missing argument --destination-prefix".to_string())
+    })?;
+    let by_column = by_column
+        .ok_or_else(|| MuscleError::MissingArg("Missing argument --by-column".to_string()))?;
 
     analytical_engine::split(source, destination_prefix, by_column)
         .map_err(|e| MuscleError::IoError(format!("CSV read error: {}", e)))
@@ -319,7 +445,9 @@ pub fn handle_data_merge(args: &[String]) -> Result<(), MuscleError> {
                     sources = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --sources".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --sources".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -327,19 +455,29 @@ pub fn handle_data_merge(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let sources_str = sources.ok_or_else(|| MuscleError::MissingArg("Missing argument --sources".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing argument --destination".to_string()))?;
+    let sources_str =
+        sources.ok_or_else(|| MuscleError::MissingArg("Missing argument --sources".to_string()))?;
+    let destination = destination
+        .ok_or_else(|| MuscleError::MissingArg("Missing argument --destination".to_string()))?;
 
-    let sources_list: Vec<String> = sources_str.split(',').map(|s| s.trim().to_string()).collect();
+    let sources_list: Vec<String> = sources_str
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
 
     analytical_engine::merge(sources_list, destination)
         .map_err(|e| MuscleError::IoError(format!("CSV read error: {}", e)))
@@ -359,7 +497,9 @@ pub fn handle_data_chunk_cumulative(args: &[String]) -> Result<(), MuscleError> 
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination-prefix" | "--destination_prefix" => {
@@ -367,7 +507,9 @@ pub fn handle_data_chunk_cumulative(args: &[String]) -> Result<(), MuscleError> 
                     destination_prefix = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination-prefix".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination-prefix".to_string(),
+                    ));
                 }
             }
             "--accumulate-column" | "--accumulate_column" => {
@@ -375,29 +517,43 @@ pub fn handle_data_chunk_cumulative(args: &[String]) -> Result<(), MuscleError> 
                     accumulate_column = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --accumulate-column".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --accumulate-column".to_string(),
+                    ));
                 }
             }
             "--threshold" => {
                 if i + 1 < args.len() {
-                    let parsed = args[i + 1].parse::<f64>()
-                        .map_err(|_| MuscleError::InvalidArg("Invalid float for --threshold".to_string()))?;
+                    let parsed = args[i + 1].parse::<f64>().map_err(|_| {
+                        MuscleError::InvalidArg("Invalid float for --threshold".to_string())
+                    })?;
                     threshold = Some(parsed);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --threshold".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --threshold".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing argument --source".to_string()))?;
-    let destination_prefix = destination_prefix.ok_or_else(|| MuscleError::MissingArg("Missing argument --destination-prefix".to_string()))?;
-    let accumulate_column = accumulate_column.ok_or_else(|| MuscleError::MissingArg("Missing argument --accumulate-column".to_string()))?;
-    let threshold = threshold.ok_or_else(|| MuscleError::MissingArg("Missing argument --threshold".to_string()))?;
+    let source =
+        source.ok_or_else(|| MuscleError::MissingArg("Missing argument --source".to_string()))?;
+    let destination_prefix = destination_prefix.ok_or_else(|| {
+        MuscleError::MissingArg("Missing argument --destination-prefix".to_string())
+    })?;
+    let accumulate_column = accumulate_column.ok_or_else(|| {
+        MuscleError::MissingArg("Missing argument --accumulate-column".to_string())
+    })?;
+    let threshold = threshold
+        .ok_or_else(|| MuscleError::MissingArg("Missing argument --threshold".to_string()))?;
 
     analytical_engine::chunk_cumulative(source, destination_prefix, accumulate_column, threshold)
         .map_err(|e| MuscleError::IoError(format!("CSV read error: {}", e)))
@@ -428,7 +584,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -436,7 +594,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             "--sort-by" | "--sort_by" => {
@@ -444,43 +604,57 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     sort_by = Some(args[i + 1].clone());
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --sort-by".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --sort-by".to_string(),
+                    ));
                 }
             }
             "--sort-descending" | "--sort_descending" => {
                 if i + 1 < args.len() {
-                    sort_descending = args[i + 1].parse::<bool>()
-                        .unwrap_or(false);
+                    sort_descending = args[i + 1].parse::<bool>().unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --sort-descending".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --sort-descending".to_string(),
+                    ));
                 }
             }
             "--deduplicate" => {
                 if i + 1 < args.len() {
-                    deduplicate = args[i + 1].parse::<bool>()
-                        .unwrap_or(false);
+                    deduplicate = args[i + 1].parse::<bool>().unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --deduplicate".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --deduplicate".to_string(),
+                    ));
                 }
             }
             "--deduplicate-on" | "--deduplicate_on" => {
                 if i + 1 < args.len() {
-                    let cols: Vec<String> = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    let cols: Vec<String> = args[i + 1]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect();
                     deduplicate_on = Some(cols);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --deduplicate-on".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --deduplicate-on".to_string(),
+                    ));
                 }
             }
             "--select-columns" | "--select_columns" => {
                 if i + 1 < args.len() {
-                    let cols: Vec<String> = args[i + 1].split(',').map(|s| s.trim().to_string()).collect();
+                    let cols: Vec<String> = args[i + 1]
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect();
                     select_columns = Some(cols);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --select-columns".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --select-columns".to_string(),
+                    ));
                 }
             }
             "--rename-columns" | "--rename_columns" => {
@@ -499,7 +673,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     rename_columns = Some(pairs);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --rename-columns".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --rename-columns".to_string(),
+                    ));
                 }
             }
             "--fill-na" | "--fill_na" => {
@@ -518,16 +694,19 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     fill_na = Some(pairs);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --fill-na".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --fill-na".to_string(),
+                    ));
                 }
             }
             "--drop-na" | "--drop_na" => {
                 if i + 1 < args.len() {
-                    drop_na = args[i + 1].parse::<bool>()
-                        .unwrap_or(false);
+                    drop_na = args[i + 1].parse::<bool>().unwrap_or(false);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --drop-na".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --drop-na".to_string(),
+                    ));
                 }
             }
             "--derive-columns" | "--derive_columns" => {
@@ -548,7 +727,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     derive_columns = Some(pairs);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --derive-columns".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --derive-columns".to_string(),
+                    ));
                 }
             }
             "--right-source" | "--right_source" => {
@@ -556,7 +737,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     right_source = Some(args[i + 1].clone());
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --right-source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --right-source".to_string(),
+                    ));
                 }
             }
             "--left-on" | "--left_on" => {
@@ -564,7 +747,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     left_on = Some(args[i + 1].clone());
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --left-on".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --left-on".to_string(),
+                    ));
                 }
             }
             "--right-on" | "--right_on" => {
@@ -572,7 +757,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     right_on = Some(args[i + 1].clone());
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --right-on".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --right-on".to_string(),
+                    ));
                 }
             }
             "--how-join" | "--how_join" => {
@@ -580,7 +767,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     how_join = Some(args[i + 1].clone());
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --how-join".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --how-join".to_string(),
+                    ));
                 }
             }
             "--streaming" => {
@@ -593,17 +782,25 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
                     }
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --streaming".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --streaming".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
 
     analytical_engine::clean(
         source,
@@ -620,8 +817,9 @@ pub fn handle_data_clean(args: &[String]) -> Result<(), MuscleError> {
         right_source,
         left_on,
         right_on,
-        how_join
-    ).map_err(|e| MuscleError::IoError(format!("Merge stream error: {}", e)))
+        how_join,
+    )
+    .map_err(|e| MuscleError::IoError(format!("Merge stream error: {}", e)))
 }
 
 pub fn handle_data_validate(args: &[String]) -> Result<(), MuscleError> {
@@ -634,20 +832,44 @@ pub fn handle_data_validate(args: &[String]) -> Result<(), MuscleError> {
     while i < args.len() {
         match args[i].as_str() {
             "--source" => {
-                if i + 1 < args.len() { source = Some(&args[i+1]); i += 2; }
-                else { return Err(MuscleError::MissingArg("Missing value for --source".to_string())); }
+                if i + 1 < args.len() {
+                    source = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
+                }
             }
             "--destination" => {
-                if i + 1 < args.len() { destination = Some(&args[i+1]); i += 2; }
-                else { return Err(MuscleError::MissingArg("Missing value for --destination".to_string())); }
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
+                }
             }
             "--quarantine" => {
-                if i + 1 < args.len() { quarantine = Some(&args[i+1]); i += 2; }
-                else { return Err(MuscleError::MissingArg("Missing value for --quarantine".to_string())); }
+                if i + 1 < args.len() {
+                    quarantine = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --quarantine".to_string(),
+                    ));
+                }
             }
             "--rules" => {
-                if i + 1 < args.len() { rules = Some(&args[i+1]); i += 2; }
-                else { return Err(MuscleError::MissingArg("Missing value for --rules".to_string())); }
+                if i + 1 < args.len() {
+                    rules = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --rules".to_string(),
+                    ));
+                }
             }
             "--streaming" => {
                 if i + 1 < args.len() {
@@ -659,19 +881,30 @@ pub fn handle_data_validate(args: &[String]) -> Result<(), MuscleError> {
                     }
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --streaming".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --streaming".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
-    let quarantine = quarantine.ok_or_else(|| MuscleError::MissingArg("Missing required argument --quarantine".to_string()))?;
-    let rules = rules.ok_or_else(|| MuscleError::MissingArg("Missing required argument --rules".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
+    let quarantine = quarantine.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --quarantine".to_string())
+    })?;
+    let rules = rules
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --rules".to_string()))?;
 
     analytical_engine::validate(source, destination, quarantine, rules)
         .map_err(|e| MuscleError::IoError(format!("CSV read error: {}", e)))
@@ -684,7 +917,9 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
-    fn s(item: &str) -> String { item.to_string() }
+    fn s(item: &str) -> String {
+        item.to_string()
+    }
 
     fn write_csv(dir: &TempDir, name: &str, headers: &str, rows: &[&str]) -> String {
         let path = dir.path().join(name);
@@ -704,9 +939,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "a,b", &["1,x", "2,y", "3,x"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("b"), s("--operator"), s("equals"), s("--value"), s("x"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("b"),
+            s("--operator"),
+            s("equals"),
+            s("--value"),
+            s("x"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok(), "filter failed: {:?}", result);
@@ -722,9 +966,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "a,b", &["1,x", "2,y", "3,x"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("b"), s("--operator"), s("not_equals"), s("--value"), s("x"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("b"),
+            s("--operator"),
+            s("not_equals"),
+            s("--value"),
+            s("x"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok());
@@ -737,9 +990,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "name", &["hello", "world", "help"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("name"), s("--operator"), s("contains"), s("--value"), s("hel"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("name"),
+            s("--operator"),
+            s("contains"),
+            s("--value"),
+            s("hel"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok());
@@ -752,14 +1014,24 @@ mod tests {
     fn assert_lines_contain(out: &str, expected: &[&str]) {
         let lines: Vec<&str> = out.lines().collect();
         for exp in expected {
-            assert!(lines.contains(exp), "Expected '{}' in output lines: {:?}", exp, lines);
+            assert!(
+                lines.contains(exp),
+                "Expected '{}' in output lines: {:?}",
+                exp,
+                lines
+            );
         }
     }
 
     fn assert_lines_not_contain(out: &str, unexpected: &[&str]) {
         let lines: Vec<&str> = out.lines().collect();
         for unexp in unexpected {
-            assert!(!lines.contains(unexp), "Did not expect '{}' in output lines: {:?}", unexp, lines);
+            assert!(
+                !lines.contains(unexp),
+                "Did not expect '{}' in output lines: {:?}",
+                unexp,
+                lines
+            );
         }
     }
 
@@ -769,9 +1041,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "val", &["5", "10", "15"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("val"), s("--operator"), s("greater_than"), s("--value"), s("9"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("val"),
+            s("--operator"),
+            s("greater_than"),
+            s("--value"),
+            s("9"),
+            s("--has-headers"),
+            s("true"),
         ];
         assert!(handle_data_filter(&args).is_ok());
         let out = fs::read_to_string(&dst).unwrap();
@@ -785,9 +1066,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "val", &["5", "10", "15"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("val"), s("--operator"), s("greater_or_equal"), s("--value"), s("10"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("val"),
+            s("--operator"),
+            s("greater_or_equal"),
+            s("--value"),
+            s("10"),
+            s("--has-headers"),
+            s("true"),
         ];
         assert!(handle_data_filter(&args).is_ok());
         let out = fs::read_to_string(&dst).unwrap();
@@ -801,9 +1091,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "val", &["5", "10", "15"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("val"), s("--operator"), s("less_than"), s("--value"), s("11"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("val"),
+            s("--operator"),
+            s("less_than"),
+            s("--value"),
+            s("11"),
+            s("--has-headers"),
+            s("true"),
         ];
         assert!(handle_data_filter(&args).is_ok());
         let out = fs::read_to_string(&dst).unwrap();
@@ -817,9 +1116,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "val", &["5", "10", "15"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("val"), s("--operator"), s("less_or_equal"), s("--value"), s("10"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("val"),
+            s("--operator"),
+            s("less_or_equal"),
+            s("--value"),
+            s("10"),
+            s("--has-headers"),
+            s("true"),
         ];
         assert!(handle_data_filter(&args).is_ok());
         let out = fs::read_to_string(&dst).unwrap();
@@ -833,9 +1141,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "status", &["a", "b", "c", "d"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("status"), s("--operator"), s("in"), s("--value"), s("a,c"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("status"),
+            s("--operator"),
+            s("in"),
+            s("--value"),
+            s("a,c"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok());
@@ -852,9 +1169,16 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "val", &["x", "", "y"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("val"), s("--operator"), s("is_null"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("val"),
+            s("--operator"),
+            s("is_null"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok());
@@ -870,9 +1194,16 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "val", &["x", "", "y"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("val"), s("--operator"), s("is_not_null"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("val"),
+            s("--operator"),
+            s("is_not_null"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok());
@@ -888,9 +1219,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "code", &["AB12", "CD34", "EF56"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("code"), s("--operator"), s("regex"), s("--value"), s("^[A-Z]{2}\\d{2}$"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("code"),
+            s("--operator"),
+            s("regex"),
+            s("--value"),
+            s("^[A-Z]{2}\\d{2}$"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_ok());
@@ -915,9 +1255,18 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "a", &["1"]);
         let dst = tmp.path().join("out.csv").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination"), s(&dst),
-            s("--column-name"), s("a"), s("--operator"), s("bogus"), s("--value"), s("1"),
-            s("--has-headers"), s("true"),
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--column-name"),
+            s("a"),
+            s("--operator"),
+            s("bogus"),
+            s("--value"),
+            s("1"),
+            s("--has-headers"),
+            s("true"),
         ];
         let result = handle_data_filter(&args);
         assert!(result.is_err());
@@ -931,15 +1280,24 @@ mod tests {
         let src = write_csv(&tmp, "in.csv", "cat,val", &["a,1", "b,2", "a,3"]);
         let prefix = tmp.path().join("split_").to_string_lossy().to_string();
         let args: Vec<String> = vec![
-            s("--source"), s(&src), s("--destination-prefix"), s(&prefix),
-            s("--by-column"), s("cat"),
+            s("--source"),
+            s(&src),
+            s("--destination-prefix"),
+            s(&prefix),
+            s("--by-column"),
+            s("cat"),
         ];
         let result = handle_data_split(&args);
         assert!(result.is_ok(), "split failed: {:?}", result);
         let files: Vec<String> = std::fs::read_dir(tmp.path())
-            .unwrap().filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().to_string()))
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().to_string()))
             .collect();
         // at least the split output files exist (naming depends on Polars version)
-        assert!(files.iter().any(|f| f.contains("split_")), "no split_ files found in {:?}", files);
+        assert!(
+            files.iter().any(|f| f.contains("split_")),
+            "no split_ files found in {:?}",
+            files
+        );
     }
 }

@@ -1,9 +1,9 @@
 // [WFGY] Zone: SAFE | λ: 0.1 | Action: Local File IO primitives
 
+use crate::MuscleError;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use crate::MuscleError;
 
 pub fn handle_io_write_file(args: &[String]) -> Result<(), MuscleError> {
     let mut path = None;
@@ -17,7 +17,9 @@ pub fn handle_io_write_file(args: &[String]) -> Result<(), MuscleError> {
                     path = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --path".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --path".to_string(),
+                    ));
                 }
             }
             "--content" => {
@@ -25,17 +27,25 @@ pub fn handle_io_write_file(args: &[String]) -> Result<(), MuscleError> {
                     content = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --content".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --content".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let path = path.ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
-    let content = content.ok_or_else(|| MuscleError::MissingArg("Missing required argument --content".to_string()))?;
+    let path = path
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
+    let content = content.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --content".to_string())
+    })?;
 
     io_write_file(path, content)
 }
@@ -44,15 +54,23 @@ fn io_write_file(path_str: &str, content: &str) -> Result<(), MuscleError> {
     let dest_path = Path::new(path_str);
     if let Some(parent) = dest_path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create destination directories: {}", e)))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                MuscleError::DestDirCreation(format!(
+                    "Failed to create destination directories: {}",
+                    e
+                ))
+            })?;
         }
     }
 
     fs::write(dest_path, content)
         .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write file: {}", e)))?;
 
-    println!("SUCCESS: Created/Overwrote file '{}' ({} bytes)", path_str, content.len());
+    println!(
+        "SUCCESS: Created/Overwrote file '{}' ({} bytes)",
+        path_str,
+        content.len()
+    );
     Ok(())
 }
 
@@ -70,7 +88,9 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -78,7 +98,9 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             "--mode" => {
@@ -86,7 +108,9 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     mode = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --mode".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --mode".to_string(),
+                    ));
                 }
             }
             "--conflict" => {
@@ -94,53 +118,81 @@ pub fn handle_io_copy(args: &[String]) -> Result<(), MuscleError> {
                     conflict = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --conflict".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --conflict".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
 
     copy_file(source, destination, &mode, &conflict)
 }
 
-fn copy_file(source: &str, destination: &str, mode: &str, conflict: &str) -> Result<(), MuscleError> {
+fn copy_file(
+    source: &str,
+    destination: &str,
+    mode: &str,
+    conflict: &str,
+) -> Result<(), MuscleError> {
     let src_path = Path::new(source);
     let dest_path = Path::new(destination);
 
     if !src_path.exists() {
-        return Err(MuscleError::SourceNotFound(format!("Source path '{}' does not exist", source)));
+        return Err(MuscleError::SourceNotFound(format!(
+            "Source path '{}' does not exist",
+            source
+        )));
     }
 
     if src_path.is_dir() {
-        return Err(MuscleError::InvalidArg("Directory copy not supported in basic io.copy file mode".to_string()));
+        return Err(MuscleError::InvalidArg(
+            "Directory copy not supported in basic io.copy file mode".to_string(),
+        ));
     }
 
     let mut resolved_dest = dest_path.to_path_buf();
-    let is_dir = destination.ends_with('/') 
-        || destination.ends_with('\\') 
+    let is_dir = destination.ends_with('/')
+        || destination.ends_with('\\')
         || (dest_path.exists() && dest_path.is_dir());
 
     if is_dir {
         if let Some(filename) = src_path.file_name() {
             if !dest_path.exists() {
-                fs::create_dir_all(dest_path)
-                    .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create destination directory: {}", e)))?;
+                fs::create_dir_all(dest_path).map_err(|e| {
+                    MuscleError::DestDirCreation(format!(
+                        "Failed to create destination directory: {}",
+                        e
+                    ))
+                })?;
             }
             resolved_dest = dest_path.join(filename);
         } else {
-            return Err(MuscleError::IoError("Failed to resolve filename from source path".to_string()));
+            return Err(MuscleError::IoError(
+                "Failed to resolve filename from source path".to_string(),
+            ));
         }
     } else {
         if let Some(parent) = dest_path.parent() {
             if !parent.exists() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create destination directories: {}", e)))?;
+                fs::create_dir_all(parent).map_err(|e| {
+                    MuscleError::DestDirCreation(format!(
+                        "Failed to create destination directories: {}",
+                        e
+                    ))
+                })?;
             }
         }
     }
@@ -152,12 +204,23 @@ fn copy_file(source: &str, destination: &str, mode: &str, conflict: &str) -> Res
                 return Ok(());
             }
             "newer" => {
-                let src_meta = src_path.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source metadata: {}", e)))?;
-                let dest_meta = resolved_dest.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read destination metadata: {}", e)))?;
-                
-                let src_modified = src_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read source modified time: {}", e)))?;
-                let dest_modified = dest_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read destination modified time: {}", e)))?;
-                
+                let src_meta = src_path.metadata().map_err(|e| {
+                    MuscleError::PermissionDenied(format!("Failed to read source metadata: {}", e))
+                })?;
+                let dest_meta = resolved_dest.metadata().map_err(|e| {
+                    MuscleError::PermissionDenied(format!(
+                        "Failed to read destination metadata: {}",
+                        e
+                    ))
+                })?;
+
+                let src_modified = src_meta.modified().map_err(|e| {
+                    MuscleError::IoError(format!("Failed to read source modified time: {}", e))
+                })?;
+                let dest_modified = dest_meta.modified().map_err(|e| {
+                    MuscleError::IoError(format!("Failed to read destination modified time: {}", e))
+                })?;
+
                 if src_modified <= dest_modified {
                     println!("SUCCESS: Skipped copying. Source is not newer than destination.");
                     return Ok(());
@@ -168,29 +231,43 @@ fn copy_file(source: &str, destination: &str, mode: &str, conflict: &str) -> Res
     }
 
     if mode == "text" {
-        let content = fs::read_to_string(src_path)
-            .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source file in text mode: {}", e)))?;
-        fs::write(&resolved_dest, content)
-            .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write destination file in text mode: {}", e)))?;
+        let content = fs::read_to_string(src_path).map_err(|e| {
+            MuscleError::PermissionDenied(format!("Failed to read source file in text mode: {}", e))
+        })?;
+        fs::write(&resolved_dest, content).map_err(|e| {
+            MuscleError::PermissionDenied(format!(
+                "Failed to write destination file in text mode: {}",
+                e
+            ))
+        })?;
     } else {
-        let mut src_file = fs::File::open(src_path)
-            .map_err(|e| MuscleError::PermissionDenied(format!("Failed to open source file: {}", e)))?;
-        let mut dest_file = fs::File::create(&resolved_dest)
-            .map_err(|e| MuscleError::PermissionDenied(format!("Failed to create destination file: {}", e)))?;
-        
+        let mut src_file = fs::File::open(src_path).map_err(|e| {
+            MuscleError::PermissionDenied(format!("Failed to open source file: {}", e))
+        })?;
+        let mut dest_file = fs::File::create(&resolved_dest).map_err(|e| {
+            MuscleError::PermissionDenied(format!("Failed to create destination file: {}", e))
+        })?;
+
         let mut buffer = [0; 64 * 1024];
         loop {
-            let bytes_read = src_file.read(&mut buffer)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source file: {}", e)))?;
+            let bytes_read = src_file.read(&mut buffer).map_err(|e| {
+                MuscleError::PermissionDenied(format!("Failed to read source file: {}", e))
+            })?;
             if bytes_read == 0 {
                 break;
             }
-            dest_file.write_all(&buffer[..bytes_read])
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to write destination file: {}", e)))?;
+            dest_file.write_all(&buffer[..bytes_read]).map_err(|e| {
+                MuscleError::PermissionDenied(format!("Failed to write destination file: {}", e))
+            })?;
         }
     }
 
-    println!("SUCCESS: Copied '{}' to '{}' in '{}' mode", source, resolved_dest.to_string_lossy(), mode);
+    println!(
+        "SUCCESS: Copied '{}' to '{}' in '{}' mode",
+        source,
+        resolved_dest.to_string_lossy(),
+        mode
+    );
     Ok(())
 }
 
@@ -207,7 +284,9 @@ pub fn handle_io_move(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -215,7 +294,9 @@ pub fn handle_io_move(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             "--conflict" => {
@@ -223,17 +304,25 @@ pub fn handle_io_move(args: &[String]) -> Result<(), MuscleError> {
                     conflict = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --conflict".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --conflict".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
 
     move_file(source, destination, &conflict)
 }
@@ -243,29 +332,42 @@ fn move_file(source: &str, destination: &str, conflict: &str) -> Result<(), Musc
     let dest_path = Path::new(destination);
 
     if !src_path.exists() {
-        return Err(MuscleError::SourceNotFound(format!("Source path '{}' does not exist", source)));
+        return Err(MuscleError::SourceNotFound(format!(
+            "Source path '{}' does not exist",
+            source
+        )));
     }
 
     let mut resolved_dest = dest_path.to_path_buf();
-    let is_dir = destination.ends_with('/') 
-        || destination.ends_with('\\') 
+    let is_dir = destination.ends_with('/')
+        || destination.ends_with('\\')
         || (dest_path.exists() && dest_path.is_dir());
 
     if is_dir {
         if let Some(filename) = src_path.file_name() {
             if !dest_path.exists() {
-                fs::create_dir_all(dest_path)
-                    .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create destination directory: {}", e)))?;
+                fs::create_dir_all(dest_path).map_err(|e| {
+                    MuscleError::DestDirCreation(format!(
+                        "Failed to create destination directory: {}",
+                        e
+                    ))
+                })?;
             }
             resolved_dest = dest_path.join(filename);
         } else {
-            return Err(MuscleError::IoError("Failed to resolve filename from source path".to_string()));
+            return Err(MuscleError::IoError(
+                "Failed to resolve filename from source path".to_string(),
+            ));
         }
     } else {
         if let Some(parent) = dest_path.parent() {
             if !parent.exists() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create destination directories: {}", e)))?;
+                fs::create_dir_all(parent).map_err(|e| {
+                    MuscleError::DestDirCreation(format!(
+                        "Failed to create destination directories: {}",
+                        e
+                    ))
+                })?;
             }
         }
     }
@@ -277,12 +379,23 @@ fn move_file(source: &str, destination: &str, conflict: &str) -> Result<(), Musc
                 return Ok(());
             }
             "newer" => {
-                let src_meta = src_path.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read source metadata: {}", e)))?;
-                let dest_meta = resolved_dest.metadata().map_err(|e| MuscleError::PermissionDenied(format!("Failed to read destination metadata: {}", e)))?;
-                
-                let src_modified = src_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read source modified time: {}", e)))?;
-                let dest_modified = dest_meta.modified().map_err(|e| MuscleError::IoError(format!("Failed to read destination modified time: {}", e)))?;
-                
+                let src_meta = src_path.metadata().map_err(|e| {
+                    MuscleError::PermissionDenied(format!("Failed to read source metadata: {}", e))
+                })?;
+                let dest_meta = resolved_dest.metadata().map_err(|e| {
+                    MuscleError::PermissionDenied(format!(
+                        "Failed to read destination metadata: {}",
+                        e
+                    ))
+                })?;
+
+                let src_modified = src_meta.modified().map_err(|e| {
+                    MuscleError::IoError(format!("Failed to read source modified time: {}", e))
+                })?;
+                let dest_modified = dest_meta.modified().map_err(|e| {
+                    MuscleError::IoError(format!("Failed to read destination modified time: {}", e))
+                })?;
+
                 if src_modified <= dest_modified {
                     println!("SUCCESS: Skipped moving. Source is not newer than destination.");
                     return Ok(());
@@ -301,43 +414,68 @@ fn move_file(source: &str, destination: &str, conflict: &str) -> Result<(), Musc
     if let Err(_) = fs::rename(src_path, &resolved_dest) {
         println!("[RUST] Fast rename failed. Initiating cross-volume copy and delete fallback...");
         if src_path.is_file() {
-            fs::copy(src_path, &resolved_dest)
-                .map_err(|e| MuscleError::CrossVolumeFail(format!("Cross-volume copy failed: {}", e)))?;
-            fs::remove_file(src_path)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Clean up of source file failed: {}", e)))?;
+            fs::copy(src_path, &resolved_dest).map_err(|e| {
+                MuscleError::CrossVolumeFail(format!("Cross-volume copy failed: {}", e))
+            })?;
+            fs::remove_file(src_path).map_err(|e| {
+                MuscleError::PermissionDenied(format!("Clean up of source file failed: {}", e))
+            })?;
         } else if src_path.is_dir() {
             copy_dir_all(src_path, &resolved_dest)?;
-            fs::remove_dir_all(src_path)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Clean up of source directory failed: {}", e)))?;
+            fs::remove_dir_all(src_path).map_err(|e| {
+                MuscleError::PermissionDenied(format!("Clean up of source directory failed: {}", e))
+            })?;
         }
     }
 
-    println!("SUCCESS: Moved '{}' to '{}'", source, resolved_dest.to_string_lossy());
+    println!(
+        "SUCCESS: Moved '{}' to '{}'",
+        source,
+        resolved_dest.to_string_lossy()
+    );
     Ok(())
 }
 
 fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), MuscleError> {
     if !dst.exists() {
-        fs::create_dir_all(dst)
-            .map_err(|e| MuscleError::DestDirCreation(format!("Failed to create directory '{}': {}", dst.to_string_lossy(), e)))?;
+        fs::create_dir_all(dst).map_err(|e| {
+            MuscleError::DestDirCreation(format!(
+                "Failed to create directory '{}': {}",
+                dst.to_string_lossy(),
+                e
+            ))
+        })?;
     }
 
-    let entries = fs::read_dir(src)
-        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read directory '{}': {}", src.to_string_lossy(), e)))?;
+    let entries = fs::read_dir(src).map_err(|e| {
+        MuscleError::PermissionDenied(format!(
+            "Failed to read directory '{}': {}",
+            src.to_string_lossy(),
+            e
+        ))
+    })?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| MuscleError::IoError(format!("Error reading directory entry: {}", e)))?;
-        let file_type = entry.file_type()
+        let entry = entry
+            .map_err(|e| MuscleError::IoError(format!("Error reading directory entry: {}", e)))?;
+        let file_type = entry
+            .file_type()
             .map_err(|e| MuscleError::IoError(format!("Failed to read file type: {}", e)))?;
-        
+
         let src_entry_path = entry.path();
         let dst_entry_path = dst.join(entry.file_name());
 
         if file_type.is_dir() {
             copy_dir_all(&src_entry_path, &dst_entry_path)?;
         } else {
-            fs::copy(&src_entry_path, &dst_entry_path)
-                .map_err(|e| MuscleError::CrossVolumeFail(format!("Failed to copy file '{}' to '{}': {}", src_entry_path.to_string_lossy(), dst_entry_path.to_string_lossy(), e)))?;
+            fs::copy(&src_entry_path, &dst_entry_path).map_err(|e| {
+                MuscleError::CrossVolumeFail(format!(
+                    "Failed to copy file '{}' to '{}': {}",
+                    src_entry_path.to_string_lossy(),
+                    dst_entry_path.to_string_lossy(),
+                    e
+                ))
+            })?;
         }
     }
     Ok(())
@@ -356,7 +494,9 @@ pub fn handle_io_delete(args: &[String]) -> Result<(), MuscleError> {
                     path = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --path".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --path".to_string(),
+                    ));
                 }
             }
             "--secure" => {
@@ -364,27 +504,36 @@ pub fn handle_io_delete(args: &[String]) -> Result<(), MuscleError> {
                     secure = args[i + 1].clone();
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --secure".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --secure".to_string(),
+                    ));
                 }
             }
             "--retention-days" => {
                 if i + 1 < args.len() {
-                    let parsed = args[i + 1].parse::<u64>()
-                        .map_err(|_| MuscleError::InvalidArg("Invalid integer for --retention-days".to_string()))?;
+                    let parsed = args[i + 1].parse::<u64>().map_err(|_| {
+                        MuscleError::InvalidArg("Invalid integer for --retention-days".to_string())
+                    })?;
                     retention_days = Some(parsed);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --retention-days".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --retention-days".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let path = path.ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
-    
+    let path = path
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
+
     delete_file_or_dir(path, &secure)?;
 
     if secure == "trash" {
@@ -399,7 +548,10 @@ pub fn handle_io_delete(args: &[String]) -> Result<(), MuscleError> {
 fn delete_file_or_dir(target: &str, secure: &str) -> Result<(), MuscleError> {
     let target_path = Path::new(target);
     if !target_path.exists() {
-        println!("SUCCESS: Path '{}' does not exist. Nothing to delete.", target);
+        println!(
+            "SUCCESS: Path '{}' does not exist. Nothing to delete.",
+            target
+        );
         return Ok(());
     }
 
@@ -407,8 +559,9 @@ fn delete_file_or_dir(target: &str, secure: &str) -> Result<(), MuscleError> {
         let root_dir = Path::new(".");
         let trash_dir = root_dir.join(".trash");
         if !trash_dir.exists() {
-            fs::create_dir_all(&trash_dir)
-                .map_err(|e| MuscleError::TrashCreation(format!("Failed to create local trash directory: {}", e)))?;
+            fs::create_dir_all(&trash_dir).map_err(|e| {
+                MuscleError::TrashCreation(format!("Failed to create local trash directory: {}", e))
+            })?;
         }
 
         if let Some(filename) = target_path.file_name() {
@@ -417,24 +570,36 @@ fn delete_file_or_dir(target: &str, secure: &str) -> Result<(), MuscleError> {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
-            
+
             let trashed_name = format!("{}_{}", timestamp, filename.to_string_lossy());
             let dest_path = trash_dir.join(trashed_name);
-            
-            fs::rename(target_path, &dest_path)
-                .map_err(|e| MuscleError::TrashCreation(format!("Failed to move file to trash: {}", e)))?;
-            
-            println!("SUCCESS: Moved '{}' to local trash bin: '{}'", target, dest_path.to_string_lossy());
+
+            fs::rename(target_path, &dest_path).map_err(|e| {
+                MuscleError::TrashCreation(format!("Failed to move file to trash: {}", e))
+            })?;
+
+            println!(
+                "SUCCESS: Moved '{}' to local trash bin: '{}'",
+                target,
+                dest_path.to_string_lossy()
+            );
         } else {
-            return Err(MuscleError::IoError("Failed to resolve filename from path for trashing".to_string()));
+            return Err(MuscleError::IoError(
+                "Failed to resolve filename from path for trashing".to_string(),
+            ));
         }
     } else {
         if target_path.is_file() {
-            fs::remove_file(target_path)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to delete file permanently: {}", e)))?;
+            fs::remove_file(target_path).map_err(|e| {
+                MuscleError::PermissionDenied(format!("Failed to delete file permanently: {}", e))
+            })?;
         } else if target_path.is_dir() {
-            fs::remove_dir_all(target_path)
-                .map_err(|e| MuscleError::PermissionDenied(format!("Failed to delete directory permanently: {}", e)))?;
+            fs::remove_dir_all(target_path).map_err(|e| {
+                MuscleError::PermissionDenied(format!(
+                    "Failed to delete directory permanently: {}",
+                    e
+                ))
+            })?;
         }
         println!("SUCCESS: Permanently deleted '{}'", target);
     }
@@ -453,10 +618,11 @@ fn clean_old_trash_items(retention_days: u64) -> Result<(), MuscleError> {
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    
+
     let max_age_seconds = retention_days * 24 * 60 * 60;
-    let entries = fs::read_dir(trash_dir)
-        .map_err(|e| MuscleError::TrashCreation(format!("Failed to read trash directory: {}", e)))?;
+    let entries = fs::read_dir(trash_dir).map_err(|e| {
+        MuscleError::TrashCreation(format!("Failed to read trash directory: {}", e))
+    })?;
 
     for entry in entries {
         if let Ok(entry) = entry {
@@ -471,7 +637,10 @@ fn clean_old_trash_items(retention_days: u64) -> Result<(), MuscleError> {
                             } else if path.is_dir() {
                                 let _ = fs::remove_dir_all(&path);
                             }
-                            println!("[RUST] Trashed item '{}' permanently deleted due to retention policy (N={} days).", filename_str, retention_days);
+                            println!(
+                                "[RUST] Trashed item '{}' permanently deleted due to retention policy (N={} days).",
+                                filename_str, retention_days
+                            );
                         }
                     }
                 }
@@ -493,16 +662,22 @@ pub fn handle_io_metadata(args: &[String]) -> Result<(), MuscleError> {
                     path = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --path".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --path".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let path_str = path.ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
+    let path_str = path
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --path".to_string()))?;
     let path = Path::new(path_str);
 
     if !path.exists() {
@@ -510,14 +685,16 @@ pub fn handle_io_metadata(args: &[String]) -> Result<(), MuscleError> {
         return Ok(());
     }
 
-    let metadata = path.metadata()
-        .map_err(|e| MuscleError::PermissionDenied(format!("Failed to read metadata for '{}': {}", path_str, e)))?;
+    let metadata = path.metadata().map_err(|e| {
+        MuscleError::PermissionDenied(format!("Failed to read metadata for '{}': {}", path_str, e))
+    })?;
 
     let is_dir = metadata.is_dir();
     let size_bytes = metadata.len();
-    
+
     use std::time::SystemTime;
-    let modified_epoch = metadata.modified()
+    let modified_epoch = metadata
+        .modified()
         .unwrap_or(SystemTime::UNIX_EPOCH)
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -543,7 +720,9 @@ pub fn handle_io_zip(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -551,17 +730,25 @@ pub fn handle_io_zip(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
 
     run_archive_helper("zip", source, destination)
 }
@@ -578,7 +765,9 @@ pub fn handle_io_unzip(args: &[String]) -> Result<(), MuscleError> {
                     source = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --source".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --source".to_string(),
+                    ));
                 }
             }
             "--destination" => {
@@ -586,24 +775,36 @@ pub fn handle_io_unzip(args: &[String]) -> Result<(), MuscleError> {
                     destination = Some(&args[i + 1]);
                     i += 2;
                 } else {
-                    return Err(MuscleError::MissingArg("Missing value for --destination".to_string()));
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --destination".to_string(),
+                    ));
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let source = source.ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+    let source = source
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --source".to_string()))?;
+    let destination = destination.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --destination".to_string())
+    })?;
 
     run_archive_helper("unzip", source, destination)
 }
 
 fn run_archive_helper(mode: &str, source: &str, destination: &str) -> Result<(), MuscleError> {
     use std::process::Command;
-    let py_path = if cfg!(windows) { ".venv\\Scripts\\python.exe" } else { ".venv/bin/python" };
+    let py_path = if cfg!(windows) {
+        ".venv\\Scripts\\python.exe"
+    } else {
+        ".venv/bin/python"
+    };
     let helper_path = "brain/archive_helper.py";
 
     let mut cmd = Command::new(py_path);
@@ -615,7 +816,10 @@ fn run_archive_helper(mode: &str, source: &str, destination: &str) -> Result<(),
 
     if !output.status.success() {
         let err_msg = String::from_utf8_lossy(&output.stderr).to_string();
-        return Err(MuscleError::IoError(format!("Archive helper failed: {}", err_msg)));
+        return Err(MuscleError::IoError(format!(
+            "Archive helper failed: {}",
+            err_msg
+        )));
     }
 
     let stdout_msg = String::from_utf8_lossy(&output.stdout).to_string();
@@ -630,7 +834,9 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
-    fn s(item: &str) -> String { item.to_string() }
+    fn s(item: &str) -> String {
+        item.to_string()
+    }
 
     fn write_test_file(dir: &TempDir, name: &str, content: &str) -> String {
         let path = dir.path().join(name);
@@ -657,7 +863,12 @@ mod tests {
     fn test_io_copy_missing_source() {
         let tmp = TempDir::new().unwrap();
         let dst = tmp.path().join("nope.txt").to_string_lossy().to_string();
-        let args: Vec<String> = vec![s("--source"), s("/nonexistent/file"), s("--destination"), s(&dst)];
+        let args: Vec<String> = vec![
+            s("--source"),
+            s("/nonexistent/file"),
+            s("--destination"),
+            s(&dst),
+        ];
         let result = handle_io_copy(&args);
         assert!(result.is_err());
     }
@@ -667,7 +878,14 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let src = write_test_file(&tmp, "a.bin", "hello");
         let dst = tmp.path().join("b.bin").to_string_lossy().to_string();
-        let args: Vec<String> = vec![s("--source"), s(&src), s("--destination"), s(&dst), s("--mode"), s("binary")];
+        let args: Vec<String> = vec![
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--mode"),
+            s("binary"),
+        ];
         let result = handle_io_copy(&args);
         assert!(result.is_ok());
         assert!(std::path::Path::new(&dst).exists());
@@ -678,7 +896,14 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let src = write_test_file(&tmp, "src.txt", "hello");
         let dst = write_test_file(&tmp, "dst.txt", "existing");
-        let args: Vec<String> = vec![s("--source"), s(&src), s("--destination"), s(&dst), s("--conflict"), s("skip")];
+        let args: Vec<String> = vec![
+            s("--source"),
+            s(&src),
+            s("--destination"),
+            s(&dst),
+            s("--conflict"),
+            s("skip"),
+        ];
         let result = handle_io_copy(&args);
         assert!(result.is_ok());
         assert_eq!(fs::read_to_string(&dst).unwrap(), "existing");
@@ -719,7 +944,12 @@ mod tests {
 
     #[test]
     fn test_io_delete_missing_file() {
-        let args: Vec<String> = vec![s("--path"), s("/nonexistent/file"), s("--secure"), s("permanent")];
+        let args: Vec<String> = vec![
+            s("--path"),
+            s("/nonexistent/file"),
+            s("--secure"),
+            s("permanent"),
+        ];
         let result = handle_io_delete(&args);
         assert!(result.is_ok()); // handler returns Ok if path does not exist
     }
@@ -764,4 +994,3 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), "new");
     }
 }
-
