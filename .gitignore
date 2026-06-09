@@ -30,4 +30,5 @@ brain/run_history.json
 brain/audit_trail.json
 brain/.run_checkpoint.db
 brain/.run_checkpoint.json
+workspace/.dlq/
 

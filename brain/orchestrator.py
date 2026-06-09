@@ -350,6 +350,61 @@ class Orchestrator:
                 resolved[k] = v
         return resolved
 
+    def _save_to_dlq(self, plan_id: str, step_num: int, primitive: str, args: dict, code: int, stderr: str, attempts: int):
+        dlq_dir = self.root_dir / "workspace" / ".dlq"
+        dlq_dir.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "plan_id": plan_id,
+            "step": step_num,
+            "primitive": primitive,
+            "args": args,
+            "exit_code": code,
+            "error": stderr.strip(),
+            "attempts": attempts,
+            "timestamp": datetime.datetime.now().isoformat(),
+        }
+        filename = f"{plan_id}_step{step_num}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = dlq_dir / filename
+        path.write_text(json.dumps(entry, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"[DLQ] Failed step saved to {path}")
+
+    def list_dlq(self, plan_id: str = None) -> list:
+        """Liste les entrées de la dead-letter queue (optionnellement filtré par plan_id)."""
+        dlq_dir = self.root_dir / "workspace" / ".dlq"
+        if not dlq_dir.exists():
+            return []
+        entries = []
+        for f in sorted(dlq_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+            if f.suffix == ".json":
+                if plan_id is None or f.name.startswith(plan_id):
+                    try:
+                        entries.append(json.loads(f.read_text(encoding="utf-8")))
+                    except Exception:
+                        pass
+        return entries
+
+    def replay_dlq(self, entry: dict) -> None:
+        """Relance une étape échouée depuis le DLQ (synchrone, usage externe)."""
+        print(f"[DLQ] Replaying step {entry['step']} ({entry['primitive']})...")
+        asyncio.create_task(self._replay_dlq_entry(entry))
+
+    async def _replay_dlq_entry(self, entry: dict):
+        """Coroutine interne pour rejouer une entrée DLQ."""
+        fake_recipe = {
+            "plan_id": f"dlq_replay_{entry['plan_id']}",
+            "steps": [{
+                "step": 1,
+                "primitive": entry["primitive"],
+                "args": entry["args"],
+                "retry": {"attempts": 1},
+            }]
+        }
+        result = await self.run_recipe(fake_recipe)
+        if result:
+            print(f"[DLQ] Replay succeeded for step {entry['step']} ({entry['primitive']})")
+        else:
+            print(f"[DLQ] Replay failed for step {entry['step']} ({entry['primitive']})")
+
     async def run_recipe(self, recipe_data: dict, status_callback=None, ask_user_callback=None, target_env: str = "dev") -> bool:
         plan_id = recipe_data.get("plan_id", "unknown")
         intent = recipe_data.get("intent_analysis", "No intent specified")
@@ -941,8 +996,8 @@ class Orchestrator:
             if code != 0:
                 METRICS.counter_inc("wfgy_step_failures_total", {"primitive": primitive, "code": str(code)})
                 print(f"[ERROR] Step {step_num} failed after {attempts} attempts. Code: {code}")
+                translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
                 if status_callback:
-                    translated_error = ERROR_TRANSLATIONS.get(code, f"Erreur d'exécution inconnue (Code: {code})")
                     status_callback(step_num, "error", f"{translated_error} | Détails: {stderr.strip()}")
                 failed_steps.add(step_num)
                 step_end = time.perf_counter()
@@ -952,6 +1007,7 @@ class Orchestrator:
                     "duration_ms": int((step_end - step_start) * 1000),
                     "status": "error"
                 }
+                self._save_to_dlq(plan_id, step_num, primitive, args, code, stderr, attempts)
                 step_events[step_num].set()
                 return False
 

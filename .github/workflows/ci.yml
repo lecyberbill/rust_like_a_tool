@@ -51,7 +51,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio jsonschema websockets pillow
+          pip install pytest pytest-asyncio jsonschema websockets pillow pymongo
 
       - name: Build Rust binary
         run: cargo build
@@ -61,3 +61,56 @@ jobs:
         env:
           RUST_BIN_PATH: rust_muscle/target/debug/rust_muscle
         run: python -m pytest brain/tests/ -v
+
+  test-db:
+    name: DB — real PostgreSQL + MongoDB
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongosh --eval "db.adminCommand('ping')"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio jsonschema websockets pillow pymongo
+
+      - name: Build Rust binary
+        run: cargo build
+        working-directory: rust_muscle
+
+      - name: Run real MongoDB integration test
+        env:
+          SECRET_MONGO_URI: mongodb://localhost:27017
+        run: python test_results/test_real_mongodb.py
+
+      - name: Run real PostgreSQL E2E stress test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: python test_results/run_e2e_postgres_test.py
