@@ -1,61 +1,108 @@
-# [WFGY] Zone: SAFE | λ: 0.1 | Action: Secrets management vault wrapper inside Chromatix CPS PNG images
+# [WFGY] Zone: SAFE | λ: 0.3 | Action: Multi‑tenant vault using Chromatix TenantVault
 
 import os
 import sys
 import json
 from pathlib import Path
 
-# Dynamically add Chromatix path to sys.path
 sys.path.append(str(Path("d:/image_to_text/chromatix")))
 
 try:
-    from chromatix_cps.core import CPSPacket
+    from chromatix_cps import TenantVault
     from PIL import Image
     HAS_CHROMATIX = True
-    print("[STEALTH VAULT] Chromatix Pixel Standard Engine successfully loaded.")
 except ImportError:
     HAS_CHROMATIX = False
-    print("[STEALTH VAULT] Chromatix Engine not found. Running in legacy flat-file fallback mode.")
 
 class StealthVault:
     """
-    Stealth Vault that encrypts and stores flow secrets inside a Chromatix PNG image.
+    Vault multi‑tenant. Chaque tenant (ex: default, dev, test, prod,
+    ou un ID utilisateur JWT) possède son propre fichier .vault.png
+    chiffré via Chromatix TenantVault.
     """
-    def __init__(self, key: str):
-        self.key = key or "default-stealth-key-99"
-        self.vault_path = Path(__file__).parent / "etl_vault.png"
-        self.fallback_path = Path(__file__).parent / "etl_vault.json"
 
+    def __init__(self, key: str, tenant_id: str = "default"):
+        self.key = key
+        self.tenant_id = tenant_id
+        self.vaults_dir = Path(__file__).parent / "vaults"
+        self._tv = TenantVault(vaults_dir=str(self.vaults_dir), derive_key=key)
+
+    # ── Migration depuis l'ancien vault monolithique ────────────
+    def _migrate_legacy(self):
+        legacy_png = Path(__file__).parent / "etl_vault.png"
+        legacy_json = Path(__file__).parent / "etl_vault.json"
+        migrated = False
+
+        for legacy in [legacy_png, legacy_json]:
+            if not legacy.exists():
+                continue
+            try:
+                if legacy.suffix == ".png" and HAS_CHROMATIX:
+                    from chromatix_cps.core import CPSPacket
+                    cps = CPSPacket(self.key)
+                    data = json.loads(cps.decode_raw_bytes(Image.open(legacy)).decode("utf-8"))
+                else:
+                    data = json.loads(legacy.read_text(encoding="utf-8"))
+
+                for env_name, secrets in data.items():
+                    if isinstance(secrets, dict):
+                        for k, v in secrets.items():
+                            self._tv.set(env_name, k, str(v))
+                legacy.unlink()
+                migrated = True
+                print(f"[VAULT] Migrated legacy vault '{legacy.name}' → per‑tenant vaults.")
+            except Exception as e:
+                print(f"[VAULT] Legacy migration skipped ({legacy.name}): {e}")
+        return migrated
+
+    # ── API StealthVault (compatible ascendante) ────────────────
     def save_secrets(self, env_data: dict) -> bool:
+        """
+        Sauvegarde les secrets pour TOUS les environnements.
+        env_data = {"dev": {"KEY": "val"}, "test": {"KEY": "val"}, ...}
+        Chaque environnement devient un tenant dans TenantVault.
+        """
         try:
-            raw_bytes = json.dumps(env_data, ensure_ascii=False).encode('utf-8')
-            if HAS_CHROMATIX:
-                cps = CPSPacket(self.key)
-                img = cps.encode_raw_bytes(raw_bytes, epoch_id=999)
-                img.save(self.vault_path)
-                print(f"[STEALTH VAULT] Secrets successfully hidden inside '{self.vault_path.name}'.")
-                if self.fallback_path.exists():
-                    self.fallback_path.unlink()
-                return True
-            else:
-                with open(self.fallback_path, "w", encoding="utf-8") as f:
-                    json.dump(env_data, f, indent=2, ensure_ascii=False)
-                print(f"[STEALTH VAULT] Legacy mode: Secrets saved in plaintext to '{self.fallback_path.name}'.")
-                return True
+            for env_name, secrets in env_data.items():
+                if isinstance(secrets, dict):
+                    for k, v in secrets.items():
+                        self._tv.set(env_name, k, str(v))
+            return True
         except Exception as e:
-            print(f"[STEALTH VAULT ERROR] Failed to save secrets: {e}")
+            print(f"[VAULT ERROR] save_secrets: {e}")
             return False
 
     def load_secrets(self) -> dict:
-        try:
-            if HAS_CHROMATIX and self.vault_path.exists():
-                cps = CPSPacket(self.key)
-                img = Image.open(self.vault_path)
-                decoded_bytes = cps.decode_raw_bytes(img, epoch_id=999)
-                return json.loads(decoded_bytes.decode('utf-8'))
-            elif self.fallback_path.exists():
-                with open(self.fallback_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-        except Exception as e:
-            print(f"[STEALTH VAULT ERROR] Failed to load secrets: {e}")
-        return {"dev": {}, "test": {}, "prod": {}}
+        """
+        Reconstruit le dictionnaire multi‑environnement depuis les vaults
+        individuels. Retourne {"dev": {...}, "test": {...}, "prod": {...}}.
+        """
+        self._migrate_legacy()
+        result = {}
+        for tid in self._tv.list_tenants():
+            try:
+                keys = self._tv.list(tid)
+                result[tid] = {k: self._tv.get(tid, k) for k in keys}
+            except Exception:
+                result[tid] = {}
+        # Ensure dev/test/prod exist
+        for env in ("dev", "test", "prod"):
+            result.setdefault(env, {})
+        return result
+
+    def get(self, key: str, env: str = None) -> str:
+        """Raccourci pour lire un secret du tenant courant ou d'un env précis."""
+        tid = env or self.tenant_id
+        return self._tv.get(tid, key)
+
+    def set(self, key: str, value: str, env: str = None):
+        tid = env or self.tenant_id
+        self._tv.set(tid, key, value)
+
+    def delete(self, key: str, env: str = None):
+        tid = env or self.tenant_id
+        self._tv.delete(tid, key)
+
+    def list(self, env: str = None) -> list:
+        tid = env or self.tenant_id
+        return self._tv.list(tid)
