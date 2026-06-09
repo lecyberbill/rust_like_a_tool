@@ -172,8 +172,7 @@ function filterSourceColumns() {
             if (search && !header.toLowerCase().includes(search)) return;
 
             const div = document.createElement('div');
-            div.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
-            div.className = 'aimapper-source-item';
+            div.className = 'aimapper-col-item';
             div.dataset.header = header;
             
             div.innerHTML = `
@@ -209,8 +208,7 @@ function filterSourceColumns() {
             if (search && !header.toLowerCase().includes(search)) return;
 
             const div = document.createElement('div');
-            div.style.cssText = 'padding:4px 8px; background:rgba(0,240,255,0.02); border:1px solid rgba(0,240,255,0.1); border-radius:6px; cursor:pointer; font-size:0.78rem; font-family:"Roboto Mono", monospace; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
-            div.className = 'aimapper-source-item';
+            div.className = 'aimapper-col-item right-source';
             div.dataset.header = header;
             
             div.innerHTML = `
@@ -247,7 +245,7 @@ function filterSourceColumns() {
             if (search && !v.name.toLowerCase().includes(search)) return;
 
             const div = document.createElement('div');
-            div.style.cssText = 'padding:4px 8px; background:rgba(192, 132, 252, 0.05); border:1px solid rgba(192, 132, 252, 0.2); border-radius:6px; cursor:pointer; font-size:0.75rem; font-family:"Roboto Mono", monospace; color:#c084fc; display:flex; justify-content:space-between; align-items:center; transition:all 0.2s;';
+            div.className = 'aimapper-col-item variable';
             div.innerHTML = `<span>${v.name}</span>`;
 
             div.addEventListener('click', () => {
@@ -332,7 +330,7 @@ function renderMappingRows() {
                 <input type="text" class="editor-input aimapper-default-input" style="width:100%; font-family:'Roboto Mono', monospace; font-size:0.78rem; padding:3px 6px; height:26px; border-radius:4px;" value="${m.defaultVal || ''}" placeholder="Valeur si vide" oninput="updateMappingField(${idx}, 'defaultVal', this.value)">
             </td>
             <td style="padding:4px; text-align:center;">
-                <button class="toggle-logs-btn" style="padding:2px 6px; font-size:0.75rem; border-color:var(--error); color:var(--error); background:rgba(239,68,68,0.05);" onclick="deleteMappingRow(${idx})">🗑️</button>
+                <button class="toggle-logs-btn" style="padding:2px 6px; font-size:0.75rem; border-color:var(--error); color:var(--error);" onclick="deleteMappingRow(${idx})">🗑️</button>
             </td>
         `;
 
@@ -390,7 +388,7 @@ function renderDestList() {
 
     uniqueDests.forEach(col => {
         const div = document.createElement('div');
-        div.style.cssText = 'padding:5px 8px; background:rgba(0, 255, 102, 0.03); border:1px solid rgba(0, 255, 102, 0.15); border-radius:6px; font-size:0.78rem; font-family:"Roboto Mono", monospace; color:var(--success);';
+        div.className = 'aimapper-col-item dest';
         div.innerText = col;
         container.appendChild(div);
     });
@@ -412,32 +410,26 @@ function openFormulaEditor(idx) {
 
     mapperSourceHeaders.forEach(header => {
         const btn = document.createElement('div');
-        btn.style.cssText = 'padding:4px 8px; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+        btn.className = 'aimapper-btn-icon';
         btn.innerHTML = `<span>${header}</span> <span style="font-size:0.65rem; color:var(--accent);">colonne A</span>`;
         btn.onclick = () => insertTextAtCursor(header);
-        btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.05)';
-        btn.onmouseleave = () => btn.style.background = 'rgba(255,255,255,0.02)';
         container.appendChild(btn);
     });
 
     mapperRightSourceHeaders.forEach(header => {
         const btn = document.createElement('div');
-        btn.style.cssText = 'padding:4px 8px; background:rgba(0, 240, 255, 0.02); border:1px solid rgba(0, 240, 255, 0.1); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+        btn.className = 'aimapper-btn-icon right-source';
         btn.innerHTML = `<span>${header}</span> <span style="font-size:0.65rem; color:var(--running);">colonne B</span>`;
         btn.onclick = () => insertTextAtCursor(header);
-        btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.1)';
-        btn.onmouseleave = () => btn.style.background = 'rgba(0, 240, 255, 0.02)';
         container.appendChild(btn);
     });
 
     mapperVariables.forEach(v => {
         if (!v.name) return;
         const btn = document.createElement('div');
-        btn.style.cssText = 'padding:4px 8px; background:rgba(192, 132, 252, 0.05); border:1px solid rgba(192, 132, 252, 0.2); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; color:#c084fc; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
+        btn.className = 'aimapper-btn-icon variable';
         btn.innerHTML = `<span>${v.name}</span> <span style="font-size:0.65rem; color:#c084fc;">variable</span>`;
         btn.onclick = () => insertTextAtCursor(v.name);
-        btn.onmouseenter = () => btn.style.background = 'rgba(192, 132, 252, 0.1)';
-        btn.onmouseleave = () => btn.style.background = 'rgba(192, 132, 252, 0.05)';
         container.appendChild(btn);
     });
 
@@ -452,11 +444,9 @@ function openFormulaEditor(idx) {
 
     sysVars.forEach(v => {
         const btn = document.createElement('div');
-        btn.style.cssText = 'padding:4px 8px; background:rgba(0, 240, 255, 0.05); border:1px solid rgba(0, 240, 255, 0.2); border-radius:4px; cursor:pointer; font-size:0.75rem; font-family:monospace; color:#00f0ff; display:flex; justify-content:space-between; align-items:center; transition: background 0.2s;';
-        btn.innerHTML = `<span>${v.name}</span> <span style="font-size:0.65rem; color:#00f0ff;" title="${v.desc}">système</span>`;
+        btn.className = 'aimapper-btn-icon formula';
+        btn.innerHTML = `<span>${v.name}</span> <span style="font-size:0.65rem; color:var(--accent);" title="${v.desc}">système</span>`;
         btn.onclick = () => insertTextAtCursor(v.name);
-        btn.onmouseenter = () => btn.style.background = 'rgba(0, 240, 255, 0.15)';
-        btn.onmouseleave = () => btn.style.background = 'rgba(0, 240, 255, 0.05)';
         container.appendChild(btn);
     });
 }
@@ -628,7 +618,7 @@ function renderLocalVariables() {
             <input type="text" class="editor-input" style="flex:1; font-family:monospace; font-size:0.75rem; padding:4px 6px; border-color:rgba(192, 132, 252, 0.3);" value="${v.name}" placeholder="Nom" oninput="updateLocalVariable(${idx}, 'name', this.value)">
             <span style="color:var(--text-muted); font-size:0.75rem;">=</span>
             <input type="text" class="editor-input" style="flex:1.2; font-family:monospace; font-size:0.75rem; padding:4px 6px;" value="${v.value}" placeholder="Valeur" oninput="updateLocalVariable(${idx}, 'value', this.value)">
-            <button class="toggle-logs-btn" style="padding:2px 6px; border-color:var(--error); color:var(--error); background:rgba(239,68,68,0.05);" onclick="deleteLocalVariable(${idx})">🗑️</button>
+            <button class="toggle-logs-btn" style="padding:2px 6px; border-color:var(--error); color:var(--error);" onclick="deleteLocalVariable(${idx})">🗑️</button>
         `;
         
         container.appendChild(div);
