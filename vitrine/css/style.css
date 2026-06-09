@@ -3,6 +3,8 @@
 :root {
             --bg: #020205;
             --panel: rgba(10, 10, 25, 0.6);
+            --modal-mask: rgba(2, 2, 5, 0.92);
+            --modal-bg: rgba(10, 10, 25, 0.92);
             --accent: #00f0ff;
             --accent-glow: rgba(0, 240, 255, 0.4);
             --text: #f0f4f8;
@@ -1528,6 +1530,8 @@
         body.light-theme {
             --bg: #f8fafc;
             --panel: rgba(255, 255, 255, 0.95);
+            --modal-mask: rgba(248, 250, 252, 0.92);
+            --modal-bg: rgba(255, 255, 255, 0.98);
             --accent: #0284c7;
             --accent-glow: rgba(2, 132, 199, 0.15);
             --text: #0f172a;
@@ -1732,5 +1736,124 @@
             color: var(--text-muted);
             min-width: 48px;
             text-align: center;
+        }
+
+        /* AiMapper modal styles (theme-aware via CSS vars) */
+        #aimapper-modal, #aimapper-formula-modal {
+            background: var(--modal-mask) !important;
+        }
+        #aimapper-modal > div, #aimapper-formula-modal > div {
+            background: var(--modal-bg) !important;
+        }
+        #aimapper-modal input, #aimapper-modal select,
+        #aimapper-formula-modal input, #aimapper-formula-modal select {
+            background: var(--panel) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }
+        #aimapper-modal .aimapper-panel {
+            background: var(--panel) !important;
+        }
+        #aimapper-modal .aimapper-header {
+            background: transparent !important;
+            border-bottom: 1px solid var(--border);
+        }
+        #aimapper-modal .aimapper-section-header {
+            background: transparent !important;
+            border-bottom: 1px solid var(--border);
+        }
+        #aimapper-modal .aimapper-join-bar {
+            background: var(--panel) !important;
+            border: 1px solid var(--border);
+        }
+        #aimapper-modal .aimapper-source-list,
+        #aimapper-modal .aimapper-dest-list,
+        #aimapper-modal .aimapper-mapping-grid {
+            background: transparent !important;
+        }
+        #aimapper-modal .aimapper-variables-section {
+            background: var(--panel) !important;
+            border-top: 1px solid var(--border);
+        }
+
+        /* AiMapper dynamic items */
+        .aimapper-col-item {
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-family: 'Roboto Mono', monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+            background: var(--panel);
+            color: var(--text);
+        }
+        .aimapper-col-item:hover {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+        }
+        .aimapper-col-item.right-source {
+            background: var(--panel);
+            border-color: rgba(0, 240, 255, 0.1);
+        }
+        .aimapper-col-item.right-source:hover {
+            border-color: var(--accent);
+        }
+        .aimapper-col-item.variable {
+            color: #c084fc;
+            border-color: rgba(192, 132, 252, 0.2);
+            background: var(--panel);
+        }
+        .aimapper-col-item.variable:hover {
+            border-color: #c084fc;
+        }
+        .aimapper-col-item.dest {
+            color: var(--success);
+            border-color: rgba(0, 255, 102, 0.15);
+            background: var(--panel);
+        }
+        .aimapper-btn-icon {
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel);
+            color: var(--text);
+            transition: background 0.2s;
+        }
+        .aimapper-btn-icon:hover {
+            background: var(--accent-glow);
+        }
+        .aimapper-btn-icon.right-source {
+            background: var(--panel);
+            color: var(--accent);
+            border-color: rgba(0, 240, 255, 0.1);
+        }
+        .aimapper-btn-icon.right-source:hover {
+            background: rgba(0, 240, 255, 0.1);
+        }
+        .aimapper-btn-icon.variable {
+            color: #c084fc;
+            border-color: rgba(192, 132, 252, 0.2);
+            background: var(--panel);
+        }
+        .aimapper-btn-icon.variable:hover {
+            background: rgba(192, 132, 252, 0.1);
+        }
+        .aimapper-btn-icon.formula {
+            color: var(--accent);
+            border-color: rgba(0, 240, 255, 0.2);
+            background: var(--panel);
+        }
+        .aimapper-btn-icon.formula:hover {
+            background: rgba(0, 240, 255, 0.15);
         }
 

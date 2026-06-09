@@ -272,27 +272,27 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
     </div> <!-- Close #workshop-view -->
 
     <!-- Modal AiMapper -->
-    <div id="aimapper-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2, 2, 5, 0.95); backdrop-filter: blur(20px); z-index: 110; align-items: center; justify-content: center;">
-        <div style="width: 90vw; height: 85vh; min-width: 800px; min-height: 450px; max-width: 98vw; max-height: 98vh; resize: both; overflow: hidden; background: rgba(10, 10, 25, 0.85); border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 16px; display: flex; flex-direction: column; position: relative;">
+    <div id="aimapper-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; backdrop-filter: blur(20px); z-index: 110; align-items: center; justify-content: center;">
+        <div class="aimapper-modal-content" style="width: 90vw; height: 85vh; min-width: 800px; min-height: 450px; max-width: 98vw; max-height: 98vh; resize: both; overflow: hidden; border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 16px; display: flex; flex-direction: column; position: relative;">
             <!-- Header -->
-            <div style="padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 240, 255, 0.02);">
+            <div class="aimapper-header" style="padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
                 <div>
                     <h2 style="font-weight: 800; font-size: 1.25rem; background: linear-gradient(90deg, var(--accent), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">🗺️ AiMapper (tMapping Visuel)</h2>
                     <div id="aimapper-source-path" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; font-family: 'Roboto Mono', monospace;">Source : -</div>
                 </div>
                 <!-- Relation Join Configuration -->
-                <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; font-size: 0.75rem;">
+                <div class="aimapper-join-bar" style="display: flex; gap: 8px; align-items: center; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem;">
                     <span style="color: var(--accent); font-weight: bold;">🔗 Jointure :</span>
-                    <input type="text" id="aimapper-join-right-source" placeholder="Table droite..." style="width: 140px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;" oninput="onJoinRightSourceChanged()">
-                    <select id="aimapper-join-type" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                    <input type="text" id="aimapper-join-right-source" placeholder="Table droite..." style="width: 140px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.72rem;" oninput="onJoinRightSourceChanged()">
+                    <select id="aimapper-join-type" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.72rem;">
                         <option value="left">LEFT</option>
                         <option value="inner">INNER</option>
                         <option value="outer">OUTER</option>
                     </select>
-                    <select id="aimapper-join-left-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                    <select id="aimapper-join-left-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.72rem;">
                         <option value="">Clé Gauche</option>
                     </select>
-                    <select id="aimapper-join-right-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: #050510; color: var(--text); font-size: 0.72rem;">
+                    <select id="aimapper-join-right-key" style="width: 90px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.72rem;">
                         <option value="">Clé Droite</option>
                     </select>
                 </div>
@@ -305,20 +305,20 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             <!-- Main Columns -->
             <div style="flex: 1; display: flex; overflow: hidden;">
                 <!-- Left: Source columns list & Local Variables -->
-                <div style="width: 220px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15); height: 100%;">
+                <div class="aimapper-panel" style="width: 220px; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%;">
                     <!-- Source Columns Section -->
                     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-                        <div style="padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                        <div class="aimapper-section-header" style="padding: 10px 14px; border-bottom: 1px solid var(--border);">
                             <h4 style="color: var(--accent); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Colonnes Source</h4>
-                            <input type="text" id="aimapper-search-source" placeholder="Filtrer..." oninput="filterSourceColumns()" style="width:100%; margin-top:6px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--text); font-size:0.75rem; outline:none;">
+                            <input type="text" id="aimapper-search-source" placeholder="Filtrer..." oninput="filterSourceColumns()" style="width:100%; margin-top:6px; padding:4px 8px; border-radius:4px; border:1px solid var(--border); color:var(--text); font-size:0.75rem; outline:none;">
                         </div>
-                        <div id="aimapper-source-list" style="flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+                        <div id="aimapper-source-list" class="aimapper-source-list" style="flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
                             <!-- Injected dynamically -->
                         </div>
                     </div>
                     
                     <!-- Local Variables Section -->
-                    <div style="height: 180px; border-top: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.25); overflow: hidden;">
+                    <div class="aimapper-variables-section" style="height: 180px; display: flex; flex-direction: column; overflow: hidden;">
                         <div style="padding: 6px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
                             <h4 style="color: #c084fc; text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Variables Locales</h4>
                             <button class="toggle-logs-btn" onclick="addLocalVariable()" style="padding: 1px 4px; font-size: 0.7rem; border-color: #c084fc; color: #c084fc;">➕</button>
@@ -330,8 +330,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 </div>
                 
                 <!-- Middle: Mapping grid -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.05); overflow: hidden;">
-                    <div style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div class="aimapper-mapping-grid" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                    <div class="aimapper-section-header" style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
                         <h4 style="color: var(--success); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Table de Correspondance (Transformations)</h4>
                         <button class="toggle-logs-btn" onclick="addMappingRow()" style="padding: 4px 10px; font-size: 0.75rem; border-color: var(--success); color: var(--success);">➕ Ajouter Colonne</button>
                     </div>
@@ -353,8 +353,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 </div>
                 
                 <!-- Right: Destination Schema Summary -->
-                <div style="width: 190px; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(0,0,0,0.15);">
-                    <div style="padding: 10px 14px; border-bottom: 1px solid var(--border);">
+                <div class="aimapper-panel" style="width: 190px; border-left: 1px solid var(--border); display: flex; flex-direction: column;">
+                    <div class="aimapper-section-header" style="padding: 10px 14px; border-bottom: 1px solid var(--border);">
                         <h4 style="color: var(--running); text-transform: uppercase; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px; margin: 0;">Colonnes Sortie</h4>
                     </div>
                     <div id="aimapper-dest-list" style="flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
@@ -366,8 +366,8 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
     </div>
 
     <!-- Modal Formula Helper -->
-    <div id="aimapper-formula-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2, 2, 5, 0.85); backdrop-filter: blur(10px); z-index: 120; align-items: center; justify-content: center;">
-        <div style="width: 700px; height: 500px; min-width: 500px; min-height: 350px; max-width: 95vw; max-height: 95vh; resize: both; overflow: hidden; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 16px; display: flex; flex-direction: column; padding: 20px; gap: 15px; position: relative;">
+    <div id="aimapper-formula-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; backdrop-filter: blur(10px); z-index: 120; align-items: center; justify-content: center;">
+        <div style="width: 700px; height: 500px; min-width: 500px; min-height: 350px; max-width: 95vw; max-height: 95vh; resize: both; overflow: hidden; border: 1px solid var(--accent); box-shadow: 0 0 35px var(--accent-glow); border-radius: 16px; display: flex; flex-direction: column; padding: 20px; gap: 15px; position: relative;">
             <!-- Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
                 <h3 style="margin: 0; color: var(--accent); font-size: 1.2rem; font-weight: 800;">📝 Éditeur de Formule & Aide Syntaxe</h3>
