@@ -3,17 +3,16 @@
 use std::env;
 use std::process;
 
-mod error;
 mod db_connector;
-mod s3_connector;
+mod error;
 mod primitives;
+mod s3_connector;
 
 pub use error::MuscleError;
 
 fn init_logging() {
     use tracing_subscriber::filter::EnvFilter;
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(true)
@@ -48,16 +47,22 @@ fn main() {
         "net.download" => primitives::net::handle_net_download(&args[2..]),
         "net.upload" => primitives::net::handle_net_upload(&args[2..]),
         "net.ftp_download" => primitives::net::handle_net_ftp_download(&args[2..]),
-        "net.ftp_download_filtered" => primitives::net::handle_net_ftp_download_filtered(&args[2..]),
+        "net.ftp_download_filtered" => {
+            primitives::net::handle_net_ftp_download_filtered(&args[2..])
+        }
         "net.ftp_upload" => primitives::net::handle_net_ftp_upload(&args[2..]),
         "net.sftp_download" => primitives::net::handle_net_sftp_download(&args[2..]),
-        "net.sftp_download_filtered" => primitives::net::handle_net_sftp_download_filtered(&args[2..]),
+        "net.sftp_download_filtered" => {
+            primitives::net::handle_net_sftp_download_filtered(&args[2..])
+        }
         "net.sftp_upload" => primitives::net::handle_net_sftp_upload(&args[2..]),
         "google.sheets_read" => primitives::net::handle_google_sheets_read(&args[2..]),
         "google.sheets_write" => primitives::net::handle_google_sheets_write(&args[2..]),
         "net.http_request" => primitives::net::handle_net_http_request(&args[2..]),
         "net.notify" => primitives::net::handle_net_notify(&args[2..]),
-        "net.download_images" => Err(MuscleError::UnsupportedPrimitive("Deprecated: use net.http_request".to_string())),
+        "net.download_images" => Err(MuscleError::UnsupportedPrimitive(
+            "Deprecated: use net.http_request".to_string(),
+        )),
 
         // data format
         "data.csv_to_json" => primitives::data_format::handle_csv_to_json(&args[2..]),
@@ -74,7 +79,9 @@ fn main() {
         "data_filter" | "data.filter" => primitives::data_transform::handle_data_filter(&args[2..]),
         "data.split" => primitives::data_transform::handle_data_split(&args[2..]),
         "data.merge" => primitives::data_transform::handle_data_merge(&args[2..]),
-        "data.chunk_cumulative" => primitives::data_transform::handle_data_chunk_cumulative(&args[2..]),
+        "data.chunk_cumulative" => {
+            primitives::data_transform::handle_data_chunk_cumulative(&args[2..])
+        }
         "data.clean" => primitives::data_transform::handle_data_clean(&args[2..]),
         "data.validate" => primitives::data_transform::handle_data_validate(&args[2..]),
 
@@ -110,7 +117,10 @@ fn main() {
         "s3.upload" => primitives::s3::handle_s3_upload(&args[2..]),
         "s3.download" => primitives::s3::handle_s3_download(&args[2..]),
 
-        _ => Err(MuscleError::UnsupportedPrimitive(format!("Unknown primitive '{}'", primitive))),
+        _ => Err(MuscleError::UnsupportedPrimitive(format!(
+            "Unknown primitive '{}'",
+            primitive
+        ))),
     };
 
     match result {
