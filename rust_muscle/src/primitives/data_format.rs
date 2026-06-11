@@ -1,10 +1,11 @@
-// [WFGY] Zone: SAFE | λ: 0.1 | Action: Format conversion primitives (CSV, JSON, XML)
+// [WFGY] Zone: TRANSIT | λ: 0.2 | Action: Implement data.generate_fake primitive handler
 
 use crate::MuscleError;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 pub fn handle_csv_to_json(args: &[String]) -> Result<(), MuscleError> {
     let mut source = None;
@@ -891,4 +892,112 @@ pub fn handle_data_write(args: &[String]) -> Result<(), MuscleError> {
 /// data.convert — convertit entre tous formats supportés (auto-détection par extension)
 pub fn handle_data_convert(args: &[String]) -> Result<(), MuscleError> {
     handle_data_read(args)
+}
+
+/// data.generate_fake — génère des données factices via un dictionnaire et un script helper Python
+pub fn handle_generate_fake(args: &[String]) -> Result<(), MuscleError> {
+    let mut columns = None;
+    let mut count = None;
+    let mut destination = None;
+    let mut format = String::from("csv");
+    let mut generator_path = String::from("D:/Projet/fake_GEN");
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--columns" => {
+                if i + 1 < args.len() {
+                    columns = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing --columns".to_string()));
+                }
+            }
+            "--count" => {
+                if i + 1 < args.len() {
+                    count = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing --count".to_string()));
+                }
+            }
+            "--destination" => {
+                if i + 1 < args.len() {
+                    destination = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing --destination".to_string()));
+                }
+            }
+            "--format" => {
+                if i + 1 < args.len() {
+                    format = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing --format".to_string()));
+                }
+            }
+            "--generator-path" | "--generator_path" => {
+                if i + 1 < args.len() {
+                    generator_path = args[i + 1].clone();
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg("Missing --generator-path".to_string()));
+                }
+            }
+            other => {
+                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+            }
+        }
+    }
+
+    let columns = columns.ok_or_else(|| MuscleError::MissingArg("Missing required argument --columns".to_string()))?;
+    let count = count.ok_or_else(|| MuscleError::MissingArg("Missing required argument --count".to_string()))?;
+    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
+
+    run_fake_gen_helper(&generator_path, columns, count, destination, &format)
+}
+
+fn run_fake_gen_helper(
+    generator_path: &str,
+    columns: &str,
+    count: &str,
+    destination: &str,
+    format: &str,
+) -> Result<(), MuscleError> {
+    let python_path = if cfg!(target_os = "windows") {
+        Path::new(".venv/Scripts/python.exe")
+    } else {
+        Path::new(".venv/bin/python")
+    };
+
+    let mut cmd = if python_path.exists() {
+        Command::new(python_path)
+    } else {
+        Command::new("python")
+    };
+
+    let output = cmd
+        .arg("brain/fake_gen_helper.py")
+        .arg(generator_path)
+        .arg(columns)
+        .arg(count)
+        .arg(destination)
+        .arg(format)
+        .output()
+        .map_err(|e| {
+            MuscleError::IoError(format!("Failed to start Python fake_gen_helper: {}", e))
+        })?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        print!("{}", stdout);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MuscleError::IoError(format!(
+            "Fake generator execution failed: {}",
+            stderr.trim()
+        )))
+    }
 }

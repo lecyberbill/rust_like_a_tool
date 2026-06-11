@@ -1,0 +1,162 @@
+{
+  "plan_id": "stress_test_scenario_a",
+  "intent_analysis": "Jointure relationnelle, filtrage, anonymisation et insertion de 100k+ lignes dans PostgreSQL avec calcul de tiers client",
+  "steps": [
+    {
+      "step": 1,
+      "primitive": "data.clean",
+      "depends_on": [],
+      "ui": {
+        "label": "1. Jointure & AiMapper (100k)",
+        "color": "#10B981",
+        "position": {
+          "x": 28,
+          "y": 69
+        },
+        "mappings": [
+          {
+            "sourceCol": "transaction_id",
+            "expression": "",
+            "destCol": "transaction_id",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "client_id",
+            "expression": "",
+            "destCol": "client_id",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "amount",
+            "expression": "",
+            "destCol": "amount",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "status",
+            "expression": "",
+            "destCol": "status",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "date",
+            "expression": "",
+            "destCol": "date",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "name",
+            "expression": "",
+            "destCol": "name",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "email",
+            "expression": "",
+            "destCol": "email",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "country",
+            "expression": "",
+            "destCol": "country",
+            "defaultVal": ""
+          },
+          {
+            "sourceCol": "IF amount >= 1000.0 THEN 'VIP' ELSE 'Standard'",
+            "expression": "IF amount >= 1000.0 THEN 'VIP' ELSE 'Standard'",
+            "destCol": "client_tier",
+            "defaultVal": ""
+          }
+        ],
+        "variables": []
+      },
+      "args": {
+        "source": "test_results/stress_data/transactions.csv",
+        "destination": "test_results/stress_data/transactions_cleaned.csv",
+        "right_source": "test_results/stress_data/clients.csv",
+        "left_on": "client_id",
+        "right_on": "client_id",
+        "how_join": "left",
+        "select_columns": "transaction_id,client_id,amount,status,date,name,email,country,client_tier",
+        "fill_na": "",
+        "derive_columns": "client_tier=IF amount >= 1000.0 THEN 'VIP' ELSE 'Standard'",
+        "rename_columns": ""
+      }
+    },
+    {
+      "step": 2,
+      "primitive": "data.filter",
+      "depends_on": [
+        1
+      ],
+      "ui": {
+        "label": "2. Filtrer Montants > 10",
+        "color": "#3B82F6",
+        "position": {
+          "x": 422,
+          "y": 101
+        }
+      },
+      "args": {
+        "source": "test_results/stress_data/transactions_cleaned.csv",
+        "destination": "test_results/stress_data/transactions_filtered.csv",
+        "column_name": "amount",
+        "operator": "greater_than",
+        "value": "10.0",
+        "has_headers": true
+      }
+    },
+    {
+      "step": 3,
+      "primitive": "data.anonymize",
+      "depends_on": [
+        2
+      ],
+      "ui": {
+        "label": "3. Masquer Emails & Client_ID",
+        "color": "#8B5CF6",
+        "position": {
+          "x": 744,
+          "y": 215
+        }
+      },
+      "args": {
+        "source": "test_results/stress_data/transactions_filtered.csv",
+        "destination": "test_results/stress_data/transactions_anonymized.csv",
+        "rules": "email:mask_email,client_id:hash"
+      }
+    },
+    {
+      "step": 4,
+      "primitive": "db.insert",
+      "depends_on": [
+        3
+      ],
+      "ui": {
+        "label": "4. Insertion PostgreSQL",
+        "color": "#EF4444",
+        "position": {
+          "x": 1232,
+          "y": 199
+        }
+      },
+      "args": {
+        "connection_string": "${SECRET_POSTGRES_CONNECTION_STRING}",
+        "table_name": "clean_transactions",
+        "source": "test_results/stress_data/transactions_anonymized.csv",
+        "mode": "replace",
+        "schema_drift": true
+      }
+    }
+  ],
+  "env": {
+    "dev": {
+      "SECRET_MYSQL_USER": "user_dev",
+      "SECRET_MYSQL_PASSWORD": "user_dev",
+      "SECRET_POSTGRES_CONNECTION_STRING": "postgresql://user_dev:user_dev@localhost:5432/postgres"
+    },
+    "test": {},
+    "prod": {}
+  }
+}

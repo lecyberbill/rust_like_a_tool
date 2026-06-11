@@ -1,6 +1,16 @@
 {
-  "active_workspace": "scenario_fake_data",
+  "active_workspace": "stress_test_scenario_a",
   "workspaces": {
+    "stress_test_scenario_a": {
+      "name": "Stress Test E2E - 100k Postgres",
+      "recipe_file": "history_recipes/recipe_stress_test_scenario_a.json",
+      "created_at": "2026-06-11T11:20:00.000000",
+      "last_run": null,
+      "trigger": {
+        "enabled": false,
+        "type": "none"
+      }
+    },
     "default_workflow": {
       "name": "Flux de travail par défaut",
       "recipe_file": "history_recipes/recipe_default.json",

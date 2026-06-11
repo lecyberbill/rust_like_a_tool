@@ -1,4 +1,4 @@
-# [WFGY] Zone: SAFE | λ: 0.3 | Action: Send WORKSPACE_CREATED on CREATE_WORKSPACE message
+# [WFGY] Zone: TRANSIT | λ: 0.4 | Action: Move step_map definition before checkpoint block to resolve scope crash
 import os
 import sys
 import json
@@ -452,6 +452,9 @@ class Orchestrator:
         completed_steps = set()
         step_performance = {}
 
+        # Index des étapes par numéro pour résolution des dépendances et checkpoints
+        step_map = {s.get("step"): s for s in steps}
+
         # Charger le checkpoint SQLite s'il existe pour ce plan_id
         checkpoint_data = load_checkpoint(plan_id)
         if checkpoint_data:
@@ -485,9 +488,6 @@ class Orchestrator:
                 log.warning("Checkpoint save failed", extra={"error": str(save_err)})
 
         run_start = time.perf_counter()
-
-        # Index des étapes par numéro pour résolution des dépendances
-        step_map = {s.get("step"): s for s in steps}
 
         async def run_single_step(step_item):
             step_num = step_item.get("step")
@@ -542,10 +542,13 @@ class Orchestrator:
                             print(f"[ORCHESTRATOR] Étape {step_num}: source auto-résolue depuis l'étape {parent_num} → {parent_dest}")
                             break
 
-            # AUTO-GÉNÉRATION : destination si vide
-            if not args.get("destination") and primitive not in ("core.wait", "core.condition", "core.sub_flow", "core.switch", "core.loop", "data.metrics"):
-                args["destination"] = f"workspace/output/step_{step_num}_{primitive.replace('.', '_')}.csv"
-                print(f"[ORCHESTRATOR] Étape {step_num}: destination auto-générée → {args['destination']}")
+            # AUTO-GÉNÉRATION : destination si vide et si supporté par le schéma du registre
+            if not args.get("destination"):
+                spec = self.validator.registry.get("primitives", {}).get(primitive, {})
+                params = spec.get("parameters", {}).get("properties", {})
+                if "destination" in params:
+                    args["destination"] = f"workspace/output/step_{step_num}_{primitive.replace('.', '_')}.csv"
+                    print(f"[ORCHESTRATOR] Étape {step_num}: destination auto-générée → {args['destination']}")
 
             if status_callback:
                 status_callback(step_num, "running", f"Exécution de l'étape ({target_env.upper()})...")

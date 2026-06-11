@@ -1038,7 +1038,8 @@ const primitiveCatalogData = {
         { name: "data.anonymize", label: "Masquage / RGPD", desc: "Anonymise les colonnes sensibles (PII) par hash, masquage ou remplacement (format: col1:strategy1,col2:strategy2).", args: { source: "", destination: "", rules: "" } },
         { name: "data.pivot", label: "Pivoter (format large)", desc: "Pivote une table du format long au format large (lignes en colonnes).", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
         { name: "data.unpivot", label: "Dépivoter (format long)", desc: "Dépivote une table du format large au format long (colonnes en lignes).", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } },
-        { name: "data.xml_transform", label: "Transformer XML (XSLT)", desc: "Applique une transformation XSLT sur un fichier XML source.", args: { source: "", stylesheet: "", destination: "" } }
+        { name: "data.xml_transform", label: "Transformer XML (XSLT)", desc: "Applique une transformation XSLT sur un fichier XML source.", args: { source: "", stylesheet: "", destination: "" } },
+        { name: "data.generate_fake", label: "Générateur de données factices", desc: "Génère des données aléatoires (PII, montants, patterns, dates) à partir d'un dictionnaire.", args: { columns: "", count: "1000", destination: "", format: "csv" } }
     ],
     "Bases de Données": [
         { name: "db.query", label: "Requête SQL SELECT", desc: "Exécute une requête SQL SELECT et écrit le résultat dans un fichier.", args: { connection_string: "", query: "", destination: "" } },
@@ -1093,7 +1094,8 @@ const primitiveEnums = {
     "core.loop": { loop_over: ["variables", "files", "rows"] },
     "db.insert": { mode: ["insert", "replace", "ignore"] },
     "mongodb.insert": { mode: ["insert", "replace"] },
-    "net.http_request": { method: ["GET", "POST", "PUT", "DELETE", "PATCH"] }
+    "net.http_request": { method: ["GET", "POST", "PUT", "DELETE", "PATCH"] },
+    "data.generate_fake": { format: ["csv", "json"] }
 };
 
 function getPrimitiveDoc(primitiveName) {

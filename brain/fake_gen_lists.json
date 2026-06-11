@@ -1,0 +1,110 @@
+{
+  "firstNames": [
+    "Alice", "Arthur", "Béatrice", "Camille", "David", "Emma", "Fabien", "Gaëlle",
+    "Hugo", "Inès", "Jules", "Kylian", "Léa", "Maxime", "Nina", "Oscar",
+    "Pauline", "Quentin", "Romain", "Sara", "Thomas", "Ugo", "Valentine", "William",
+    "Alex", "Mia", "James", "Olivia", "Ethan", "Sophia", "Liam", "Isabella",
+    "Noah", "Charlotte", "Oliver", "Amelia", "Elijah", "Evelyn", "Lucas", "Abigail",
+    "Gabriel", "Chloé", "Louis", "Zoé", "Mathis", "Jade", "Raphaël", "Manon",
+    "Juliette", "Hugo", "Clément", "Louna", "Enzo", "Sarah", "Antoine", "Eva",
+    "Nathan", "Léna", "Benjamin", "Océane", "Théo", "Julie", "Nicolas", "Clara",
+    "Victor", "Marine", "Simon", "Lou", "Yann", "Aurore", "Axel", "Mélissa",
+    "Sébastien", "Alizée", "Florian", "Justine", "Bastien", "Mélanie", "Julien", "Elise",
+    "Mathieu", "Alicia", "Pierre", "Camille", "Anthony", "Elodie", "Damien", "Morgane",
+    "Kévin", "Emilie", "Maxence", "Maëlle", "Guillaume", "Laurine", "Alexis", "Céline",
+    "Jérémy", "Pauline", "Romain", "Mathilde", "Vincent", "Amandine", "William"
+  ],
+  "lastNames": [
+    "Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard", "Petit", "Durand",
+    "Leroy", "Moreau", "Simon", "Laurent", "Lefebvre", "Michel", "Garcia", "David",
+    "Bertrand", "Roux", "Vincent", "Fournier", "Morel", "Girard", "Andre", "Mercier",
+    "Dupont", "Lambert", "Bonnet", "Francois", "Martinez", "Legrand", "Gauthier", "Garnier",
+    "Rousseau", "Blanc", "Guerin", "Muller", "Henry", "Roussel", "Nicolas", "Perrin",
+    "Morin", "Mathieu", "Clement", "Gauthier", "Dumont", "Lopez", "Fontaine", "Chevalier",
+    "Robin", "Masson", "Sanchez", "Caron", "Helene", "Etienne", "Benoit", "Fernandez",
+    "Baumann", "Schmitt", "Meyer", "Keller", "Weber", "Becker", "Hoffmann", "Wagner",
+    "Rossi", "Ferrari", "Esposito", "Bianchi", "Romano", "Colombo", "Ricci", "Marino",
+    "Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Wilson",
+    "Silva", "Pereira", "Oliveira", "Costa", "Rodrigues", "Almeida", "Souza", "Santos", "Banneur"
+  ],
+  "domains": [
+    "gmail.com", "yahoo.fr", "outlook.fr", "orange.fr", "free.fr",
+    "laposte.net", "hotmail.com", "icloud.com", "protonmail.com", "gmial.com",
+    "yandex.ru", "gmx.de", "t-online.de", "bluewin.ch", "sfr.fr",
+    "bouyguestelecom.fr", "me.com", "msn.com", "aol.com", "mailbox.org"
+  ],
+  "countries": [
+    { "name": "France", "code": "FR", "postalFormat": "#####" },
+    { "name": "Belgique", "code": "BE", "postalFormat": "####" },
+    { "name": "Suisse", "code": "CH", "postalFormat": "####" },
+    { "name": "Canada", "code": "CA", "postalFormat": "A#A #A#" },
+    { "name": "Allemagne", "code": "DE", "postalFormat": "#####" },
+    { "name": "Espagne", "code": "ES", "postalFormat": "#####" },
+    { "name": "Italie", "code": "IT", "postalFormat": "#####" },
+    { "name": "Royaume-Uni", "code": "GB", "postalFormat": "AA# #AA" },
+    { "name": "États-Unis", "code": "US", "postalFormat": "#####" },
+    { "name": "Portugal", "code": "PT", "postalFormat": "####" },
+    { "name": "Pays-Bas", "code": "NL", "postalFormat": "#### AA" },
+    { "name": "Maroc", "code": "MA", "postalFormat": "#####" },
+    { "name": "Tunisie", "code": "TN", "postalFormat": "####" },
+    { "name": "Sénégal", "code": "SN", "postalFormat": "#####" },
+    { "name": "Japon", "code": "JP", "postalFormat": "###-####" },
+    { "name": "Luxembourg", "code": "LU", "postalFormat": "####" },
+    { "name": "Autriche", "code": "AT", "postalFormat": "####" },
+    { "name": "Irlande", "code": "IE", "postalFormat": "A## ####" },
+    { "name": "Suède", "code": "SE", "postalFormat": "### ##" },
+    { "name": "Norvège", "code": "NO", "postalFormat": "####" }
+  ],
+  "cities": [
+    "Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Nantes", "Strasbourg",
+    "Montpellier", "Bordeaux", "Lille", "Rennes", "Reims", "Saint-Étienne",
+    "Le Havre", "Toulon", "Grenoble", "Dijon", "Angers", "Nîmes", "Villeurbanne",
+    "Bruxelles", "Anvers", "Liège", "Charleroi", "Bruges", "Namur",
+    "Genève", "Zürich", "Lausanne", "Bâle", "Berne", "Lucerne",
+    "Montréal", "Québec", "Toronto", "Vancouver", "Ottawa", "Laval",
+    "Berlin", "Munich", "Hambourg", "Francfort", "Cologne", "Stuttgart",
+    "Madrid", "Barcelone", "Valence", "Séville", "Bilbao", "Grenade",
+    "Rome", "Milan", "Naples", "Turin", "Florence", "Bologne",
+    "Londres", "Manchester", "Birmingham", "Liverpool", "Glasgow", "Leeds",
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "San Francisco",
+    "Lisbonne", "Porto", "Braga", "Coimbra", "Faro",
+    "Amsterdam", "Rotterdam", "La Haye", "Utrecht", "Eindhoven",
+    "Rabat", "Casablanca", "Marrakech", "Fès", "Tanger", "Agadir",
+    "Tunis", "Sfax", "Sousse", "Dakar", "Thiès", "Saint-Louis",
+    "Tokyo", "Osaka", "Kyoto", "Yokohama", "Nagoya", "Sapporo",
+    "Luxembourg", "Esch-sur-Alzette", "Vienne", "Salzbourg", "Dublin", "Cork",
+    "Stockholm", "Göteborg", "Oslo", "Bergen", "Varsovie", "Cracovie",
+    "Prague", "Brno", "Budapest", "Debrecen", "Athènes", "Thessalonique"
+  ],
+  "streets": [
+    "Rue de la République", "Rue du Faubourg Saint-Honoré", "Avenue des Champs-Élysées",
+    "Boulevard Saint-Germain", "Rue de Rivoli", "Avenue de l'Opéra", "Rue du Bac",
+    "Place de la Bastille", "Rue Mouffetard", "Avenue Montaigne",
+    "Rue des Rosiers", "Place Vendôme", "Rue de la Paix", "Boulevard Haussmann",
+    "Rue Saint-Honoré", "Avenue Victor Hugo", "Rue de Rennes", "Place de la Concorde",
+    "Rue du Commerce", "Avenue de la Grande Armée", "Rue de la Pompe",
+    "Boulevard Magenta", "Rue de Belleville", "Place d'Italie",
+    "Rue Oberkampf", "Avenue de Clichy", "Boulevard de la Chapelle",
+    "Rue de Vaugirard", "Avenue Ledru-Rollin", "Rue du Temple",
+    "Boulevard Beaumarchais", "Rue de la Convention", "Avenue de Friedland",
+    "Rue de Bourgogne", "Place Saint-Michel", "Rue de Grenelle"
+  ],
+  "streetTypes": [
+    "Rue", "Avenue", "Boulevard", "Place", "Impasse", "Allée", "Chemin", "Cours", "Route", "Square", "Passage", "Villa", "Voie"
+  ],
+  "loremWords": [
+    "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
+    "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore",
+    "magna", "aliqua", "enim", "ad", "minim", "veniam", "quis", "nostrud",
+    "exercitation", "ullamco", "laboris", "nisi", "aliquip", "ex", "ea", "commodo",
+    "consequat", "duis", "aute", "irure", "dolor", "reprehenderit", "voluptate",
+    "velit", "esse", "cillum", "fugiat", "nulla", "pariatur", "excepteur", "sint",
+    "occaecat", "cupidatat", "non", "proident", "sunt", "culpa", "qui", "officia",
+    "deserunt", "mollit", "anim", "id", "est", "laborum",
+    "facilisis", "porttitor", "sodales", "tincidunt", "venenatis", "scelerisque", "interdum",
+    "fermentum", "vehicula", "placerat", "pellentesque", "elementum", "convallis", "tortor"
+  ],
+  "phonePrefixes": [
+    "01", "02", "03", "04", "05", "06", "07", "09", "08", "0262", "0590", "0594"
+  ]
+}

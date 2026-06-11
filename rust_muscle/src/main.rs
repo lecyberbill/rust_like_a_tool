@@ -1,4 +1,4 @@
-// [WFGY] Zone: SAFE | λ: 0.1 | Action: Restructured entrypoint with submodules dispatch
+// [WFGY] Zone: TRANSIT | λ: 0.2 | Action: Register data.generate_fake primitive dispatch
 
 use std::env;
 use std::process;
@@ -76,6 +76,7 @@ fn main() {
         "data.read" => primitives::data_format::handle_data_read(&args[2..]),
         "data.write" => primitives::data_format::handle_data_write(&args[2..]),
         "data.convert" => primitives::data_format::handle_data_convert(&args[2..]),
+        "data.generate_fake" => primitives::data_format::handle_generate_fake(&args[2..]),
 
         // data transform
         "data_filter" | "data.filter" => primitives::data_transform::handle_data_filter(&args[2..]),

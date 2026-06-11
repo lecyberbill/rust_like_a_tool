@@ -1763,6 +1763,38 @@
         },
         "required": ["source", "destination"]
       }
+    },
+    "data.generate_fake": {
+      "description": "Génère des données factices (PII, montants, patterns, dates) à l'aide d'un dictionnaire de référence personnalisable.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "string",
+            "description": "Description des colonnes au format col1:type1,col2:type2 (ex: client_id:id,name:fullName,email:email) ou JSON riche."
+          },
+          "count": {
+            "type": "integer",
+            "description": "Nombre de lignes à générer (ex: 1000)."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Le chemin du fichier de sortie généré."
+          },
+          "format": {
+            "type": "string",
+            "enum": ["csv", "json"],
+            "default": "csv",
+            "description": "Format d'exportation : csv ou json."
+          },
+          "generator_path": {
+            "type": "string",
+            "default": "D:/Projet/fake_GEN",
+            "description": "Chemin d'accès optionnel au dossier fake_GEN pour récupérer lists.js."
+          }
+        },
+        "required": ["columns", "count", "destination"]
+      }
     }
   }
 }
