@@ -1,247 +1,150 @@
-# [WFGY] Zone: SAFE | λ: 0.2 | Action: Pure Python fake data generator helper (fake_gen_helper.py)
-import os
+"""Génère des données factices (PII, montants, patterns, dates) via un helper Python."""
 import sys
 import json
 import csv
+import io
 import random
-import re
-from datetime import datetime, timedelta
+import datetime
+import string
 
-DEFAULT_GEN_DIR = 'D:/Projet/fake_GEN'
-LISTS_JSON_PATH = os.path.join(os.path.dirname(__file__), 'fake_gen_lists.json')
+random.seed()
 
-DEFAULT_FALLBACK_LISTS = {
-    "firstNames": ["Jean", "Marie", "Pierre", "Sophie", "Lucas", "Julie", "Thomas", "Emma", "Nicolas", "Sarah"],
-    "lastNames": ["Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard", "Petit", "Durand", "Leroy", "Moreau"],
-    "domains": ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "orange.fr", "laposte.net"],
-    "countries": [
-        {"name": "France", "code": "FR", "postalFormat": "#####"},
-        {"name": "Belgique", "code": "BE", "postalFormat": "####"},
-        {"name": "Suisse", "code": "CH", "postalFormat": "####"},
-        {"name": "Canada", "code": "CA", "postalFormat": "A#A #A#"}
-    ],
-    "cities": ["Paris", "Lyon", "Marseille", "Bruxelles", "Genève", "Montréal", "Lille", "Bordeaux", "Nantes", "Strasbourg"],
-    "streets": ["Rue de la Paix", "Avenue des Champs-Élysées", "Rue de la Gare", "Boulevard Victor Hugo", "Rue Principale"],
-    "loremWords": ["lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit", "sed", "do"],
-    "phonePrefixes": ["06", "07", "01", "02", "03", "04", "05"]
+LETTERS_UPPER = string.ascii_uppercase
+LETTERS_LOWER = string.ascii_lowercase
+DIGITS = string.digits
+
+FIRST_NAMES = [
+    "Jean","Marie","Pierre","Sophie","Lucas","Emma","Louis","Alice","Thomas","Léa",
+    "Antoine","Chloé","Alexandre","Camille","Nicolas","Sarah","Raphaël","Manon","Jules","Laura",
+    "Hugo","Inès","Clément","Juliette","Maxime","Pauline","Arthur","Elise","Baptiste","Océane",
+    "Jade","John","Jane","Michael","Emily","David","Jessica","Chris","Ashley","Brandon",
+    "Marco","Giulia","Lorenzo","Francesca","Alessandro","Sofia","Luca","Elena","Matteo","Valentina",
+    "Hans","Anna","Felix","Mia","Lukas","Emma","Noah","Sophia","Elias","Lea",
+    "Pedro","Ana","Carlos","Maria","Miguel","Isabel","Jose","Carmen","Antonio","Lucia",
+    "Abdou","Aïcha","Omar","Fatima","Ali","Khadija","Hassan","Mariam","Said","Amina",
+    "Takashi","Yuki","Sakura","Haruki","Akiko","Ryo","Yuko","Kenji","Kaori","Daisuke"
+]
+
+LAST_NAMES = [
+    "Martin","Bernard","Dubois","Thomas","Robert","Richard","Petit","Durand","Leroy","Moreau",
+    "Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier",
+    "Morel","Girard","Andre","Mercier","Dupont","Lambert","Bonnet","Francois","Martinez","Legrand",
+    "Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
+    "Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco",
+    "Mueller","Schmidt","Schneider","Fischer","Weber","Wagner","Becker","Hoffmann","Schaefer","Koch",
+    "Garcia","Rodriguez","Martinez","Hernandez","Lopez","Gonzalez","Perez","Sanchez","Ramirez","Torres",
+    "Silva","Santos","Oliveira","Souza","Lima","Pereira","Costa","Ferreira","Almeida","Nascimento"
+]
+
+CITIES = [
+    "Paris","Lyon","Marseille","Toulouse","Bordeaux","Lille","Strasbourg","Nantes","Montpellier","Rennes",
+    "New York","Los Angeles","Chicago","Houston","Phoenix","Philadelphia","San Antonio","San Diego","Dallas","Austin",
+    "Rome","Milan","Naples","Turin","Palerme","Genoa","Bologna","Florence","Venice","Verona",
+    "Berlin","Munich","Hamburg","Cologne","Frankfurt","Stuttgart","Dusseldorf","Leipzig","Dresden","Bremen",
+    "Madrid","Barcelona","Valencia","Seville","Bilbao","Malaga","Zaragoza","Murcia","Palma","Granada",
+    "Casablanca","Rabat","Marrakech","Fes","Tangier","Agadir","Meknes","Oujda","Kenitra","Tetouan",
+    "Tokyo","Yokohama","Osaka","Nagoya","Sapporo","Fukuoka","Kobe","Kyoto","Kawasaki","Saitama"
+]
+
+STREETS = [
+    "Rue de la Paix","Rue du Faubourg Saint-Honoré","Avenue des Champs-Élysées","Boulevard Saint-Germain",
+    "Rue de Rivoli","Place de la Concorde","Avenue Montaigne","Rue du Commerce","Boulevard Haussmann",
+    "Place des Vosges","Main Street","Broadway","Park Avenue","Fifth Avenue","Oak Street",
+    "Maple Avenue","Cedar Lane","Elm Street","Pine Drive","Washington Street",
+    "Via Roma","Corso Vittorio Emanuele","Via del Corso","Via Nazionale","Piazza Navona",
+    "Hauptstrasse","Bahnhofstrasse","Schlossstrasse","Kirchgasse","Marktplatz",
+    "Calle Mayor","Avenida Diagonal","Gran Via","Paseo de la Castellana","Calle Serrano"
+]
+
+EMAIL_DOMAINS = ["gmail.com","yahoo.fr","orange.fr","free.fr","laposte.net","hotmail.fr","outlook.com","icloud.com"]
+LOREM = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum".split()
+
+class GenContext:
+    def __init__(self, row_idx: int):
+        self.row_idx = row_idx
+
+def _pick(seq): return random.choice(seq)
+def _randint(a, b): return random.randint(a, b)
+def _randfloat(a, b, dec=2): return round(random.uniform(a, b), dec)
+
+def _expand_pattern(pattern: str) -> str:
+    result = []
+    for ch in pattern:
+        if ch == '#': result.append(_pick(DIGITS))
+        elif ch == 'A': result.append(_pick(LETTERS_UPPER))
+        elif ch == 'a': result.append(_pick(LETTERS_LOWER))
+        elif ch == 'X': result.append(_pick(DIGITS + LETTERS_UPPER))
+        elif ch == 'x': result.append(_pick(DIGITS + LETTERS_LOWER))
+        elif ch == '?': result.append(_pick(LETTERS_UPPER + LETTERS_LOWER))
+        else: result.append(ch)
+    return "".join(result)
+
+GENERATORS = {
+    "id": lambda c, ctx: str(int(c.get("start", 1)) + ctx.row_idx * int(c.get("step", 1))),
+    "integer": lambda c, ctx: str(_randint(int(c.get("min", 0)), int(c.get("max", 99999)))),
+    "float": lambda c, ctx: f"{_randfloat(float(c.get('min',0)), float(c.get('max',99999)), int(c.get('decimals',2))):.{int(c.get('decimals',2))}f}",
+    "boolean": lambda c, ctx: str(random.choice([True, False])),
+    "date": lambda c, ctx: (lambda fmt=c.get("format","%Y-%m-%d"), mn=datetime.date.fromisoformat(c.get("min","2020-01-01")), mx=datetime.date.fromisoformat(c.get("max",datetime.date.today().isoformat())): (mn + datetime.timedelta(days=_randint(0,max(0,(mx-mn).days)))) .strftime(fmt))(),
+    "datetime": lambda c, ctx: (lambda fmt=c.get("format","%Y-%m-%d %H:%M:%S"), mn=datetime.datetime.fromisoformat(c.get("min","2020-01-01T00:00:00")), mx=datetime.datetime.fromisoformat(c.get("max",datetime.datetime.now().isoformat())): (mn + datetime.timedelta(seconds=_randint(0,max(0,int((mx-mn).total_seconds()))))) .strftime(fmt))(),
+    "time": lambda c, ctx: datetime.time(_randint(int(c.get("minHour",0)),int(c.get("maxHour",23))), _randint(int(c.get("minMinute",0)),int(c.get("maxMinute",59))), _randint(0,59)).strftime(c.get("format","%H:%M:%S")),
+    "first_name": lambda c, ctx: _pick(FIRST_NAMES),
+    "last_name": lambda c, ctx: _pick(LAST_NAMES),
+    "full_name": lambda c, ctx: f"{_pick(FIRST_NAMES)} {_pick(LAST_NAMES)}",
+    "email": lambda c, ctx: (lambda fn=_pick(FIRST_NAMES).lower(), ln=_pick(LAST_NAMES).lower(): f"{fn}{_pick(['.','-','_',''])}{ln}{str(_randint(1,999)) if random.random()<0.3 else ''}@{_pick(EMAIL_DOMAINS)}")(),
+    "phone": lambda c, ctx: (lambda p=c.get("prefix",_pick(["01","02","03","04","05","06","07","+331","+336","+337","+33","06","07"])): f"{p}{''.join(_pick(DIGITS) for _ in range(8))}")(),
+    "country": lambda c, ctx: _pick([("France","FR"),("Belgique","BE"),("Suisse","CH"),("Canada","CA"),("Allemagne","DE"),("Espagne","ES"),("Italie","IT"),("Royaume-Uni","GB"),("États-Unis","US"),("Portugal","PT"),("Pays-Bas","NL"),("Maroc","MA"),("Tunisie","TN"),("Sénégal","SN"),("Japon","JP"),("Luxembourg","LU")])[0 if c.get("format","name")=="name" else 1],
+    "city": lambda c, ctx: _pick(CITIES),
+    "address": lambda c, ctx: f"{_randint(1,999)}, {_pick(STREETS)}, {_pick(CITIES)}",
+    "postal_code": lambda c, ctx: _expand_pattern({"FR":"#####","BE":"####","CH":"####","CA":"A#A #A#","DE":"#####","ES":"#####","IT":"#####","GB":"??# #??","US":"#####-####","PT":"####-###","NL":"####??","MA":"#####","TN":"####","SN":"#####","JP":"###-####","LU":"####","AT":"####","IE":"??# ?#??","SE":"### ##","NO":"####"}.get(c.get("country","FR"),"#####")),
+    "text": lambda c, ctx: " ".join(_pick(LOREM) for _ in range(_randint(int(c.get("minWords",5)), int(c.get("maxWords",20))))),
+    "pattern": lambda c, ctx: _expand_pattern(c.get("pattern","###-AAA-###")),
+    "prenom": lambda c, ctx: _pick(FIRST_NAMES),
+    "nom": lambda c, ctx: _pick(LAST_NAMES),
 }
 
-def load_lists(gen_dir):
-    """Loads list data from the static JSON file or falls back to default lists if missing."""
-    if os.path.exists(LISTS_JSON_PATH):
-        try:
-            with open(LISTS_JSON_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"[LOAD WARNING] Failed to load {LISTS_JSON_PATH}: {e}. Falling back to default list.", file=sys.stderr)
-            
-    return DEFAULT_FALLBACK_LISTS
+def parse_columns(cols_raw):
+    cols = []
+    if isinstance(cols_raw, list):
+        for item in cols_raw:
+            cols.append(item if isinstance(item, dict) else {"name": str(item), "type": "text"})
+    elif isinstance(cols_raw, str):
+        for p in [p.strip() for p in cols_raw.split(",")]:
+            cols.append({"name": p.split(":")[0].strip(), "type": p.split(":")[1].strip()} if ":" in p else {"name": p, "type": "text"})
+    return cols
 
-
-# Moteur de génération Python
-class FakeGenerator:
-    def __init__(self, lists):
-        self.lists = lists
-
-    def generate_pattern(self, pattern):
-        res = []
-        for ch in pattern:
-            if ch == '#':
-                res.append(str(random.randint(0, 9)))
-            elif ch == 'A':
-                res.append(chr(random.randint(65, 90)))
-            elif ch == 'a':
-                res.append(chr(random.randint(97, 122)))
-            elif ch == 'X':
-                res.append(random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"))
-            elif ch == 'x':
-                res.append(random.choice("abcdefghijklmnopqrstuvwxyz0123456789"))
-            elif ch == '?':
-                res.append(chr(random.choice(list(range(65, 90)) + list(range(97, 122)))))
-            else:
-                res.append(ch)
-        return "".join(res)
-
-    def generate_value(self, col_type, col_config, row_index):
-        if col_type == 'id':
-            start = int(col_config.get('start', 1))
-            step = int(col_config.get('step', 1))
-            return str(start + row_index * step)
-            
-        elif col_type == 'boolean':
-            return str(random.random() < 0.5).lower()
-            
-        elif col_type == 'integer':
-            min_val = int(col_config.get('min', 0))
-            max_val = int(col_config.get('max', 99999))
-            return str(random.randint(min_val, max_val))
-            
-        elif col_type == 'float':
-            min_val = float(col_config.get('min', 0.0))
-            max_val = float(col_config.get('max', 99999.0))
-            decimals = int(col_config.get('decimals', 2))
-            return f"{random.uniform(min_val, max_val):.{decimals}f}"
-            
-        elif col_type == 'date':
-            min_date_str = col_config.get('min', '2000-01-01')
-            max_date_str = col_config.get('max', datetime.today().strftime('%Y-%m-%d'))
-            fmt = col_config.get('format', 'YYYY-MM-DD')
-            
-            try:
-                min_d = datetime.strptime(min_date_str, '%Y-%m-%d')
-                max_d = datetime.strptime(max_date_str, '%Y-%m-%d')
-            except Exception:
-                min_d = datetime(2000, 1, 1)
-                max_d = datetime.today()
-                
-            delta_days = (max_d - min_d).days
-            rand_days = random.randint(0, max(0, delta_days))
-            res_date = min_d + timedelta(days=rand_days)
-            
-            # Format replacement
-            return fmt.replace('YYYY', str(res_date.year)).replace('MM', f"{res_date.month:02d}").replace('DD', f"{res_date.day:02d}")
-            
-        elif col_type == 'firstName':
-            return random.choice(self.lists.get('firstNames', DEFAULT_FALLBACK_LISTS['firstNames']))
-            
-        elif col_type == 'lastName':
-            return random.choice(self.lists.get('lastNames', DEFAULT_FALLBACK_LISTS['lastNames']))
-            
-        elif col_type == 'fullName':
-            fn = self.generate_value('firstName', {}, row_index)
-            ln = self.generate_value('lastName', {}, row_index)
-            return f"{fn} {ln}"
-            
-        elif col_type == 'email':
-            fn = self.generate_value('firstName', {}, row_index).lower()
-            ln = self.generate_value('lastName', {}, row_index).lower()
-            sep = random.choice(['.', '-', '_', ''])
-            num = str(random.randint(1, 999)) if random.random() < 0.3 else ''
-            dom = random.choice(self.lists.get('domains', DEFAULT_FALLBACK_LISTS['domains']))
-            return f"{fn}{sep}{ln}{num}@{dom}"
-            
-        elif col_type == 'phone':
-            prefix = col_config.get('prefix', random.choice(self.lists.get('phonePrefixes', DEFAULT_FALLBACK_LISTS['phonePrefixes'])))
-            digits = "".join(str(random.randint(0, 9)) for _ in range(8))
-            return f"{prefix}{digits}"
-            
-        elif col_type == 'country':
-            country_obj = random.choice(self.lists.get('countries', DEFAULT_FALLBACK_LISTS['countries']))
-            if col_config.get('format') == 'code':
-                return country_obj.get('code', 'FR')
-            return country_obj.get('name', 'France')
-            
-        elif col_type == 'city':
-            return random.choice(self.lists.get('cities', DEFAULT_FALLBACK_LISTS['cities']))
-            
-        elif col_type == 'address':
-            num = random.randint(1, 999)
-            street = random.choice(self.lists.get('streets', DEFAULT_FALLBACK_LISTS['streets']))
-            city = self.generate_value('city', {}, row_index)
-            return f"{num}, {street}, {city}"
-            
-        elif col_type == 'postalCode':
-            c_name = col_config.get('country')
-            country_obj = None
-            if c_name:
-                for c in self.lists.get('countries', []):
-                    if c.get('name') == c_name or c.get('code') == c_name:
-                        country_obj = c
-                        break
-            if not country_obj:
-                country_obj = random.choice(self.lists.get('countries', DEFAULT_FALLBACK_LISTS['countries']))
-            fmt = country_obj.get('postalFormat', '#####')
-            return self.generate_pattern(fmt)
-            
-        elif col_type == 'text':
-            min_w = int(col_config.get('minWords', 5))
-            max_w = int(col_config.get('maxWords', 20))
-            words_pool = self.lists.get('loremWords', DEFAULT_FALLBACK_LISTS['loremWords'])
-            cnt = random.randint(min_w, max_w)
-            words = [random.choice(words_pool) for _ in range(cnt)]
-            if words:
-                words[0] = words[0].capitalize()
-            return " ".join(words) + "."
-            
-        elif col_type == 'pattern':
-            pat = col_config.get('pattern', '#####')
-            return self.generate_pattern(pat)
-            
-        return ''
-
-def parse_columns_string(cols_str):
-    """Parses simple cols string 'col:type,col2:type2' or a full JSON string."""
-    cols_str = cols_str.strip()
-    if cols_str.startswith('[') or cols_str.startswith('{'):
-        try:
-            return json.loads(cols_str)
-        except Exception as e:
-            print(f"[ERROR] Failed to parse columns JSON: {e}", file=sys.stderr)
-            sys.exit(1)
-            
-    # Simple syntax parser
-    columns = []
-    for part in cols_str.split(','):
-        if not part.strip():
-            continue
-        subparts = part.strip().split(':')
-        name = subparts[0].strip()
-        col_type = subparts[1].strip() if len(subparts) > 1 else 'text'
-        columns.append({
-            "name": name,
-            "type": col_type,
-            "config": {}
-        })
-    return columns
+def generate_rows(columns, count, fmt):
+    cols = parse_columns(columns)
+    if fmt == "json":
+        rows = []
+        for i in range(count):
+            ctx = GenContext(i)
+            rows.append({c["name"]: GENERATORS.get(c.get("type","text"), GENERATORS["text"])(c, ctx) for c in cols})
+        return json.dumps(rows, ensure_ascii=False, indent=2)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([c["name"] for c in cols])
+    for i in range(count):
+        ctx = GenContext(i)
+        w.writerow([GENERATORS.get(c.get("type","text"), GENERATORS["text"])(c, ctx) for c in cols])
+    return buf.getvalue()
 
 def main():
-    if len(sys.argv) < 5:
-        print("Usage: python fake_gen_helper.py <generator_path> <columns> <count> <destination> [format]", file=sys.stderr)
+    if len(sys.argv) < 6:
+        print(f"Usage: python fake_gen_helper.py <generator_path> <columns_json> <count> <destination> <format>", file=sys.stderr)
         sys.exit(1)
-        
-    gen_dir = sys.argv[1] or DEFAULT_GEN_DIR
-    columns_str = sys.argv[2]
+    generator_path = sys.argv[1]
+    columns_raw = sys.argv[2]
     count = int(sys.argv[3])
     destination = sys.argv[4]
-    export_format = sys.argv[5].lower() if len(sys.argv) > 5 else 'csv'
-    
-    # Load lists
-    lists = load_lists(gen_dir)
-    generator = FakeGenerator(lists)
-    
-    columns = parse_columns_string(columns_str)
-    
-    # Generate rows
-    rows = []
-    for i in range(count):
-        row = {}
-        for col in columns:
-            name = col["name"]
-            c_type = col["type"]
-            c_cfg = col.get("config", {})
-            row[name] = generator.generate_value(c_type, c_cfg, i)
-        rows.append(row)
-        
-    # Write to destination
-    dest_dir = os.path.dirname(destination)
-    if dest_dir and not os.path.exists(dest_dir):
-        os.makedirs(dest_dir, exist_ok=True)
-        
-    if export_format == 'json':
-        with open(destination, 'w', encoding='utf-8') as f:
-            json.dump(rows, f, indent=2, ensure_ascii=False)
-    else:
-        # CSV format
-        if not rows:
-            return
-        headers = list(rows[0].keys())
-        with open(destination, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
-            writer.writeheader()
-            for r in rows:
-                writer.writerow(r)
-                
-    print(f"SUCCESS: Generated {count} fake rows in '{destination}' (format: {export_format})")
+    fmt = sys.argv[5].lower()
+    try:
+        columns = json.loads(columns_raw)
+    except (json.JSONDecodeError, TypeError):
+        columns = columns_raw
+    output = generate_rows(columns, count, fmt)
+    with open(destination, "w", encoding="utf-8") as f:
+        f.write(output)
+    print(f"SUCCESS: Generated {count} rows -> {destination}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

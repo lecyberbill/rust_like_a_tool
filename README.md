@@ -101,6 +101,7 @@ The Rust binary executes performance-critical tasks categorized by domain:
   - `net.ftp_download` & `net.ftp_upload`: Transfer files to/from FTP servers (delegated to Python `ftplib` helper).
   - `net.notify`: SMTP Email and Webhook telemetry alert dispatches.
 - **Data & Formatting (`data.*`)**:
+  - `data.generate_fake`: Génère des données factices autonomes (18 types : id, prénom, email, date, pattern `#Aa`, etc.) avec export CSV/JSON.
   - `data.csv_to_json` & `data.json_to_csv`: High-speed format converters.
   - `data.xml_to_json`: High-speed hierarchical XML parser using `quick-xml`.
   - `data.filter`: Filter dataset rows based on regular expressions and comparison operators.

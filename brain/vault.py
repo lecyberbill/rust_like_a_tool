@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.append(str(Path("d:/image_to_text/chromatix")))
 
 try:
-    from chromatix_cps import TenantVault
+    from chromatix_cps.vault import TenantVault
     from PIL import Image
     HAS_CHROMATIX = True
 except ImportError:
@@ -22,6 +22,11 @@ class StealthVault:
     """
 
     def __init__(self, key: str, tenant_id: str = "default"):
+        if not HAS_CHROMATIX:
+            raise RuntimeError(
+                "Chromatix CPS vault not available. "
+                "Ensure chromatix_cps is installed (D:/image_to_text/chromatix)."
+            )
         self.key = key
         self.tenant_id = tenant_id
         self.vaults_dir = Path(__file__).parent / "vaults"

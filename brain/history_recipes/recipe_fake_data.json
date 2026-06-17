@@ -1,107 +1,53 @@
 {
   "plan_id": "scenario_fake_data",
-  "intent_analysis": "Nettoyage de données CSV, calcul de la majorité et insertion des mineurs dans la base de données MySQL sql.free.fr",
+  "intent_analysis": "Génération de données factices → nettoyage → filtre des mineurs → insertion PostgreSQL",
   "steps": [
     {
       "step": 1,
-      "primitive": "data.clean",
+      "primitive": "data.generate_fake",
       "depends_on": [],
       "ui": {
-        "label": "Nettoyage & Calcul Majorité",
+        "label": "Générer 100 profils factices",
         "color": "#4A90E2",
-        "position": {
-          "x": 44,
-          "y": 99
-        },
-        "mappings": [
-          {
-            "sourceCol": "id",
-            "expression": "",
-            "destCol": "id",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "prenom",
-            "expression": "",
-            "destCol": "prenom",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "nom",
-            "expression": "",
-            "destCol": "nom",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "email",
-            "expression": "",
-            "destCol": "email",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "cotisation_a_jour",
-            "expression": "",
-            "destCol": "cotisation_a_jour",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "adresse",
-            "expression": "",
-            "destCol": "adresse",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "cp",
-            "expression": "",
-            "destCol": "cp",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "date_naissance",
-            "expression": "",
-            "destCol": "date_naissance",
-            "defaultVal": ""
-          },
-          {
-            "sourceCol": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
-            "expression": "IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
-            "destCol": "majeur",
-            "defaultVal": ""
-          }
-        ],
-        "variables": []
+        "position": { "x": 44, "y": 99 }
       },
       "args": {
-        "source": "C:\\Users\\lecyb\\Downloads\\fake_data.csv",
-        "destination": "C:\\Users\\lecyb\\Downloads\\fake_data_clean.csv",
+        "columns": "id:id,prenom:first_name,nom:last_name,email:email,cotisation_a_jour:boolean,adresse:address,cp:postal_code,date_naissance:date",
+        "count": "100",
+        "destination": "workspace/output/fake_data.csv",
+        "format": "csv"
+      }
+    },
+    {
+      "step": 2,
+      "primitive": "data.clean",
+      "depends_on": [1],
+      "ui": {
+        "label": "Nettoyage & Calcul Majorité",
+        "color": "#7EB8E0",
+        "position": { "x": 300, "y": 99 }
+      },
+      "args": {
+        "source": "",
+        "destination": "workspace/output/fake_data_clean.csv",
         "select_columns": "id,prenom,nom,email,cotisation_a_jour,adresse,cp,date_naissance,majeur",
-        "derive_columns": "majeur=IF date_naissance <= '2008-06-04' THEN 'true' ELSE 'false'",
+        "derive_columns": "majeur=IF date_naissance <= '2008-06-17' THEN 'true' ELSE 'false'",
         "rename_columns": "",
         "fill_na": ""
       }
     },
     {
-      "step": 2,
+      "step": 3,
       "primitive": "data.filter",
-      "depends_on": [
-        1,
-        4
-      ],
+      "depends_on": [2],
       "ui": {
         "label": "Filtrer les Mineurs",
         "color": "#F5A623",
-        "position": {
-          "x": 615,
-          "y": 215
-        },
-        "connection_labels": {
-          "1": "test",
-          "4": ""
-        }
+        "position": { "x": 560, "y": 99 }
       },
       "args": {
-        "source": "C:\\Users\\lecyb\\Downloads\\fake_data_clean.csv",
-        "destination": "C:\\Users\\lecyb\\Downloads\\minors.csv",
+        "source": "",
+        "destination": "workspace/output/minors.csv",
         "column_name": "majeur",
         "operator": "equals",
         "value": "false",
@@ -109,89 +55,27 @@
       }
     },
     {
-      "step": 3,
-      "primitive": "db.insert",
-      "depends_on": [
-        2
-      ],
-      "ui": {
-        "label": "Insert MySQL (sql.free.fr)",
-        "color": "#7ED321",
-        "position": {
-          "x": 1210,
-          "y": 126
-        }
-      },
-      "args": {
-        "connection_string": "postgresql://${SECRET_MYSQL_USER}:${SECRET_MYSQL_PASSWORD}@127.0.0.1:5432/etl",
-        "table_name": "mineurs",
-        "source": "C:\\Users\\lecyb\\Downloads\\minors.csv",
-        "mode": "replace"
-      }
-    },
-    {
       "step": 4,
-      "primitive": "io.copy",
-      "depends_on": [],
+      "primitive": "db.insert",
+      "depends_on": [3],
+      "ui": {
+        "label": "Insert PostgreSQL (localhost)",
+        "color": "#7ED321",
+        "position": { "x": 820, "y": 99 }
+      },
       "args": {
+        "connection_string": "${SECRET_POSTGRES_CONNECTION_STRING}",
+        "table_name": "mineurs",
         "source": "",
-        "destination": "",
-        "overwrite": true
-      },
-      "ui": {
-        "label": "Copier des fichiers (4)",
-        "position": {
-          "x": 158,
-          "y": 338
-        }
-      }
-    },
-    {
-      "step": 5,
-      "primitive": "ai.summarize",
-      "depends_on": [
-        2
-      ],
-      "args": {
-        "source": "",
-        "destination": "",
-        "text_column": "",
-        "summary_column": "",
-        "model_provider": "",
-        "model_id": "",
-        "base_url": ""
-      },
-      "ui": {
-        "label": "Résumé de texte NLP (5)",
-        "position": {
-          "x": 959,
-          "y": 397
-        }
-      }
-    },
-    {
-      "step": 6,
-      "primitive": "io.write_file",
-      "depends_on": [
-        5
-      ],
-      "args": {
-        "content": "",
-        "destination": ""
-      },
-      "ui": {
-        "label": "Écrire un fichier (6)",
-        "position": {
-          "x": 1482,
-          "y": 352
-        }
+        "mode": "replace"
       }
     }
   ],
   "env": {
     "dev": {
       "SECRET_MYSQL_USER": "user_dev",
-      "SECRET_MYSQL_PASSWORD": "user_dev"
+      "SECRET_MYSQL_PASSWORD": "user_dev",
+      "SECRET_POSTGRES_CONNECTION_STRING": "postgresql://user_dev:user_dev@localhost:5432/postgres"
     },
     "test": {},
     "prod": {}
