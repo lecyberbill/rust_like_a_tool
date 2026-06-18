@@ -583,6 +583,16 @@ async def handle_http_request(reader, writer):
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
+                elif clean_path == "/api/health":
+                    try:
+                        from metrics import METRICS as M
+                        body = json.dumps(M.health())
+                        resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{body}"
+                    except Exception as e:
+                        body = json.dumps({"status": "error", "message": str(e)})
+                        resp = f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
                 elif clean_path == "/metrics":
                     body = METRICS.render()
                     resp = (

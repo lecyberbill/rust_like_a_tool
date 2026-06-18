@@ -1,4 +1,6 @@
 import time
+import json
+import os
 from collections import defaultdict
 
 class MetricsRegistry:
@@ -6,6 +8,19 @@ class MetricsRegistry:
         self._counters = defaultdict(int)
         self._gauges = defaultdict(float)
         self._histograms = defaultdict(list)
+        self._start_time = time.time()
+
+    def health(self) -> dict:
+        uptime = time.time() - self._start_time
+        return {
+            "status": "ok",
+            "uptime_seconds": int(uptime),
+            "version": "WFGY-Core V3",
+            "active_connections": int(self._gauges.get("wfgy_active_connections|", 0)),
+            "plans_total": int(self._counters.get("wfgy_plan_runs_total|target_env=\"dev\"", 0) + self._counters.get("wfgy_plan_runs_total|target_env=\"test\"", 0) + self._counters.get("wfgy_plan_runs_total|target_env=\"prod\"", 0)),
+            "steps_total": sum(v for k, v in self._counters.items() if k.startswith("wfgy_steps_total")),
+            "step_failures": sum(v for k, v in self._counters.items() if k.startswith("wfgy_step_failures_total")),
+        }
 
     def counter_inc(self, name: str, labels: dict = None, value: int = 1):
         key = self._label_key(name, labels)
