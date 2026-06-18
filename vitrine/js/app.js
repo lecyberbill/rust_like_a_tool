@@ -483,6 +483,18 @@ function showToast(message, type = 'info') {
 }
 
 // ── Notification Config ─────────────────────────────────────
+function toggleNotifType() {
+    const t = document.getElementById('notif-type').value;
+    document.getElementById('notif-smtp-fields').style.display = t === 'smtp' ? '' : 'none';
+    document.getElementById('notif-webhook-fields').style.display = t === 'webhook' ? '' : 'none';
+}
+
+function toggleWsNotifType() {
+    const t = document.getElementById('ws-notif-type').value;
+    document.getElementById('ws-notif-smtp-fields').style.display = t === 'smtp' ? '' : 'none';
+    document.getElementById('ws-notif-webhook-fields').style.display = t === 'webhook' ? '' : 'none';
+}
+
 async function openNotifConfigModal() {
     const modal = document.getElementById('notif-config-modal');
     if (!modal) return;

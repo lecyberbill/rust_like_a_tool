@@ -102,6 +102,29 @@ The Rust binary executes performance-critical tasks categorized by domain:
   - `net.notify`: SMTP Email and Webhook telemetry alert dispatches.
 - **Data & Formatting (`data.*`)**:
   - `data.generate_fake`: Génère des données factices autonomes (18 types : id, prénom, email, date, pattern `#Aa`, etc.) avec export CSV/JSON.
+    <details><summary>Exemples de colonnes</summary>
+
+    | Type | Descriptif | Exemple |
+    |------|-----------|---------|
+    | `id` | Auto-incrément (start=1, step=1) | `id:id` → 1, 2, 3... |
+    | `first_name` | Prénom aléatoire | `prenom:first_name` → Jean, Marie |
+    | `last_name` | Nom aléatoire | `nom:last_name` → Martin, Bernard |
+    | `email` | Email automatique | `email:email` → jean.martin@gmail.com |
+    | `date` | Date formatée (min, max, format) | `naissance:date` → 1990-03-15 |
+    | `integer` | Entier (min, max) | `age:integer` → 42 |
+    | `float` | Décimal (min, max, decimals) | `prix:float` → 19.99 |
+    | `boolean` | Booléen aléatoire | `actif:boolean` → true |
+    | `phone` | Téléphone (prefix) | `tel:phone` → 0612345678 |
+    | `country` | Pays (format: name/code) | `pays:country` → France |
+    | `city` | Ville aléatoire | `ville:city` → Paris |
+    | `address` | Adresse complète | `adresse:address` → 42, Rue de la Paix |
+    | `postal_code` | Code postal (country) | `cp:postal_code` → 75001 |
+    | `pattern` | Pattern `#AaXx?` | `sku:pattern` → USR-123-ABC |
+    | `text` | Texte lorem (min/max mots) | `desc:text` → lorem ipsum... |
+
+    Format court : `colonne:type, col2:type2` (ex: `id:id,prenom:first_name,email:email,age:integer,date_naissance:date`)
+    Format JSON : `[{"name":"id","type":"id"},{"name":"email","type":"email"}]`
+    </details>
   - `data.csv_to_json` & `data.json_to_csv`: High-speed format converters.
   - `data.xml_to_json`: High-speed hierarchical XML parser using `quick-xml`.
   - `data.filter`: Filter dataset rows based on regular expressions and comparison operators.
@@ -241,6 +264,25 @@ curl -X POST http://localhost:8766/api/login \
 ```
 
 Les deux endpoints retournent un token JWT à passer à la WebSocket :
+
+#### Exemple de flux complet (génération → rapport → email avec pièce jointe)
+```json
+{
+  "steps": [
+    {"step": 1, "primitive": "data.generate_fake", "args": {"columns": "id:id,nom:last_name,email:email", "count": "10", "format": "csv"}},
+    {"step": 2, "primitive": "flow.report", "depends_on": [1], "args": {
+      "template": "Rapport du flux ${FLOW.START_TIME}\nÉtape 1: ${STEPS.1.STATUS} (${STEPS.1.DURATION_MS}ms)\nFichier: ${STEPS.1.DESTINATION}",
+      "destination": "workspace/output/rapport.txt"
+    }},
+    {"step": 3, "primitive": "net.notify", "depends_on": [2], "args": {
+      "type": "email", "to": "admin@exemple.com",
+      "smtp_host": "${SECRET_SMTP_HOST}", "smtp_user": "${SECRET_SMTP_USER}", "smtp_pass": "${SECRET_SMTP_PASS}",
+      "subject": "Rapport ETL", "message": "Flux terminé avec succès.",
+      "attachment": "workspace/output/step_1_data_generate_fake.csv"
+    }}
+  ]
+}
+```
 ```json
 {"token": "eyJ...", "tenant_id": "a1b2c3d4"}
 ```
