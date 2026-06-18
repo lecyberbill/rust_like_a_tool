@@ -91,7 +91,7 @@ class WorkerBridge:
 
         log.info("Executing primitive", extra={
             "primitive": primitive_name,
-            "cmd": " ".join(cmd),
+            "args_count": len(cmd) - 2,
             "timeout": timeout_seconds
         })
         proc = await asyncio.create_subprocess_exec(

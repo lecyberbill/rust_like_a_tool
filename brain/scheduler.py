@@ -566,15 +566,22 @@ async def handle_http_request(reader, writer):
                     body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
                     try:
                         import urllib.request
+                        from urllib.parse import urlparse
                         data = json.loads(body_data)
                         url = data.get("url", "")
                         payload = data.get("payload", {})
                         if not url:
                             resp_body = json.dumps({"error": "Missing url"})
                         else:
-                            req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
-                            with urllib.request.urlopen(req, timeout=15) as response:
-                                resp_body = json.dumps({"status": response.status, "body": response.read().decode(errors="ignore")[:500]})
+                            parsed = urlparse(url)
+                            if parsed.scheme not in ("http", "https"):
+                                resp_body = json.dumps({"error": "Only http/https URLs allowed"})
+                            elif parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1") or parsed.hostname.endswith(".local"):
+                                resp_body = json.dumps({"error": "URL pointing to localhost is not allowed"})
+                            else:
+                                req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+                                with urllib.request.urlopen(req, timeout=15) as response:
+                                    resp_body = json.dumps({"status": response.status, "body": response.read().decode(errors="ignore")[:500]})
                     except Exception as e:
                         resp_body = json.dumps({"error": str(e)})
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
@@ -661,7 +668,7 @@ async def handle_http_request(reader, writer):
                     await writer.drain()
                 else:
                     # Serve static files from vitrine directory
-                    clean_path = path.split('?')[0]
+                    clean_path = urllib.parse.unquote(path.split('?')[0])
                     if clean_path == "/":
                         clean_path = "/index.html"
                     
@@ -676,7 +683,23 @@ async def handle_http_request(reader, writer):
                         return
                     
                     from pathlib import Path
-                    file_path = Path(__file__).parent.parent / "vitrine" / clean_path.lstrip("/")
+                    requested = Path("/") / clean_path.lstrip("/")
+                    # Resoudre et verifier que le chemin est dans vitrine/
+                    try:
+                        base = Path(__file__).parent.parent / "vitrine"
+                        resolved = (base / str(requested).lstrip("/")).resolve()
+                        if not str(resolved).startswith(str(base.resolve())):
+                            response_headers = (
+                                "HTTP/1.1 403 Forbidden\r\n"
+                                "Connection: close\r\n\r\n"
+                            )
+                            writer.write(response_headers.encode('utf-8'))
+                            await writer.drain()
+                            writer.close()
+                            return
+                        file_path = resolved
+                    except Exception:
+                        file_path = Path(__file__).parent.parent / "vitrine" / clean_path.lstrip("/")
                     
                     if file_path.exists() and file_path.is_file():
                         suffix = file_path.suffix.lower()
@@ -705,6 +728,8 @@ async def handle_http_request(reader, writer):
                                 f"Content-Type: {mime_type}\r\n"
                                 f"Content-Length: {len(content)}\r\n"
                                 "Access-Control-Allow-Origin: *\r\n"
+                                "X-Content-Type-Options: nosniff\r\n"
+                                "X-Frame-Options: DENY\r\n"
                                 "Connection: close\r\n\r\n"
                             )
                             writer.write(response_headers.encode('utf-8') + content)
@@ -715,6 +740,8 @@ async def handle_http_request(reader, writer):
                                 "HTTP/1.1 500 Internal Server Error\r\n"
                                 "Content-Type: application/json\r\n"
                                 f"Content-Length: {len(response_body)}\r\n"
+                                "X-Content-Type-Options: nosniff\r\n"
+                                "X-Frame-Options: DENY\r\n"
                                 "Connection: close\r\n\r\n"
                             )
                             writer.write(response_headers.encode('utf-8') + response_body.encode('utf-8'))
@@ -725,6 +752,8 @@ async def handle_http_request(reader, writer):
                             "HTTP/1.1 404 Not Found\r\n"
                             "Content-Type: application/json\r\n"
                             f"Content-Length: {len(response_body)}\r\n"
+                            "X-Content-Type-Options: nosniff\r\n"
+                            "X-Frame-Options: DENY\r\n"
                             "Connection: close\r\n\r\n"
                         )
                         writer.write(response_headers.encode('utf-8') + response_body.encode('utf-8'))

@@ -10,7 +10,12 @@ import secrets
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "users.db"
-JWT_SECRET = os.environ.get("JWT_SECRET") or "change-me-jwt-secret-2026"
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET environment variable is required. "
+        "Generate a strong secret: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
 JWT_TTL = int(os.environ.get("JWT_TTL", 86400))
 ROLES = ("admin", "operator", "viewer")
 
@@ -57,7 +62,8 @@ def _decode_token(token: str) -> dict | None:
         if len(parts) != 3: return None
         header, body, sig_b64 = parts
         expected = hmac.new(JWT_SECRET.encode(), f"{header}.{body}".encode(), hashlib.sha256).digest()
-        if _b64url(expected) != sig_b64: return None
+        if not hmac.compare_digest(_b64url(expected), sig_b64):
+            return None
         payload = json.loads(base64.urlsafe_b64decode(body + "=="))
         if payload.get("exp", 0) < time.time(): return None
         return payload

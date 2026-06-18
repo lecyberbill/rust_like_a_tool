@@ -5,7 +5,16 @@ import sys
 import json
 from pathlib import Path
 
-sys.path.append(str(Path("d:/image_to_text/chromatix")))
+# Chercher chromatix dans plusieurs emplacements
+_chromatix_paths = [
+    str(Path(__file__).parent.parent / "chromatix"),  # projet racine
+    str(Path(__file__).parent / "chromatix"),         # brain/chromatix
+    os.environ.get("CHROMATIX_PATH", ""),             # variable d'env
+]
+for p in _chromatix_paths:
+    if p and (Path(p) / "chromatix_cps").exists():
+        sys.path.insert(0, p)
+        break
 
 try:
     from chromatix_cps.vault import TenantVault
@@ -25,12 +34,16 @@ class StealthVault:
         if not HAS_CHROMATIX:
             raise RuntimeError(
                 "Chromatix CPS vault not available. "
-                "Ensure chromatix_cps is installed (D:/image_to_text/chromatix)."
+                "Install chromatix_cps or set CHROMATIX_PATH env variable."
             )
         self.key = key
         self.tenant_id = tenant_id
         self.vaults_dir = Path(__file__).parent / "vaults"
-        self._tv = TenantVault(vaults_dir=str(self.vaults_dir), derive_key=key)
+        self.vaults_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self._tv = TenantVault(vaults_dir=str(self.vaults_dir), derive_key=key)
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize vault: {e}") from e
 
     # ── Migration depuis l'ancien vault monolithique ────────────
     def _migrate_legacy(self):
