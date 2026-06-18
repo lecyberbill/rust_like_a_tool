@@ -1,12 +1,10 @@
 # core.switch
 
-_Primitive d'orchestration logique. Route l'exÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cution vers diffÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©rents sous-graphes selon la valeur d'une clÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ou d'un paramÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨tre._
+_Primitive d'orchestration logique. Route l'exÃ©cution vers diffÃ©rents sous-graphes selon la valeur d'une clÃ© ou d'un paramÃ¨tre._
 
 ## Parametres
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| value | string | **Oui** | — | La valeur ou variable ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  tester (ex: ${ENV_MODE} ou ${STATUS}). |
-| cases | object | **Oui** | — | Dictionnaire associant des valeurs de cas ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  des listes d'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©tapes d'exÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cution (ex: {"dev": [...], "prod": [...]}). |
-
-_2 parametres_
+| value | string | **Oui** | — | La valeur ou variable Ã  tester (ex: ${ENV_MODE} ou ${STATUS}). |
+| cases | object | **Oui** | — | Dictionnaire associant des valeurs de cas Ã  des listes d'Ã©tapes d'exÃ©cution (ex: {"dev": [...], "prod": [...]}). |

@@ -6,7 +6,5 @@ _Compresse un dossier ou un fichier dans une archive ZIP._
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| source | string | **Oui** | — | Chemin du fichier ou dossier source ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  compresser. |
-| destination | string | **Oui** | — | Chemin de l'archive ZIP destination ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©rer. |
-
-_2 parametres_
+| source | string | **Oui** | — | Chemin du fichier ou dossier source Ã  compresser. |
+| destination | string | **Oui** | — | Chemin de l'archive ZIP destination Ã  gÃ©nÃ©rer. |

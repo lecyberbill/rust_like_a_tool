@@ -1,6 +1,6 @@
 # data.to_db
 
-_Ecrit un dataset dans une table SQL avec creation automatique du schema._
+_Ecrit un dataset dans une table SQL (creation auto du schema)._
 
 ## Parametres
 
@@ -9,6 +9,4 @@ _Ecrit un dataset dans une table SQL avec creation automatique du schema._
 | source | string | **Oui** | — | Fichier source. |
 | connection_string | string | **Oui** | — | URL de connexion SQL. |
 | table_name | string | **Oui** | — | Nom de la table. |
-| mode | string | Non | replace | Mode d ecriture. Valeurs: replace, append |
-
-_4 parametres_
+| mode | string | Non | replace | Mode d'ecriture. Valeurs: replace, append |

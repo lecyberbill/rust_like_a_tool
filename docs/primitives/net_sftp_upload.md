@@ -1,18 +1,16 @@
 # net.sftp_upload
 
-_TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©verse un fichier local vers un serveur SFTP sÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©curisÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© (SSH)._
+_TÃ©lÃ©verse un fichier local vers un serveur SFTP sÃ©curisÃ© (SSH)._
 
 ## Parametres
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| host | string | **Oui** | — | L'adresse IP ou nom d'hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â´te du serveur SFTP. |
-| port | string | Non | 22 | Le port SSH/SFTP (dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©faut 22). |
+| host | string | **Oui** | — | L'adresse IP ou nom d'hÃ´te du serveur SFTP. |
+| port | string | Non | 22 | Le port SSH/SFTP (dÃ©faut 22). |
 | user | string | **Oui** | — | L'identifiant de connexion SSH. |
-| password | string | Non | — | Optionnel : Le mot de passe de connexion SSH (requis si aucune clÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© privÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e n'est fournie). |
-| key_path | string | Non | — | Optionnel : Le chemin local vers le fichier de clÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© privÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e SSH (ex: ~/.ssh/id_rsa). |
-| key_passphrase | string | Non | — | Optionnel : Le mot de passe/passphrase dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©verrouillant la clÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© privÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e SSH si nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cessaire. |
+| password | string | Non | — | Optionnel : Le mot de passe de connexion SSH (requis si aucune clÃ© privÃ©e n'est fournie). |
+| key_path | string | Non | — | Optionnel : Le chemin local vers le fichier de clÃ© privÃ©e SSH (ex: ~/.ssh/id_rsa). |
+| key_passphrase | string | Non | — | Optionnel : Le mot de passe/passphrase dÃ©verrouillant la clÃ© privÃ©e SSH si nÃ©cessaire. |
 | remote_path | string | **Oui** | — | Le chemin de destination sur le serveur SFTP. |
-| local_path | string | **Oui** | — | Le chemin du fichier local ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©verser. |
-
-_8 parametres_
+| local_path | string | **Oui** | — | Le chemin du fichier local Ã  tÃ©lÃ©verser. |
