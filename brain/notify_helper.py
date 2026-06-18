@@ -51,15 +51,19 @@ def main():
             msg['From'] = user
             msg['To'] = to
 
-            server = smtplib.SMTP(host, port, timeout=10)
+            if int(port) == 465:
+                server = smtplib.SMTP_SSL(host, int(port), timeout=10)
+            else:
+                server = smtplib.SMTP(host, int(port), timeout=10)
+                if user and password:
+                    server.ehlo()
+                    if int(port) == 587:
+                        try:
+                            server.starttls()
+                            server.ehlo()
+                        except Exception as te:
+                            print(f"SMTP Warning: STARTTLS failed: {te}", file=sys.stderr)
             if user and password:
-                server.ehlo()
-                if port != 1025 and port != 25:
-                    try:
-                        server.starttls()
-                        server.ehlo()
-                    except Exception as te:
-                        print(f"SMTP Warning: STARTTLS failed: {te}", file=sys.stderr)
                 server.login(user, password)
             
             server.sendmail(user, [to], msg.as_string())

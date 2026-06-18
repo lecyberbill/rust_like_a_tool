@@ -95,7 +95,12 @@ def _send_email(config: dict, subject: str, body: str):
     to_addr = config.get("smtp_to", "")
     if not host or not to_addr: return
     try:
-        server = smtplib.SMTP(host, port, timeout=10)
+        if int(port) == 465:
+            server = smtplib.SMTP_SSL(host, int(port), timeout=10)
+        else:
+            server = smtplib.SMTP(host, int(port), timeout=10)
+            if user and int(port) == 587:
+                server.ehlo(); server.starttls(); server.ehlo()
         if user: server.login(user, password)
         msg = f"From: {from_addr}\r\nTo: {to_addr}\r\nSubject: {subject}\r\n\r\n{body}"
         server.sendmail(from_addr, [to_addr], msg.encode("utf-8"))
@@ -122,7 +127,12 @@ def test_email(config: dict) -> str:
     to_addr = config.get("smtp_to", "")
     if not host or not to_addr: return "SMTP not configured"
     try:
-        server = smtplib.SMTP(host, port, timeout=10)
+        if int(port) == 465:
+            server = smtplib.SMTP_SSL(host, int(port), timeout=10)
+        else:
+            server = smtplib.SMTP(host, int(port), timeout=10)
+            if user and int(port) == 587:
+                server.ehlo(); server.starttls(); server.ehlo()
         if user: server.login(user, password)
         msg = f"From: {from_addr}\r\nTo: {to_addr}\r\nSubject: WFGY Test Notification\r\n\r\nTest de notification WFGY-Core."
         server.sendmail(from_addr, [to_addr], msg.encode("utf-8"))
