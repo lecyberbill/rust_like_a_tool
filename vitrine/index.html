@@ -39,6 +39,7 @@
             <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
             <button class="toggle-logs-btn" id="admin-btn-header" onclick="openAdminPanel()" style="display:none;border-color:#c084fc;color:#c084fc;">👥 Utilisateurs</button>
             <button class="toggle-logs-btn" onclick="openTemplateGallery()" style="border-color:var(--success);color:var(--success);">📋 Gabarits</button>
+            <button class="toggle-logs-btn" onclick="openFileBrowser()" style="border-color:var(--accent);color:var(--accent);">📁 Fichiers</button>
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
             <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()" style="position:static; width:auto; height:auto; background:none; border:1px solid var(--border); border-radius:6px; padding:6px 10px;">⚙️</button>
         </div>
@@ -680,6 +681,19 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
         </div>
     </div>
 
+    <!-- Modal Explorateur de fichiers -->
+    <div id="file-browser-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: min(700px, 90vw); max-height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: var(--accent); font-weight: 800; font-size: 1.3rem; margin: 0;">Explorateur de fichiers</div>
+                <button class="toggle-logs-btn" onclick="closeFileBrowser()">✖ Fermer</button>
+            </div>
+            <div id="file-browser-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+                <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 30px;">Chargement...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Gabarits de flux -->
     <div id="template-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
         <div class="modal-content" style="width: min(700px, 90vw); max-height: 80vh; display: flex; flex-direction: column; text-align: left; padding: 24px;">
@@ -689,6 +703,24 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             </div>
             <div id="template-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
                 <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 30px;">Chargement des gabarits...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Bibliothèque de connexions -->
+    <div id="connection-manager-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: min(600px, 90vw); max-height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: var(--success); font-weight: 800; font-size: 1.3rem; margin: 0;">Bibliothèque de connexions</div>
+                <button class="toggle-logs-btn" onclick="closeConnectionManager()">✖ Fermer</button>
+            </div>
+            <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                <input type="text" id="conn-alias-key" placeholder="Alias (ex: db_prod)" class="editor-input" style="flex:1;min-width:120px;">
+                <input type="text" id="conn-alias-value" placeholder="Chaîne de connexion" class="editor-input" style="flex:2;min-width:200px;">
+                <button class="toggle-logs-btn" onclick="saveConnectionAlias()" style="background:linear-gradient(135deg,var(--success) 0%,rgba(0,255,102,0.6) 100%);color:#000;border:none;font-weight:800;">💾 Sauvegarder</button>
+            </div>
+            <div id="connection-aliases-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+                <div style="color:var(--text-muted);text-align:center;padding:20px;">Chargement...</div>
             </div>
         </div>
     </div>
@@ -875,8 +907,9 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
         <div style="display:flex;flex-direction:column;gap:8px;">
             <button class="toggle-logs-btn" id="admin-btn" onclick="openAdminPanel()" style="display:none;border-color:#c084fc;color:#c084fc;justify-content:center;">👥 Gestion des utilisateurs</button>
             <button class="toggle-logs-btn" onclick="openVersionsModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">📋 Historique des versions</button>
-            <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">🔔 Configuration notifications</button>
-        </div>
+                    <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">🔔 Configuration notifications</button>
+                    <button class="toggle-logs-btn" onclick="openConnectionManager()" style="border-color:var(--success);color:var(--success);justify-content:center;">🔗 Bibliothèque de connexions</button>
+                </div>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
             <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
             <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>

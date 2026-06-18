@@ -1172,7 +1172,8 @@ class Orchestrator:
                 "step": step_num,
                 "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
                 "duration_ms": duration_ms,
-                "status": "success"
+                "status": "success",
+                "cpu_ms": int((time.process_time() - step_start) * 1000) if hasattr(time, 'process_time') else 0
             }
 
             if status_callback:

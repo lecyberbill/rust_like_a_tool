@@ -519,6 +519,48 @@ async def handle_http_request(reader, writer):
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
+                # ── Bibliothèque de connexions (vault aliases) ──
+                elif clean_path == "/api/vault/aliases" and method == "GET":
+                    try:
+                        from vault import StealthVault as V
+                        v = V(os.environ.get("SECRET_VAULT_KEY") or ENV_CONFIG.get("SECRET_VAULT_KEY", ""))
+                        keys = v.list("connections")
+                        aliases = {}
+                        for k in keys: aliases[k] = v.get("connections", k)
+                        resp_body = json.dumps(aliases)
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path == "/api/vault/aliases" and method == "POST":
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        from vault import StealthVault as V
+                        data = json.loads(body_data)
+                        v = V(os.environ.get("SECRET_VAULT_KEY") or ENV_CONFIG.get("SECRET_VAULT_KEY", ""))
+                        for k, val in data.items():
+                            v.set("connections", k, str(val))
+                        resp_body = json.dumps({"ok": True})
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path == "/api/workspace/files" and method == "GET":
+                    try:
+                        ws_dir = Path(__file__).parent.parent / "workspace" / "output"
+                        files = []
+                        if ws_dir.exists():
+                            for f in sorted(ws_dir.iterdir()):
+                                if f.is_file():
+                                    files.append({"name": f.name, "size": f.stat().st_size, "modified": f.stat().st_mtime})
+                        resp_body = json.dumps(files)
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
                 elif clean_path.count("/") == 4 and clean_path.endswith("/notif-config") and method == "GET":
                     ws_id = clean_path.split("/")[2]
                     try:

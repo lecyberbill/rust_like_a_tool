@@ -504,6 +504,58 @@ function showToast(message, type = 'info') {
     setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
 }
 
+// ── Connection Manager ───────────────────────────────────────
+async function openConnectionManager() {
+    const container = document.getElementById('connection-aliases-list');
+    if (!container) return;
+    document.getElementById('connection-manager-modal').style.display = 'flex';
+    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">Chargement...</div>';
+    try {
+        const r = await fetch('/api/vault/aliases');
+        const aliases = await r.json();
+        const entries = Object.entries(aliases);
+        if (entries.length === 0) { container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">Aucune connexion enregistree.</div>'; return; }
+        container.innerHTML = entries.map(([k, v]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid var(--border);border-radius:6px;">
+            <span style="font-weight:600;font-family:monospace;">${k}</span>
+            <span style="color:var(--text-muted);font-size:0.8rem;font-family:monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${v}</span>
+        </div>`).join('');
+    } catch (e) { container.innerHTML = '<div style="color:var(--error);text-align:center;padding:20px;">Erreur: ' + e.message + '</div>'; }
+}
+function closeConnectionManager() { document.getElementById('connection-manager-modal').style.display = 'none'; }
+async function saveConnectionAlias() {
+    const key = document.getElementById('conn-alias-key').value.trim();
+    const val = document.getElementById('conn-alias-value').value.trim();
+    if (!key || !val) { showToast('Remplissez alias et valeur', 'warning'); return; }
+    try {
+        const r = await fetch('/api/vault/aliases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({[key]: val}) });
+        const data = await r.json();
+        if (data.ok) { showToast('Connexion "' + key + '" sauvegardee.', 'success'); document.getElementById('conn-alias-key').value = ''; document.getElementById('conn-alias-value').value = ''; openConnectionManager(); }
+        else showToast('Erreur: ' + (data.error || ''), 'error');
+    } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
+}
+
+// ── File Browser ──────────────────────────────────────────────
+async function openFileBrowser() {
+    const container = document.getElementById('file-browser-list');
+    if (!container) return;
+    document.getElementById('file-browser-modal').style.display = 'flex';
+    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;">Chargement...</div>';
+    try {
+        const r = await fetch('/api/workspace/files');
+        const files = await r.json();
+        if (!files || files.length === 0) { container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;">Aucun fichier dans workspace/output/</div>'; return; }
+        container.innerHTML = files.map(f => {
+            const size = f.size > 1024 ? (f.size/1024).toFixed(1) + ' KB' : f.size + ' B';
+            const date = new Date(f.modified * 1000).toLocaleString();
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                <span style="font-family:monospace;font-size:0.8rem;">${f.name}</span>
+                <span style="color:var(--text-muted);font-size:0.75rem;">${size} - ${date}</span>
+            </div>`;
+        }).join('');
+    } catch (e) { container.innerHTML = '<div style="color:var(--error);text-align:center;padding:30px;">Erreur: ' + e.message + '</div>'; }
+}
+function closeFileBrowser() { document.getElementById('file-browser-modal').style.display = 'none'; }
+
 // ── Template Gallery ──────────────────────────────────────────
 async function openTemplateGallery() {
     const container = document.getElementById('template-list');

@@ -26,6 +26,10 @@ function editNode(stepNum) {
                 <label>Nom convivial (Label)</label>
                 <input type="text" class="editor-input" id="edit-node-label" value="${step.ui.label}" oninput="saveNodeChanges()">
             </div>
+            <div class="editor-input-group" style="margin-top:8px;">
+                <label>Commentaire</label>
+                <textarea class="editor-input" id="edit-node-comment" style="min-height:50px;font-size:0.8rem;" oninput="saveNodeChanges()">${step.ui.comment || ''}</textarea>
+            </div>
         </div>
     `;
 
@@ -183,6 +187,18 @@ function saveNodeChanges() {
         const nodeHeaderLabel = document.querySelector(`#node-step-${selectedStepNum} .node-header span:first-child`);
         if (nodeHeaderLabel) {
             nodeHeaderLabel.innerText = labelInput.value;
+        }
+    }
+    const commentInput = document.getElementById('edit-node-comment');
+    if (commentInput) {
+        step.ui.comment = commentInput.value;
+        const nodeEl = document.getElementById(`node-step-${selectedStepNum}`);
+        if (nodeEl) {
+            let badge = nodeEl.querySelector('.node-comment-badge');
+            if (commentInput.value) {
+                if (!badge) { badge = document.createElement('div'); badge.className = 'node-comment-badge'; badge.style.cssText = 'font-size:0.65rem;color:var(--text-muted);padding:2px 8px 4px;font-style:italic;border-top:1px solid var(--border);margin-top:2px;'; nodeEl.querySelector('.node-body')?.appendChild(badge); }
+                badge.textContent = '💬 ' + commentInput.value;
+            } else if (badge) { badge.remove(); }
         }
     }
 
