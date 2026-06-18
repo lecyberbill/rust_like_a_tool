@@ -121,7 +121,7 @@ def generate_rows(columns, count, fmt):
             rows.append({c["name"]: GENERATORS.get(c.get("type","text"), GENERATORS["text"])(c, ctx) for c in cols})
         return json.dumps(rows, ensure_ascii=False, indent=2)
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = csv.writer(buf, lineterminator='\n')
     w.writerow([c["name"] for c in cols])
     for i in range(count):
         ctx = GenContext(i)

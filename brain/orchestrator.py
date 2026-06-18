@@ -1041,7 +1041,7 @@ class Orchestrator:
                     dest = resolved_args.get("destination", "")
                     if dest:
                         Path(dest).parent.mkdir(parents=True, exist_ok=True)
-                        Path(dest).write_text(stdout, encoding="utf-8")
+                        Path(dest).write_bytes(stdout.encode("utf-8"))
                         print(f"[ORCHESTRATOR] Étape {step_num}: données générées matérialisées → {dest}")
                 print(f"[RUST STDOUT] (Step {step_num}):\n{stdout.strip()}")
             if stderr.strip():
