@@ -1,4 +1,4 @@
-# WFGY-Core V3 — Reference des Primitives
+# Primitives WFGY-Core V3
 
 68 primitives.
 

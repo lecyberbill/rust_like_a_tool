@@ -20,5 +20,5 @@ _Nettoie et transforme un jeu de donnÃ©es (CSV, JSON, Parquet). Supporte le tr
 | right_source | string | Non | — | Optionnel : Le chemin du second fichier Ã  joindre. |
 | left_on | string | Non | — | Optionnel : La colonne clÃ© de jointure du fichier source principal. |
 | right_on | string | Non | — | Optionnel : La colonne clÃ© de jointure du second fichier. |
-| how_join | string | Non | left | Optionnel : Le type de jointure relationnelle. Valeurs: left, inner, outer |
+| how_join | string | Non | left | Optionnel : Le type de jointure relationnelle. (left, inner, outer) |
 | streaming | boolean | Non | False | Optionnel : Activer l'exÃ©cution en flux (streaming) dans Polars pour optimiser la mÃ©moire RAM. |

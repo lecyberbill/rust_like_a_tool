@@ -7,7 +7,7 @@ _ExÃ©cute une requÃªte HTTP (GET, POST, etc.) avec support d'en-tÃªtes, Ã
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
 | url | string | **Oui** | — | L'URL de la requÃªte. |
-| method | string | Non | GET | MÃ©thode HTTP Ã  utiliser. Valeurs: GET, POST, PUT, DELETE |
+| method | string | Non | GET | MÃ©thode HTTP Ã  utiliser. (GET, POST, PUT, DELETE) |
 | destination | string | Non | — | Chemin de fichier local optionnel pour enregistrer la rÃ©ponse brute. |
 | headers | string | Non | — | En-tÃªtes HTTP au format JSON. |
 | body | string | Non | — | Corps optionnel de la requÃªte. |

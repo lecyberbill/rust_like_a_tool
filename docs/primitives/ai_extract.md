@@ -11,6 +11,6 @@ _Extrait des informations structurÃ©es (JSON) via LLM depuis une colonne textu
 | column | string | **Oui** | — | Le nom de la colonne de texte source Ã  analyser. |
 | schema | string | **Oui** | — | Le schÃ©ma JSON dÃ©crivant les propriÃ©tÃ©s Ã  extraire (ex: {"properties": {"nom": {"type": "string"}}}). |
 | prompt | string | Non | — | Instructions systÃ¨me additionnelles pour guider l'extraction LLM (optionnel). |
-| model_provider | string | Non | — | Le provider de modÃ¨le LLM Ã  utiliser (optionnel). Valeurs: openai_compatible, gemini |
+| model_provider | string | Non | — | Le provider de modÃ¨le LLM Ã  utiliser (optionnel). (openai_compatible, gemini) |
 | model_id | string | Non | — | L'identifiant du modÃ¨le LLM Ã  utiliser pour cette Ã©tape (optionnel). |
 | base_url | string | Non | — | URL de base de l'API LLM locale pour cette Ã©tape (optionnel). |

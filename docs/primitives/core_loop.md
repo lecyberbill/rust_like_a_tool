@@ -6,7 +6,7 @@ _ItÃ¨re l'exÃ©cution d'une liste d'Ã©tapes sur des variables, des lignes d
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| loop_over | string | **Oui** | — | Type d'Ã©lÃ©ments Ã  parcourir. Valeurs: variables, files, rows |
+| loop_over | string | **Oui** | — | Type d'Ã©lÃ©ments Ã  parcourir. (variables, files, rows) |
 | items_source | string | **Oui** | — | Source des Ã©lÃ©ments (valeurs sÃ©parÃ©es par des virgules, chemin d'accÃ¨s au dossier ou fichier). |
 | pattern | string | Non | * | Optionnel (pour files) : Filtre de motif de glob (ex: *.csv). |
 | max_age_hours | string | Non | — | Optionnel (pour files) : Ã‚ge maximum du fichier en heures (ex: '24' pour les fichiers modifiÃ©s dans les derniÃ¨res 24h). |

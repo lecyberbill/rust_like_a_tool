@@ -6,7 +6,7 @@ _Envoie une alerte de notification par Email (SMTP) ou par Webhook (HTTP POST)._
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| type | string | **Oui** | — | Le type de notification (email ou webhook). Valeurs: email, webhook |
+| type | string | **Oui** | — | Le type de notification (email ou webhook). (email, webhook) |
 | smtp_host | string | Non | localhost | L'adresse du serveur SMTP (requis pour email). |
 | smtp_port | string | Non | 25 | Le port du serveur SMTP (requis pour email). |
 | smtp_user | string | Non | — | L'identifiant du serveur SMTP (optionnel). |

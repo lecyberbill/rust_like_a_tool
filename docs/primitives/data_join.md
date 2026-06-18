@@ -11,4 +11,4 @@ _RÃ©alise une jointure relationnelle entre deux fichiers de donnÃ©es (CSV, J
 | destination | string | **Oui** | — | Fichier cible pour Ã©crire le rÃ©sultat de la jointure. |
 | left_on | string | **Oui** | — | Colonne clÃ© dans le fichier de gauche. |
 | right_on | string | **Oui** | — | Colonne clÃ© dans le fichier de droite. |
-| how | string | Non | inner | Type de jointure relationnelle. Valeurs: inner, left, outer |
+| how | string | Non | inner | Type de jointure relationnelle. (inner, left, outer) |
