@@ -8,6 +8,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  JWT_SECRET: ci-test-jwt-secret-2026
+  SECRET_VAULT_KEY: ci-test-vault-key-2026
 
 jobs:
   test-rust:
