@@ -25,6 +25,8 @@ test_results/clean_users.csv
 test_results/*.csv
 test_results/*.xlsx
 test_results/*.xml
+test_results/**/*.csv
+test_results/**/*.json
 workspace/output/
 brain/run_history.json
 brain/audit_trail.json

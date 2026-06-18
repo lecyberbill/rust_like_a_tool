@@ -993,6 +993,13 @@ class Orchestrator:
 
             # Traitement des sorties
             if stdout.strip():
+                # data.generate_fake : matérialiser le stdout dans le destination pour le pipeline
+                if primitive == "data.generate_fake" and code == 0:
+                    dest = resolved_args.get("destination", "")
+                    if dest:
+                        Path(dest).parent.mkdir(parents=True, exist_ok=True)
+                        Path(dest).write_text(stdout, encoding="utf-8")
+                        print(f"[ORCHESTRATOR] Étape {step_num}: données générées matérialisées → {dest}")
                 print(f"[RUST STDOUT] (Step {step_num}):\n{stdout.strip()}")
             if stderr.strip():
                 print(f"[RUST STDERR] (Step {step_num}):\n{stderr.strip()}")

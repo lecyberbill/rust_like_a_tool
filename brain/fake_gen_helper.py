@@ -129,21 +129,22 @@ def generate_rows(columns, count, fmt):
     return buf.getvalue()
 
 def main():
-    if len(sys.argv) < 5:
-        print(f"Usage: python fake_gen_helper.py <columns_json> <count> <destination> <format>", file=sys.stderr)
+    if len(sys.argv) < 4:
+        print(f"Usage: python fake_gen_helper.py <columns_json> <count> <format> [destination]", file=sys.stderr)
         sys.exit(1)
     columns_raw = sys.argv[1]
     count = int(sys.argv[2])
-    destination = sys.argv[3]
-    fmt = sys.argv[4].lower()
+    fmt = sys.argv[3].lower()
+    destination = sys.argv[4] if len(sys.argv) > 4 else ""
     try:
         columns = json.loads(columns_raw)
     except (json.JSONDecodeError, TypeError):
         columns = columns_raw
     output = generate_rows(columns, count, fmt)
-    with open(destination, "w", encoding="utf-8") as f:
-        f.write(output)
-    print(f"SUCCESS: Generated {count} rows -> {destination}")
+    if destination:
+        with open(destination, "w", encoding="utf-8") as f:
+            f.write(output)
+    sys.stdout.write(output)
 
 if __name__ == "__main__":
     main()

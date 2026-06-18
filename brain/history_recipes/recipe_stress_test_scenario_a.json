@@ -166,6 +166,23 @@
           "y": 132
         }
       }
+    },
+    {
+      "step": 6,
+      "primitive": "io.read_file",
+      "depends_on": [],
+      "args": {
+        "source": "",
+        "destination": "",
+        "format": "auto"
+      },
+      "ui": {
+        "label": "Lire un fichier (6)",
+        "position": {
+          "x": 261,
+          "y": 370
+        }
+      }
     }
   ],
   "env": {

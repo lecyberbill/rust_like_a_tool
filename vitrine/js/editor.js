@@ -60,6 +60,18 @@ function editNode(stepNum) {
             <button class="save-secrets-btn" style="background: linear-gradient(135deg, var(--success) 0%, rgba(0,255,102,0.6) 100%); color: #000; font-weight: 800; margin-bottom: 16px;" onclick="openAiMapper(${stepNum})">🗺️ Ouvrir AiMapper</button>
         `;
     }
+    if (step.primitive === 'data.generate_fake') {
+        html += `
+            <button class="save-secrets-btn" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; font-weight: 800; margin-bottom: 16px;" onclick="openFakeGenEditor(${stepNum})">🎲 Configurer le générateur</button>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+                Colonnes et types configurés dans le modal dédié.
+            </div>
+        `;
+        html += `</div>`;
+        container.innerHTML = html;
+        panel.classList.remove('collapsed');
+        return;
+    }
 
     const deps = step.depends_on || [];
     const args = step.args || {};

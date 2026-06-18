@@ -1788,7 +1788,7 @@
             "description": "Format d'exportation : csv ou json."
           }
         },
-        "required": ["columns", "count", "destination"]
+        "required": ["columns", "count"]
       }
     }
   }

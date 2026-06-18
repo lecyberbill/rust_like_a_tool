@@ -1039,7 +1039,7 @@ const primitiveCatalogData = {
         { name: "data.pivot", label: "Pivoter (format large)", desc: "Pivote une table du format long au format large (lignes en colonnes).", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
         { name: "data.unpivot", label: "Dépivoter (format long)", desc: "Dépivote une table du format large au format long (colonnes en lignes).", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } },
         { name: "data.xml_transform", label: "Transformer XML (XSLT)", desc: "Applique une transformation XSLT sur un fichier XML source.", args: { source: "", stylesheet: "", destination: "" } },
-        { name: "data.generate_fake", label: "Générateur de données factices", desc: "Génère des données aléatoires (PII, montants, patterns, dates) à partir d'un dictionnaire.", args: { columns: "", count: "1000", destination: "", format: "csv" } }
+        { name: "data.generate_fake", label: "Générateur de données factices", desc: "Génère des données aléatoires (PII, montants, patterns, dates). Les colonnes se configurent dans le modal dédié.", args: { columns: "", count: "100", format: "csv" } }
     ],
     "Bases de Données": [
         { name: "db.query", label: "Requête SQL SELECT", desc: "Exécute une requête SQL SELECT et écrit le résultat dans un fichier.", args: { connection_string: "", query: "", destination: "" } },
@@ -1274,6 +1274,162 @@ function addPrimitiveNode(primitiveName, label, defaultArgs) {
     
     renderNodes(steps);
     addLog(`Nœud '${newStep.ui.label}' ajouté manuellement.`, 'success');
+}
+
+// ── Fake Gen Editor ────────────────────────────────────────────
+let _fakegenStepNum = null;
+const FAKEGEN_TYPES = [
+    { value: "id", label: "ID (auto-incrément)", fields: [{ key: "start", label: "Début", def: "1" }, { key: "step", label: "Pas", def: "1" }] },
+    { value: "integer", label: "Entier", fields: [{ key: "min", label: "Min", def: "0" }, { key: "max", label: "Max", def: "99999" }] },
+    { value: "float", label: "Décimal", fields: [{ key: "min", label: "Min", def: "0" }, { key: "max", label: "Max", def: "99999" }, { key: "decimals", label: "Décimales", def: "2" }] },
+    { value: "boolean", label: "Booléen", fields: [] },
+    { value: "date", label: "Date", fields: [{ key: "min", label: "Date min", def: "2020-01-01" }, { key: "max", label: "Date max", def: new Date().toISOString().split('T')[0] }, { key: "format", label: "Format", def: "%Y-%m-%d" }] },
+    { value: "datetime", label: "Date+Heure", fields: [{ key: "min", label: "Min", def: "2020-01-01T00:00:00" }, { key: "max", label: "Max", def: new Date().toISOString().split('.')[0] }, { key: "format", label: "Format", def: "%Y-%m-%d %H:%M:%S" }] },
+    { value: "time", label: "Heure", fields: [{ key: "minHour", label: "Heure min", def: "0" }, { key: "maxHour", label: "Heure max", def: "23" }, { key: "minMinute", label: "Minute min", def: "0" }, { key: "maxMinute", label: "Minute max", def: "59" }, { key: "format", label: "Format", def: "%H:%M:%S" }] },
+    { value: "first_name", label: "Prénom", fields: [] },
+    { value: "last_name", label: "Nom", fields: [] },
+    { value: "full_name", label: "Nom complet", fields: [] },
+    { value: "email", label: "Email", fields: [] },
+    { value: "phone", label: "Téléphone", fields: [{ key: "prefix", label: "Préfixe", def: "" }] },
+    { value: "country", label: "Pays", fields: [{ key: "format", label: "Format", def: "name" }] },
+    { value: "city", label: "Ville", fields: [] },
+    { value: "address", label: "Adresse", fields: [] },
+    { value: "postal_code", label: "Code postal", fields: [{ key: "country", label: "Pays", def: "FR" }] },
+    { value: "text", label: "Texte (lorem)", fields: [{ key: "minWords", label: "Mots min", def: "5" }, { key: "maxWords", label: "Mots max", def: "20" }] },
+    { value: "pattern", label: "Pattern (#AaXx?)", fields: [{ key: "pattern", label: "Pattern", def: "###-AAA-###" }] },
+];
+FAKEGEN_TYPES.lookup = {}; FAKEGEN_TYPES.forEach(t => FAKEGEN_TYPES.lookup[t.value] = t);
+
+function openFakeGenEditor(stepNum) {
+    _fakegenStepNum = stepNum;
+    const steps = getCurrentStepList();
+    const step = steps.find(s => s.step === stepNum);
+    if (!step) return;
+    const args = step.args || {};
+    document.getElementById('fakegen-count').value = args.count || '100';
+    document.getElementById('fakegen-format').value = args.format || 'csv';
+    renderFakeGenColumns(args.columns || '');
+    document.getElementById('fakegen-modal').style.display = 'flex';
+}
+
+function closeFakeGenEditor() {
+    document.getElementById('fakegen-modal').style.display = 'none';
+    _fakegenStepNum = null;
+}
+
+function renderFakeGenColumns(columnsStr) {
+    const container = document.getElementById('fakegen-columns-list');
+    let cols = [];
+    if (columnsStr) {
+        try { cols = JSON.parse(columnsStr); } catch (e) {
+            cols = columnsStr.split(',').filter(Boolean).map(p => {
+                const parts = p.split(':');
+                return { name: parts[0].trim(), type: (parts[1] || 'text').trim() };
+            });
+        }
+    }
+    if (cols.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-style:italic;font-size:0.85rem;text-align:center;padding:20px;">Ajoutez des colonnes pour générer les données.</div>';
+        return;
+    }
+    container.innerHTML = cols.map((col, idx) => renderFakeGenColumnRow(col, idx)).join('');
+}
+
+function renderFakeGenColumnRow(col, idx) {
+    const typeDef = FAKEGEN_TYPES.lookup[col.type] || FAKEGEN_TYPES.lookup.text;
+    const configFields = typeDef.fields.map(f => {
+        const val = col[f.key] !== undefined ? col[f.key] : f.def;
+        return `<div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;">${f.label}</label>
+            <input type="text" class="editor-input" id="fg-col-${idx}-${f.key}" value="${val}" oninput="onFakeGenColChange(${idx})" style="width:70px;padding:2px 4px;font-size:0.75rem;">
+        </div>`;
+    }).join('');
+
+    return `<div class="aimapper-col-item" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;flex-wrap:wrap;">
+        <input type="text" class="editor-input" id="fg-col-${idx}-name" value="${col.name || ''}" placeholder="Nom" oninput="onFakeGenColChange(${idx})" style="width:100px;padding:2px 4px;font-size:0.8rem;">
+        <select class="editor-input" id="fg-col-${idx}-type" onchange="onFakeGenColTypeChange(${idx})" style="width:140px;padding:2px 4px;font-size:0.75rem;">
+            ${FAKEGEN_TYPES.map(t => `<option value="${t.value}"${t.value === col.type ? ' selected' : ''}>${t.label}</option>`).join('')}
+        </select>
+        ${configFields}
+        <button class="toggle-logs-btn" onclick="removeFakeGenColumn(${idx})" style="padding:2px 6px;font-size:0.7rem;border-color:var(--error);color:var(--error);">✖</button>
+    </div>`;
+}
+
+function onFakeGenColChange(idx) {
+    // Re-render not needed, data is collected on apply
+}
+
+function onFakeGenColTypeChange(idx) {
+    const colData = collectFakeGenCol(idx);
+    const step = getCurrentStepList().find(s => s.step === _fakegenStepNum);
+    if (!step) return;
+    const args = step.args || {};
+    const cols = parseFakeGenColumns(args.columns || '');
+    while (cols.length <= idx) cols.push({ name: '', type: 'text' });
+    cols[idx] = colData;
+    args.columns = JSON.stringify(cols);
+    saveNodeChanges();
+    renderFakeGenColumns(args.columns);
+}
+
+function addFakeGenColumn() {
+    const step = getCurrentStepList().find(s => s.step === _fakegenStepNum);
+    if (!step) return;
+    const args = step.args || {};
+    const cols = parseFakeGenColumns(args.columns || '');
+    cols.push({ name: 'colonne_' + (cols.length + 1), type: 'text' });
+    args.columns = JSON.stringify(cols);
+    saveNodeChanges();
+    renderFakeGenColumns(args.columns);
+}
+
+function removeFakeGenColumn(idx) {
+    const step = getCurrentStepList().find(s => s.step === _fakegenStepNum);
+    if (!step) return;
+    const args = step.args || {};
+    const cols = parseFakeGenColumns(args.columns || '');
+    cols.splice(idx, 1);
+    args.columns = JSON.stringify(cols);
+    saveNodeChanges();
+    renderFakeGenColumns(args.columns);
+}
+
+function parseFakeGenColumns(str) {
+    if (!str) return [];
+    try { return JSON.parse(str); } catch (e) {
+        return str.split(',').filter(Boolean).map(p => {
+            const parts = p.split(':');
+            return { name: parts[0].trim(), type: (parts[1] || 'text').trim() };
+        });
+    }
+}
+
+function collectFakeGenCol(idx) {
+    const name = document.getElementById(`fg-col-${idx}-name`)?.value || '';
+    const type = document.getElementById(`fg-col-${idx}-type`)?.value || 'text';
+    const typeDef = FAKEGEN_TYPES.lookup[type] || FAKEGEN_TYPES.lookup.text;
+    const col = { name, type };
+    typeDef.fields.forEach(f => {
+        const el = document.getElementById(`fg-col-${idx}-${f.key}`);
+        if (el) col[f.key] = el.value;
+    });
+    return col;
+}
+
+function applyFakeGen() {
+    const step = getCurrentStepList().find(s => s.step === _fakegenStepNum);
+    if (!step) return;
+    const container = document.getElementById('fakegen-columns-list');
+    const rowEls = container.querySelectorAll('.aimapper-col-item');
+    const cols = [];
+    rowEls.forEach((_, idx) => cols.push(collectFakeGenCol(idx)));
+    step.args = step.args || {};
+    step.args.columns = JSON.stringify(cols);
+    step.args.count = document.getElementById('fakegen-count').value || '100';
+    step.args.format = document.getElementById('fakegen-format').value || 'csv';
+    saveNodeChanges();
+    addLog(`Générateur factice : ${cols.length} colonnes, ${step.args.count} lignes.`, 'success');
+    closeFakeGenEditor();
 }
 
 window.addEventListener('DOMContentLoaded', () => {

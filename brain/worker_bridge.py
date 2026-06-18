@@ -70,7 +70,12 @@ class WorkerBridge:
             cargo_toml = base_dir / "rust_muscle" / "Cargo.toml"
             cmd = ["cargo", "run", "--manifest-path", str(cargo_toml), "--", primitive_name]
 
-        for key, value in args.items():
+        # data.generate_fake : ne pas passer --destination au Rust — il output sur stdout
+        filtered_args = {k: v for k, v in args.items()}
+        if primitive_name == "data.generate_fake":
+            filtered_args.pop("destination", None)
+
+        for key, value in filtered_args.items():
             if key in METADATA_ARGS:
                 log.debug("Filtered metadata arg", extra={"key": key})
                 continue

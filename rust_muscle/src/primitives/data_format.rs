@@ -944,15 +944,14 @@ pub fn handle_generate_fake(args: &[String]) -> Result<(), MuscleError> {
 
     let columns = columns.ok_or_else(|| MuscleError::MissingArg("Missing required argument --columns".to_string()))?;
     let count = count.ok_or_else(|| MuscleError::MissingArg("Missing required argument --count".to_string()))?;
-    let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
-    run_fake_gen_helper(columns, count, destination, &format)
+    run_fake_gen_helper(columns, count, destination.map(|x| x.as_str()), &format)
 }
 
 fn run_fake_gen_helper(
     columns: &str,
     count: &str,
-    destination: &str,
+    destination: Option<&str>,
     format: &str,
 ) -> Result<(), MuscleError> {
     let python_path = if cfg!(target_os = "windows") {
@@ -967,13 +966,19 @@ fn run_fake_gen_helper(
         Command::new("python")
     };
 
-    let output = cmd
-        .arg("brain/fake_gen_helper.py")
-        .arg(columns)
-        .arg(count)
-        .arg(destination)
-        .arg(format)
-        .output()
+    let output = {
+        let c = cmd
+            .arg("brain/fake_gen_helper.py")
+            .arg(columns)
+            .arg(count)
+            .arg(format);
+        if let Some(d) = destination {
+            if !d.is_empty() {
+                c.arg(d);
+            }
+        }
+        c.output()
+    }
         .map_err(|e| {
             MuscleError::IoError(format!("Failed to start Python fake_gen_helper: {}", e))
         })?;
