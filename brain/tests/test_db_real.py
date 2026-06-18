@@ -48,7 +48,7 @@ class TestPostgreSQLReel:
         if not pg_available():
             pytest.skip("PostgreSQL non disponible — lancer le conteneur Docker")
         import psycopg2
-        self.conn = psycopg2.connect(host="localhost", port=5432, user="test_user", password="test_user", dbname="postgres")
+        self.conn = psycopg2.connect(host="localhost", port=5432, user="user_test", password="user_test", dbname="postgres")
         self.cur = self.conn.cursor()
         self.cur.execute("DROP TABLE IF EXISTS test_integration CASCADE")
         self.conn.commit()
