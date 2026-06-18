@@ -1031,8 +1031,8 @@
         /* --- SETTINGS DRAWER (WFGY CORE v3) --- */
         #settings-drawer {
             position: fixed;
-            bottom: 80px;
-            left: 24px;
+            top: 60px;
+            right: 24px;
             width: 320px;
             background: var(--panel);
             backdrop-filter: blur(20px);
