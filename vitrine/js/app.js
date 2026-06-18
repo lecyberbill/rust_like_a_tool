@@ -464,7 +464,8 @@ function showToast(message, type = 'info') {
     if (existing) existing.remove();
     const toast = document.createElement('div');
     toast.className = 'toast-notification';
-    const bg = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--accent)';
+    const colors = { error: 'var(--error)', warning: 'var(--running)', success: 'var(--success)', info: 'var(--accent)' };
+    const bg = colors[type] || colors.info;
     toast.style.cssText = `position:fixed;top:20px;right:20px;padding:14px 24px;background:${bg};color:#000;font-weight:700;border-radius:10px;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:400px;font-size:0.9rem;`;
     toast.textContent = message;
     document.body.appendChild(toast);
