@@ -87,8 +87,18 @@ class TestPostgreSQLReel:
         assert count == 10, f"Attendu 10 lignes, obtenu {count}"
         print(f"[OK] db.insert: {count} lignes inserees dans PostgreSQL")
 
-    def test_pg_upsert(self):
-        """Test upsert: insere puis re-insere avec mise a jour."""
+    def test_pg_generate_then_upsert(self):
+        """Genere → upsert dans PostgreSQL (table avec PK)."""
+        # Creer la table avec une contrainte unique sur id
+        self.cur.execute("""
+            CREATE TABLE test_integration (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                email TEXT
+            )
+        """)
+        self.conn.commit()
+
         dest = str(OUTPUT / "_test_pg_upsert.csv")
         recipe = {
             "plan_id": "test_pg_upsert",
@@ -106,7 +116,7 @@ class TestPostgreSQLReel:
         self.cur.execute("SELECT COUNT(*) FROM test_integration")
         count = self.cur.fetchone()[0]
         assert count == 5, f"Attendu 5, obtenu {count}"
-        print(f"[OK] db.upsert: {count} lignes inserees/upsert")
+        print(f"[OK] db.upsert: {count} lignes upsert dans PostgreSQL")
 
 
 class TestMongoDBReel:
