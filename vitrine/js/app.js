@@ -508,6 +508,7 @@ async function saveNotifConfig() {
 }
 
 async function testNotifConfig() {
+    addLog('Test de notification en cours...', 'info');
     const config = {
         smtp_host: document.getElementById('notif-smtp-host').value,
         smtp_port: document.getElementById('notif-smtp-port').value,
@@ -531,7 +532,7 @@ async function testNotifConfig() {
             addLog('Erreur test notification: ' + data.error, 'error');
             return;
         }
-        addLog('Email: ' + (data.email || 'N/A') + ' | Webhook: ' + (data.webhook || 'N/A'), 'info');
+        addLog('Test email: ' + (data.email || 'N/A') + ' | Test webhook: ' + (data.webhook || 'N/A'), 'info');
     } catch (e) {
         addLog('Erreur test notification: ' + e.message, 'error');
     }
