@@ -1,4 +1,5 @@
-"""Notification configuration — save, load, test SMTP/webhook. Globale + par workspace."""
+"""Notification configuration — save, load, test SMTP/webhook. Globale + par workspace.
+Les mots de passe SMTP sont stockés dans le vault chiffré (Chromatix)."""
 import os
 import json
 import smtplib
@@ -7,47 +8,78 @@ from pathlib import Path
 from registry import load_workspaces_registry, save_workspaces_registry
 
 CONFIG_FILE = Path(__file__).parent / "notif_config.json"
+VAULT_KEY_PLACEHOLDER = "${VAULT_SMTP_PASS}"
+
+def _get_vault():
+    from vault import StealthVault
+    vault_key = os.environ.get("SECRET_VAULT_KEY") or ""
+    return StealthVault(vault_key)
+
+def _store_password(raw_pass: str):
+    """Stocke le mot de passe dans le vault et retourne le placeholder."""
+    if not raw_pass:
+        return ""
+    vault = _get_vault()
+    vault.set("smtp_pass", raw_pass, "notif")
+    return VAULT_KEY_PLACEHOLDER
+
+def _resolve_password(config: dict) -> str:
+    """Résout le mot de passe depuis le vault si placeholder."""
+    pwd = config.get("smtp_pass", "")
+    if pwd == VAULT_KEY_PLACEHOLDER:
+        try:
+            vault = _get_vault()
+            return vault.get("smtp_pass", "notif")
+        except Exception:
+            return ""
+    return pwd
 
 def load_config() -> dict:
-    """Charge la config globale de notification."""
     if CONFIG_FILE.exists():
         try:
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            cfg["smtp_pass"] = _resolve_password(cfg)
+            return cfg
         except Exception:
             pass
     return {"smtp_host": "", "smtp_port": "25", "smtp_user": "", "smtp_pass": "", "smtp_from": "", "smtp_to": "", "webhook_url": ""}
 
 def save_config(config: dict) -> dict:
-    """Sauvegarde la config globale."""
     for k in ["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","smtp_to","webhook_url"]:
         config.setdefault(k, "")
+    if config.get("smtp_pass"):
+        config["smtp_pass"] = _store_password(config["smtp_pass"])
     CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
     return {"ok": True}
 
 def load_workspace_config(workspace_id: str) -> dict:
-    """Charge la config notif d'un workspace. Retourne vide si non configurée."""
     reg = load_workspaces_registry()
     ws = reg.get("workspaces", {}).get(workspace_id, {})
-    return ws.get("notifications", {})
+    cfg = ws.get("notifications", {})
+    cfg["smtp_pass"] = _resolve_password(cfg)
+    return cfg
 
 def save_workspace_config(workspace_id: str, config: dict) -> dict:
-    """Sauvegarde la config notif d'un workspace dans le registre."""
     reg = load_workspaces_registry()
     ws = reg.setdefault("workspaces", {}).setdefault(workspace_id, {})
-    ws["notifications"] = {k: config.get(k, "") for k in ["enabled","smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","smtp_to","webhook_url"]}
+    cfg = {k: config.get(k, "") for k in ["enabled","smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","smtp_to","webhook_url"]}
+    if cfg.get("smtp_pass"):
+        cfg["smtp_pass"] = _store_password(cfg["smtp_pass"])
+    ws["notifications"] = cfg
     save_workspaces_registry(reg)
     return {"ok": True}
 
 def resolve_config(workspace_id: str = None) -> dict:
-    """Config effective : workspace si configurée, sinon globale."""
     if workspace_id:
         wc = load_workspace_config(workspace_id)
         if wc.get("enabled") and wc.get("smtp_to"):
+            wc["smtp_pass"] = _resolve_password(wc)
             return wc
-    return load_config()
+    cfg = load_config()
+    cfg["smtp_pass"] = _resolve_password(cfg)
+    return cfg
 
 def send_notification(workspace_id: str, subject: str, body: str):
-    """Envoie une notification (SMTP + webhook) selon la config du workspace ou globale."""
     cfg = resolve_config(workspace_id)
     if cfg.get("smtp_to"):
         _send_email(cfg, subject, body)
@@ -58,11 +90,10 @@ def _send_email(config: dict, subject: str, body: str):
     host = config.get("smtp_host", "")
     port = int(config.get("smtp_port", 25))
     user = config.get("smtp_user", "")
-    password = config.get("smtp_pass", "")
+    password = _resolve_password(config)
     from_addr = config.get("smtp_from", "")
     to_addr = config.get("smtp_to", "")
-    if not host or not to_addr:
-        return
+    if not host or not to_addr: return
     try:
         server = smtplib.SMTP(host, port, timeout=10)
         if user: server.login(user, password)
@@ -86,7 +117,7 @@ def test_email(config: dict) -> str:
     host = config.get("smtp_host", "")
     port = int(config.get("smtp_port", 25))
     user = config.get("smtp_user", "")
-    password = config.get("smtp_pass", "")
+    password = _resolve_password(config)
     from_addr = config.get("smtp_from", "")
     to_addr = config.get("smtp_to", "")
     if not host or not to_addr: return "SMTP not configured"
