@@ -1475,6 +1475,8 @@ const primitiveCatalogData = {
         { name: "db.query", label: "Requête SQL SELECT", desc: "Exécute une requête SQL SELECT et écrit le résultat dans un fichier.", args: { connection_string: "", query: "", destination: "" } },
         { name: "db.insert", label: "Insertion SQL", desc: "Importe un fichier CSV/JSON dans une table SQL (SQLite, Postgres, MySQL).", args: { connection_string: "", table_name: "", source: "", mode: "insert", schema_drift: false } },
         { name: "db.upsert", label: "Upsert SQL Idempotent", desc: "Insère ou met à jour des lignes dans une table SQL sur clés primaires.", args: { connection_string: "", table_name: "", source: "", keys: "", schema_drift: false } },
+        { name: "data.sync", label: "Sync BDD ↔ Fichier", desc: "Synchronisation bidirectionnelle (INSERT/UPDATE/DELETE) entre un CSV et une table SQL.", args: { source: "", connection_string: "", table_name: "", key_columns: "" } },
+        { name: "data.to_db", label: "Exporter vers BDD", desc: "Écrit un dataset dans une table SQL avec création automatique du schéma.", args: { source: "", connection_string: "", table_name: "", mode: "replace" } },
         { name: "mongodb.find", label: "Recherche MongoDB", desc: "Extrait des documents MongoDB vers un fichier JSON.", args: { connection_string: "", database: "", collection: "", filter: "{}", projection: "", destination: "" } },
         { name: "mongodb.insert", label: "Insertion MongoDB", desc: "Importe un fichier CSV/JSON dans une collection MongoDB.", args: { connection_string: "", database: "", collection: "", source: "", mode: "insert" } }
     ],
@@ -1526,7 +1528,8 @@ const primitiveEnums = {
     "db.insert": { mode: ["insert", "replace", "ignore"] },
     "mongodb.insert": { mode: ["insert", "replace"] },
     "net.http_request": { method: ["GET", "POST", "PUT", "DELETE", "PATCH"] },
-    "data.generate_fake": { format: ["csv", "json"] }
+    "data.generate_fake": { format: ["csv", "json"] },
+    "data.to_db": { mode: ["replace", "append"] }
 };
 
 function getPrimitiveDoc(primitiveName) {

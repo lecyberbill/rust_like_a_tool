@@ -695,6 +695,57 @@ class Orchestrator:
                 step_events[step_num].set()
                 return check_ok
 
+            # data.sync — synchronisation fichier <-> base de donnees
+            if primitive == "data.sync":
+                resolved_args = self.resolve_secrets(args, local_env, target_env, flow_ctx)
+                source = resolved_args.get("source", "")
+                db_url = resolved_args.get("connection_string", "")
+                table = resolved_args.get("table_name", "")
+                keys = resolved_args.get("key_columns", "")
+                sync_ok = True
+                if source and db_url and table:
+                    import subprocess
+                    python = Path(".venv/Scripts/python.exe") if (Path(__file__).parent.parent / ".venv/Scripts/python.exe").exists() else "python"
+                    try:
+                        r = subprocess.run([str(python), "brain/sync_helper.py", source, db_url, table, keys], capture_output=True, text=True, timeout=120)
+                        if r.returncode != 0: print(f"[ERROR] data.sync failed: {r.stderr}"); sync_ok = False
+                        else: print(r.stdout)
+                    except Exception as e: print(f"[ERROR] data.sync exception: {e}"); sync_ok = False
+                step_end = time.perf_counter()
+                status = "success" if sync_ok else "error"
+                step_performance[step_num] = {"step": step_num, "label": step_item.get("ui",{}).get("label") or f"Sync {step_num}", "duration_ms": int((step_end-step_start)*1000), "status": status}
+                if status == "success": completed_steps.add(step_num); save_current_checkpoint()
+                else: failed_steps.add(step_num)
+                if status_callback: status_callback(step_num, status, "")
+                step_events[step_num].set()
+                return sync_ok
+
+            # data.to_db — ecrit un dataset dans une table SQL (creation auto)
+            if primitive == "data.to_db":
+                resolved_args = self.resolve_secrets(args, local_env, target_env, flow_ctx)
+                source = resolved_args.get("source", "")
+                db_url = resolved_args.get("connection_string", "")
+                table = resolved_args.get("table_name", "")
+                mode = resolved_args.get("mode", "replace")
+                db_ok = True
+                if source and db_url and table:
+                    import subprocess
+                    python = Path(".venv/Scripts/python.exe") if (Path(__file__).parent.parent / ".venv/Scripts/python.exe").exists() else "python"
+                    try:
+                        cmd = [str(python), "brain/sync_helper.py", source, db_url, table, ""] if mode == "replace" else [str(python), "brain/sync_helper.py", source, db_url, table, ""]
+                        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                        if r.returncode != 0: print(f"[ERROR] data.to_db failed: {r.stderr}"); db_ok = False
+                        else: print(r.stdout)
+                    except Exception as e: print(f"[ERROR] data.to_db exception: {e}"); db_ok = False
+                step_end = time.perf_counter()
+                status = "success" if db_ok else "error"
+                step_performance[step_num] = {"step": step_num, "label": step_item.get("ui",{}).get("label") or f"ToDB {step_num}", "duration_ms": int((step_end-step_start)*1000), "status": status}
+                if status == "success": completed_steps.add(step_num); save_current_checkpoint()
+                else: failed_steps.add(step_num)
+                if status_callback: status_callback(step_num, status, "")
+                step_events[step_num].set()
+                return db_ok
+
             # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
                 resolved_args = self.resolve_secrets(args, local_env, target_env)

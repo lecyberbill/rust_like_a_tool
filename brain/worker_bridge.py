@@ -34,7 +34,7 @@ METADATA_ARGS = {
     "format",  # routing hint for io.read_file; not understood by Rust io.copy handler
     "sheet_name",  # only meaningful for data.to_xlsx exporter
     "root_element", "row_element",  # only for json_to_xml
-    "template", "expected_schema", "sandbox",  # handled in Python orchestrator
+    "template", "expected_schema", "sandbox", "key_columns",  # handled in Python orchestrator
 }
 
 class WorkerBridge:

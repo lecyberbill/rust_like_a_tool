@@ -561,6 +561,25 @@ async def handle_http_request(reader, writer):
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
+                # ── Webhook sortant ────────────────────────────────
+                elif clean_path == "/api/webhook/send" and method == "POST":
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        import urllib.request
+                        data = json.loads(body_data)
+                        url = data.get("url", "")
+                        payload = data.get("payload", {})
+                        if not url:
+                            resp_body = json.dumps({"error": "Missing url"})
+                        else:
+                            req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+                            with urllib.request.urlopen(req, timeout=15) as response:
+                                resp_body = json.dumps({"status": response.status, "body": response.read().decode(errors="ignore")[:500]})
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
                 elif clean_path.count("/") == 4 and clean_path.endswith("/notif-config") and method == "GET":
                     ws_id = clean_path.split("/")[2]
                     try:
@@ -590,6 +609,19 @@ async def handle_http_request(reader, writer):
                         resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{body}"
                     except Exception as e:
                         body = json.dumps({"status": "error", "message": str(e)})
+                        resp = f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path == "/api/primitives":
+                    try:
+                        from registry import load_workspaces_registry
+                        reg_path = Path(__file__).parent / "registry.json"
+                        prims = json.loads(reg_path.read_text(encoding="utf-8")).get("primitives", {})
+                        catalog = [{"name": k, "description": v.get("description", ""), "parameters": v.get("parameters", {}).get("properties", {}), "required": v.get("parameters", {}).get("required", [])} for k, v in prims.items()]
+                        body = json.dumps(catalog, ensure_ascii=False)
+                        resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{body}"
+                    except Exception as e:
+                        body = json.dumps({"error": str(e)})
                         resp = f"HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
