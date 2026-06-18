@@ -428,23 +428,31 @@ async function rollbackToVersion(version) {
 }
 
 // ── Notification Config ─────────────────────────────────────
-function openNotifConfigModal() {
-    const saved = JSON.parse(localStorage.getItem('notif_config') || '{}');
-    if (saved.smtp_host) document.getElementById('notif-smtp-host').value = saved.smtp_host;
-    if (saved.smtp_port) document.getElementById('notif-smtp-port').value = saved.smtp_port;
-    if (saved.smtp_user) document.getElementById('notif-smtp-user').value = saved.smtp_user;
-    if (saved.smtp_pass) document.getElementById('notif-smtp-pass').value = saved.smtp_pass;
-    if (saved.smtp_from) document.getElementById('notif-smtp-from').value = saved.smtp_from;
-    if (saved.smtp_to) document.getElementById('notif-smtp-to').value = saved.smtp_to;
-    if (saved.webhook_url) document.getElementById('notif-webhook-url').value = saved.webhook_url;
-    document.getElementById('notif-config-modal').style.display = 'flex';
+async function openNotifConfigModal() {
+    const modal = document.getElementById('notif-config-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    try {
+        const r = await fetch('/api/notif/config');
+        const c = await r.json();
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        set('notif-smtp-host', c.smtp_host);
+        set('notif-smtp-port', c.smtp_port);
+        set('notif-smtp-user', c.smtp_user);
+        set('notif-smtp-pass', c.smtp_pass);
+        set('notif-smtp-from', c.smtp_from);
+        set('notif-smtp-to', c.smtp_to);
+        set('notif-webhook-url', c.webhook_url);
+    } catch (e) {
+        addLog('Impossible de charger la config notifications.', 'error');
+    }
 }
 
 function closeNotifConfigModal() {
     document.getElementById('notif-config-modal').style.display = 'none';
 }
 
-function saveNotifConfig() {
+async function saveNotifConfig() {
     const config = {
         smtp_host: document.getElementById('notif-smtp-host').value,
         smtp_port: document.getElementById('notif-smtp-port').value,
@@ -454,13 +462,40 @@ function saveNotifConfig() {
         smtp_to: document.getElementById('notif-smtp-to').value,
         webhook_url: document.getElementById('notif-webhook-url').value
     };
-    localStorage.setItem('notif_config', JSON.stringify(config));
-    addLog('Configuration des notifications sauvegardée.', 'success');
+    try {
+        const r = await fetch('/api/notif/config', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        const data = await r.json();
+        if (data.ok) addLog('Configuration des notifications sauvegardée.', 'success');
+        else addLog('Erreur sauvegarde: ' + (data.error || 'inconnue'), 'error');
+    } catch (e) {
+        addLog('Erreur de connexion au serveur.', 'error');
+    }
     closeNotifConfigModal();
 }
 
-function testNotifConfig() {
-    addLog('Test de notification envoyé (simulation).', 'info');
+async function testNotifConfig() {
+    const config = {
+        smtp_host: document.getElementById('notif-smtp-host').value,
+        smtp_port: document.getElementById('notif-smtp-port').value,
+        smtp_user: document.getElementById('notif-smtp-user').value,
+        smtp_pass: document.getElementById('notif-smtp-pass').value,
+        smtp_from: document.getElementById('notif-smtp-from').value,
+        smtp_to: document.getElementById('notif-smtp-to').value,
+        webhook_url: document.getElementById('notif-webhook-url').value
+    };
+    try {
+        const r = await fetch('/api/notif/test', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        const data = await r.json();
+        addLog('Test email: ' + (data.email || 'N/A') + ' | Webhook: ' + (data.webhook || 'N/A'), 'info');
+    } catch (e) {
+        addLog('Erreur test notification: ' + e, 'error');
+    }
 }
 
 function initWebSocket() {
