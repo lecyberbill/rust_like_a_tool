@@ -259,7 +259,6 @@ async function authSubmit() {
         errDiv.style.display = 'block';
     }
 }
-}
 
 function logout() {
     AUTH_TOKEN = '';
