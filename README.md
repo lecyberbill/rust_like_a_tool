@@ -155,18 +155,52 @@ The Rust binary executes performance-critical tasks categorized by domain:
 ### Prerequisites
 - **Python 3.10+** (with `pip` installed)
 - **Rust / Cargo** (for compilation or running tests)
+- **Chromatix Pixel Standard** — vault encryption engine
+  ```
+  git clone https://github.com/lecyberbill/Chromatix-Pixel-Standard.git ../chromatix
+  ```
+
+### 1. Installation automatique
+
+**Windows :**
+```bash
+scripts\install.bat
+```
+
+**Linux / macOS :**
+```bash
+chmod +x scripts/install.sh
+./scripts/install.sh
+```
+
+L'installeur configure automatiquement :
+- L'environnement virtuel Python (`.venv/`)
+- Les dépendances Python
+- Chromatix Pixel Standard (cloné depuis GitHub)
+- Le binaire Rust (compilation `cargo build --release`)
+- Le fichier `.env` depuis `.env.example`
+- Les dossiers `workspace/output/`, `brain/vaults/`, `brain/logs/`
 
 ### 1. Configuration
-Create a `.env` file in the root directory to store your global credentials and preferences:
+Create a `.env` file in the root directory (or copy from `.env.example`):
 ```ini
 PORT=8765
 LLM_PROVIDER=openai_compatible  # or 'gemini'
 LLM_MODEL=gemma
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=your_llm_api_key
+
+# Secrets obligatoires (generer des cles fortes)
 SECRET_VAULT_KEY=your_vault_encryption_key
-JWT_SECRET=change-me-jwt-secret-2026
+JWT_SECRET=your_jwt_secret
 ```
+
+> **IMPORTANT SECURITY** : Les variables `SECRET_VAULT_KEY` et `JWT_SECRET` sont **obligatoires**.
+> Le serveur refusera de demarrer si elles ne sont pas definies.
+> Generer des cles fortes :
+> ```bash
+> python -c "import secrets; print(secrets.token_hex(32))"
+> ```
 
 ### 2. Run the Orchestration Server
 On Windows, simply run the launcher script:
@@ -363,22 +397,43 @@ python brain/orchestrator.py --server
 # Rust (26 tests unitaires)
 cd rust_muscle && cargo test
 
-# Python (41 tests d'intégration)
+# Python (76 tests)
 cd .. && pytest brain/tests/ -v
 
-# Stress test (10K lignes × 8 étapes)
-python test_advanced_etl.py
-
-# Benchmarks
-python test_results/bench_primitives.py
+# Volume test (1M lignes, clean + derive + filtre + metrique)
+python test_results/volume_1m.py
 
 # Suite complète cross-platform
 ./run_all_tests.py
 ```
 
+## 📦 Dépendances
+
+### Python (requirements.txt)
+| Paquet | Utilité |
+|--------|---------|
+| `websockets` | Serveur WebSocket temps réel |
+| `jsonschema` | Validation des recettes |
+| `Pillow` | Dechiffrement vault Chromatix (images PNG) |
+| `psycopg2-binary` | Connecteur PostgreSQL |
+| `pymongo` | Connecteur MongoDB |
+| `polars` | Moteur d'analyse (Rust) |
+| `Faker` | Génération de données de test |
+
+### Chromatix Pixel Standard
+Le vault utilise **Chromatix Pixel Standard** pour le chiffrement des secrets.
+```bash
+git clone https://github.com/lecyberbill/Chromatix-Pixel-Standard.git ../chromatix
+```
+Le module est automatiquement détecté s'il se trouve dans :
+- Le répertoire parent (`../chromatix/`)
+- La variable d'environnement `CHROMATIX_PATH`
+
+### Rust
+Le binaire `rust_muscle` compile avec **Rust 1.82+** et la librairie **Polars** (moteur columnar vectorisé).
+
 ## 🏗️ Références complémentaires
 
-- `PRIMITIVE_REFERENCE.md` — Documentation exhaustive des 54 primitives
+- `PRIMITIVE_REFERENCE.md` — Documentation exhaustive des 68 primitives
+- `docs/primitives/*.md` — Fiches individuelles par primitive
 - `TECHNICAL_REPORT.md` — Invariants structurels et changelog
-- `ROADMAP_MODULES.md` — Feuille de route des modules
-- `grafana/wfgy_dashboard.json` — Dashboard Grafana importable

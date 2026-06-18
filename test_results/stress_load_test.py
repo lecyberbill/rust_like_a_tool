@@ -3,7 +3,7 @@ import sys, os, json, time, subprocess, threading, statistics
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "brain"))
-os.environ["SECRET_VAULT_KEY"] = "wfgy_core_secret_key_12345"
+os.environ.setdefault("SECRET_VAULT_KEY", "test_vault_key")
 
 RECIPE = {
     "plan_id": "stress_load_test",
