@@ -2,71 +2,71 @@
 
 68 primitives.
 
-- [ai.extract](primitives/ai_extract.md) — Extrait des informations structurÃ©es (JSON) via LLM depuis une colonne textuell
-- [ai.summarize](primitives/ai_summarize.md) — GÃ©nÃ¨re des rÃ©sumÃ©s concis via LLM d'une colonne textuelle et les Ã©crit dans
-- [core.condition](primitives/core_condition.md) — Primitive d'orchestration logique. Ã‰value une expression conditionnelle et exÃ©
-- [core.loop](primitives/core_loop.md) — ItÃ¨re l'exÃ©cution d'une liste d'Ã©tapes sur des variables, des lignes de fichi
-- [core.sub_flow](primitives/core_sub_flow.md) — ExÃ©cute un ensemble d'Ã©tapes imbriquÃ©es comme sous-graphe dans la recette pri
-- [core.switch](primitives/core_switch.md) — Primitive d'orchestration logique. Route l'exÃ©cution vers diffÃ©rents sous-grap
-- [core.wait](primitives/core_wait.md) — Met en pause l'exÃ©cution du workflow pendant une durÃ©e spÃ©cifiÃ©e (secondes o
-- [data.anonymize](primitives/data_anonymize.md) — Anonymise et masque les colonnes sensibles (PII) d'un jeu de donnÃ©es.
-- [data.chunk_cumulative](primitives/data_chunk_cumulative.md) — DÃ©coupe sÃ©quentiellement un jeu de donnÃ©es en plusieurs fichiers (parts) dÃ¨s
-- [data.clean](primitives/data_clean.md) — Nettoie et transforme un jeu de donnÃ©es (CSV, JSON, Parquet). Supporte le tri, 
-- [data.convert](primitives/data_convert.md) — Convertit un fichier entre tous formats supportÃ©s (CSV, JSON, Parquet, JSONL/ND
-- [data.csv_to_json](primitives/data_csv_to_json.md) — Convertit un fichier dÃ©limitÃ© (CSV) en un fichier structurÃ© JSON (tableau d'o
-- [data.deduplicate](primitives/data_deduplicate.md) — Supprime les lignes en doublons basÃ©es sur des clÃ©s spÃ©cifiques.
-- [data.delta](primitives/data_delta.md) — Compare deux jeux de donnÃ©es (CSV, JSON, Parquet) sur clÃ©s primaires pour calc
-- [data.filter](primitives/data_filter.md) — Filtre les lignes d'un fichier texte structurÃ© (CSV) selon une rÃ¨gle logique s
-- [data.generate_fake](primitives/data_generate_fake.md) — GÃ©nÃ¨re des donnÃ©es factices (PII, montants, patterns, dates) Ã  l'aide d'un d
-- [data.groupby](primitives/data_groupby.md) — Groupe les lignes d'un jeu de donnÃ©es (CSV, JSON, Parquet) et calcule des agrÃ©
-- [data.join](primitives/data_join.md) — RÃ©alise une jointure relationnelle entre deux fichiers de donnÃ©es (CSV, JSON, 
-- [data.json_to_csv](primitives/data_json_to_csv.md) — Convertit un fichier structurÃ© JSON (tableau d'objets) en un fichier dÃ©limitÃ©
-- [data.json_to_xml](primitives/data_json_to_xml.md) — Convertit un tableau d'objets JSON ou un CSV en fichier XML structurÃ©.
-- [data.lookup](primitives/data_lookup.md) — Recherche et joint des donnÃ©es depuis un rÃ©fÃ©rentiel externe (jointure gauche
-- [data.merge](primitives/data_merge.md) — Fusionne verticalement plusieurs fichiers de donnÃ©es (CSV, JSON, Parquet) de st
-- [data.metrics](primitives/data_metrics.md) — Calcule une mÃ©trique statistique ou textuelle (somme, moyenne, min, max, count,
+- [ai.extract](primitives/ai_extract.md) — Extrait des informations structurées (JSON) via LLM depuis une colonne textuelle
+- [ai.summarize](primitives/ai_summarize.md) — Génère des résumés concis via LLM d'une colonne textuelle et les écrit dans une 
+- [core.condition](primitives/core_condition.md) — Primitive d'orchestration logique. Évalue une expression conditionnelle et exécu
+- [core.loop](primitives/core_loop.md) — Itère l'exécution d'une liste d'étapes sur des variables, des lignes de fichier 
+- [core.sub_flow](primitives/core_sub_flow.md) — Exécute un ensemble d'étapes imbriquées comme sous-graphe dans la recette princi
+- [core.switch](primitives/core_switch.md) — Primitive d'orchestration logique. Route l'exécution vers différents sous-graphe
+- [core.wait](primitives/core_wait.md) — Met en pause l'exécution du workflow pendant une durée spécifiée (secondes ou HH
+- [data.anonymize](primitives/data_anonymize.md) — Anonymise et masque les colonnes sensibles (PII) d'un jeu de données.
+- [data.chunk_cumulative](primitives/data_chunk_cumulative.md) — Découpe séquentiellement un jeu de données en plusieurs fichiers (parts) dès qu'
+- [data.clean](primitives/data_clean.md) — Nettoie et transforme un jeu de données (CSV, JSON, Parquet). Supporte le tri, l
+- [data.convert](primitives/data_convert.md) — Convertit un fichier entre tous formats supportés (CSV, JSON, Parquet, JSONL/NDJ
+- [data.csv_to_json](primitives/data_csv_to_json.md) — Convertit un fichier délimité (CSV) en un fichier structuré JSON (tableau d'obje
+- [data.deduplicate](primitives/data_deduplicate.md) — Supprime les lignes en doublons basées sur des clés spécifiques.
+- [data.delta](primitives/data_delta.md) — Compare deux jeux de données (CSV, JSON, Parquet) sur clés primaires pour calcul
+- [data.filter](primitives/data_filter.md) — Filtre les lignes d'un fichier texte structuré (CSV) selon une règle logique sur
+- [data.generate_fake](primitives/data_generate_fake.md) — Génère des données factices (PII, montants, patterns, dates) à l'aide d'un dicti
+- [data.groupby](primitives/data_groupby.md) — Groupe les lignes d'un jeu de données (CSV, JSON, Parquet) et calcule des agréga
+- [data.join](primitives/data_join.md) — Réalise une jointure relationnelle entre deux fichiers de données (CSV, JSON, Pa
+- [data.json_to_csv](primitives/data_json_to_csv.md) — Convertit un fichier structuré JSON (tableau d'objets) en un fichier délimité CS
+- [data.json_to_xml](primitives/data_json_to_xml.md) — Convertit un tableau d'objets JSON ou un CSV en fichier XML structuré.
+- [data.lookup](primitives/data_lookup.md) — Recherche et joint des données depuis un référentiel externe (jointure gauche Po
+- [data.merge](primitives/data_merge.md) — Fusionne verticalement plusieurs fichiers de données (CSV, JSON, Parquet) de str
+- [data.metrics](primitives/data_metrics.md) — Calcule une métrique statistique ou textuelle (somme, moyenne, min, max, count, 
 - [data.partition](primitives/data_partition.md) — Partitionne un dataset en plusieurs fichiers selon les valeurs d'une ou plusieur
-- [data.pivot](primitives/data_pivot.md) — Pivote une table de donnÃ©es du format long au format large (lignes en colonnes)
-- [data.profile](primitives/data_profile.md) — Profile un dataset: stats, nulls, distribution par colonne.
-- [data.read](primitives/data_read.md) — Lit un fichier dans tout format supportÃ© (CSV, JSON, Parquet, JSONL/NDJSON) et 
-- [data.scd](primitives/data_scd.md) — GÃ¨re les dimensions Ã  Ã©volution lente (SCD Type 2) en comparant source et cib
-- [data.schema_check](primitives/data_schema_check.md) — Verifie la conformite d'un dataset face a un schema attendu.
-- [data.split](primitives/data_split.md) — Divise un jeu de donnÃ©es (CSV, JSON, Parquet) en plusieurs fichiers selon les v
-- [data.split_out](primitives/data_split_out.md) — Ã‰clate les colonnes contenant des listes ou des chaÃ®nes sÃ©rialisÃ©es JSON ver
-- [data.sync](primitives/data_sync.md) — Synchronise un CSV avec une table SQL (INSERT/UPDATE/DELETE).
-- [data.to_db](primitives/data_to_db.md) — Ecrit un dataset dans une table SQL (creation auto du schema).
-- [data.to_xlsx](primitives/data_to_xlsx.md) — Exporte un fichier de donnÃ©es (CSV ou JSON) vers une feuille de calcul Excel (.
-- [data.type_cast](primitives/data_type_cast.md) — Convertit et formate les colonnes d'un jeu de donnÃ©es selon des types cibles st
-- [data.unpivot](primitives/data_unpivot.md) — DÃ©pivote une table de donnÃ©es du format large au format long (colonnes en lign
-- [data.unzip](primitives/data_unzip.md) — DÃ©compresse une archive ZIP dans un dossier de destination.
-- [data.validate](primitives/data_validate.md) — Valide les lignes d'un jeu de donnÃ©es (CSV, JSON, Parquet) par rapport Ã  des r
-- [data.write](primitives/data_write.md) — Lit un fichier CSV source et l'Ã©crit dans le format dÃ©tectÃ© par l'extension d
-- [data.xml_to_json](primitives/data_xml_to_json.md) — Convertit un fichier XML hiÃ©rarchique en fichier JSON standard.
+- [data.pivot](primitives/data_pivot.md) — Pivote une table de données du format long au format large (lignes en colonnes).
+- [data.profile](primitives/data_profile.md) — Profile un dataset: statistiques, nulls, distribution par colonne.
+- [data.read](primitives/data_read.md) — Lit un fichier dans tout format supporté (CSV, JSON, Parquet, JSONL/NDJSON) et l
+- [data.scd](primitives/data_scd.md) — Gère les dimensions à évolution lente (SCD Type 2) en comparant source et cible.
+- [data.schema_check](primitives/data_schema_check.md) — Verifie la conformite du schema d'un dataset face a un schema attendu.
+- [data.split](primitives/data_split.md) — Divise un jeu de données (CSV, JSON, Parquet) en plusieurs fichiers selon les va
+- [data.split_out](primitives/data_split_out.md) — Éclate les colonnes contenant des listes ou des chaînes sérialisées JSON vers de
+- [data.sync](primitives/data_sync.md) — Synchronise un fichier CSV avec une table SQL (INSERT/UPDATE/DELETE automatique)
+- [data.to_db](primitives/data_to_db.md) — Ecrit un dataset dans une table SQL avec creation automatique du schema.
+- [data.to_xlsx](primitives/data_to_xlsx.md) — Exporte un fichier de données (CSV ou JSON) vers une feuille de calcul Excel (.x
+- [data.type_cast](primitives/data_type_cast.md) — Convertit et formate les colonnes d'un jeu de données selon des types cibles str
+- [data.unpivot](primitives/data_unpivot.md) — Dépivote une table de données du format large au format long (colonnes en lignes
+- [data.unzip](primitives/data_unzip.md) — Décompresse une archive ZIP dans un dossier de destination.
+- [data.validate](primitives/data_validate.md) — Valide les lignes d'un jeu de données (CSV, JSON, Parquet) par rapport à des règ
+- [data.write](primitives/data_write.md) — Lit un fichier CSV source et l'écrit dans le format détecté par l'extension de d
+- [data.xml_to_json](primitives/data_xml_to_json.md) — Convertit un fichier XML hiérarchique en fichier JSON standard.
 - [data.xml_transform](primitives/data_xml_transform.md) — Applique une transformation structurelle XSLT sur un fichier XML source.
 - [data.zip](primitives/data_zip.md) — Compresse un dossier ou un fichier dans une archive ZIP.
-- [db.insert](primitives/db_insert.md) — Importe les donnÃ©es d'un fichier (CSV ou JSON) dans une table de base de donnÃ©
-- [db.query](primitives/db_query.md) — ExÃ©cute une requÃªte SQL SELECT sur une base de donnÃ©es (SQLite, Postgres, MyS
-- [db.upsert](primitives/db_upsert.md) — Upsert (mise Ã  jour ou insertion) idempotent des lignes d'un fichier dans une t
-- [flow.report](primitives/flow_report.md) — GÃ©nÃ¨re un rapport texte depuis le contexte d'exÃ©cution du flux (${STEPS.N.STA
-- [google.sheets_read](primitives/google_sheets_read.md) — Extrait des donnÃ©es depuis Google Sheets vers un fichier local CSV.
-- [google.sheets_write](primitives/google_sheets_write.md) — Ã‰crit des donnÃ©es depuis un fichier local CSV vers Google Sheets.
-- [io.copy](primitives/io_copy.md) — Copie un flux de donnÃ©es ou un fichier local.
-- [io.delete](primitives/io_delete.md) — Supprime un fichier ou un dossier local, avec option de mise Ã  la corbeille.
-- [io.metadata](primitives/io_metadata.md) — Lit les mÃ©tadonnÃ©es de base d'un fichier ou d'un dossier.
-- [io.move](primitives/io_move.md) — DÃ©place ou renomme un fichier local.
-- [io.read_file](primitives/io_read_file.md) — Lit un fichier de donnÃ©es (CSV, JSON, XLSX, Parquet) et le met Ã  disposition d
-- [io.write_file](primitives/io_write_file.md) — CrÃ©e ou Ã©crase un fichier local avec le contenu textuel spÃ©cifiÃ©.
+- [db.insert](primitives/db_insert.md) — Importe les données d'un fichier (CSV ou JSON) dans une table de base de données
+- [db.query](primitives/db_query.md) — Exécute une requête SQL SELECT sur une base de données (SQLite, Postgres, MySQL,
+- [db.upsert](primitives/db_upsert.md) — Upsert (mise à jour ou insertion) idempotent des lignes d'un fichier dans une ta
+- [flow.report](primitives/flow_report.md) — Genere un rapport texte depuis le contexte d'execution du flux (${STEPS.N.STATUS
+- [google.sheets_read](primitives/google_sheets_read.md) — Extrait des données depuis Google Sheets vers un fichier local CSV.
+- [google.sheets_write](primitives/google_sheets_write.md) — Écrit des données depuis un fichier local CSV vers Google Sheets.
+- [io.copy](primitives/io_copy.md) — Copie un flux de données ou un fichier local.
+- [io.delete](primitives/io_delete.md) — Supprime un fichier ou un dossier local, avec option de mise à la corbeille.
+- [io.metadata](primitives/io_metadata.md) — Lit les métadonnées de base d'un fichier ou d'un dossier.
+- [io.move](primitives/io_move.md) — Déplace ou renomme un fichier local.
+- [io.read_file](primitives/io_read_file.md) — Lit un fichier de données (CSV, JSON, XLSX, Parquet) et le met à disposition des
+- [io.write_file](primitives/io_write_file.md) — Crée ou écrase un fichier local avec le contenu textuel spécifié.
 - [mongodb.find](primitives/mongodb_find.md) — Extrait des documents depuis une collection MongoDB et les sauvegarde au format 
-- [mongodb.insert](primitives/mongodb_insert.md) — Importe les donnÃ©es d'un fichier (CSV ou JSON) dans une collection MongoDB.
-- [net.download](primitives/net_download.md) — TÃ©lÃ©charge un fichier depuis une URL HTTP/HTTPS.
-- [net.ftp_download](primitives/net_ftp_download.md) — TÃ©lÃ©charge un fichier depuis un serveur FTP.
-- [net.ftp_download_filtered](primitives/net_ftp_download_filtered.md) — TÃ©lÃ©charge sÃ©lectivement des fichiers depuis FTP selon l'Ã¢ge et la taille (U
-- [net.ftp_upload](primitives/net_ftp_upload.md) — TÃ©lÃ©verse un fichier local vers un serveur FTP.
-- [net.http_request](primitives/net_http_request.md) — ExÃ©cute une requÃªte HTTP (GET, POST, etc.) avec support d'en-tÃªtes, Ã©criture
+- [mongodb.insert](primitives/mongodb_insert.md) — Importe les données d'un fichier (CSV ou JSON) dans une collection MongoDB.
+- [net.download](primitives/net_download.md) — Télécharge un fichier depuis une URL HTTP/HTTPS.
+- [net.ftp_download](primitives/net_ftp_download.md) — Télécharge un fichier depuis un serveur FTP.
+- [net.ftp_download_filtered](primitives/net_ftp_download_filtered.md) — Télécharge sélectivement des fichiers depuis FTP selon l'âge et la taille (UTC).
+- [net.ftp_upload](primitives/net_ftp_upload.md) — Téléverse un fichier local vers un serveur FTP.
+- [net.http_request](primitives/net_http_request.md) — Exécute une requête HTTP (GET, POST, etc.) avec support d'en-têtes, écriture opt
 - [net.notify](primitives/net_notify.md) — Envoie une alerte de notification par Email (SMTP) ou par Webhook (HTTP POST).
-- [net.sftp_download](primitives/net_sftp_download.md) — TÃ©lÃ©charge un fichier depuis un serveur SFTP sÃ©curisÃ© (SSH).
-- [net.sftp_download_filtered](primitives/net_sftp_download_filtered.md) — TÃ©lÃ©charge sÃ©lectivement des fichiers depuis SFTP selon l'Ã¢ge et la taille (
-- [net.sftp_upload](primitives/net_sftp_upload.md) — TÃ©lÃ©verse un fichier local vers un serveur SFTP sÃ©curisÃ© (SSH).
-- [net.upload](primitives/net_upload.md) — TÃ©lÃ©verse un fichier local vers un serveur distant (HTTP/HTTPS).
-- [s3.download](primitives/s3_download.md) — TÃ©lÃ©charge un objet depuis un bucket compatible S3 vers le systÃ¨me de fichier
-- [s3.upload](primitives/s3_upload.md) — TÃ©lÃ©verse un fichier local vers un bucket compatible S3 (AWS, MinIO, etc.).
+- [net.sftp_download](primitives/net_sftp_download.md) — Télécharge un fichier depuis un serveur SFTP sécurisé (SSH).
+- [net.sftp_download_filtered](primitives/net_sftp_download_filtered.md) — Télécharge sélectivement des fichiers depuis SFTP selon l'âge et la taille (UTC)
+- [net.sftp_upload](primitives/net_sftp_upload.md) — Téléverse un fichier local vers un serveur SFTP sécurisé (SSH).
+- [net.upload](primitives/net_upload.md) — Téléverse un fichier local vers un serveur distant (HTTP/HTTPS).
+- [s3.download](primitives/s3_download.md) — Télécharge un objet depuis un bucket compatible S3 vers le système de fichiers l
+- [s3.upload](primitives/s3_upload.md) — Téléverse un fichier local vers un bucket compatible S3 (AWS, MinIO, etc.).

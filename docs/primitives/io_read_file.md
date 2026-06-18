@@ -1,11 +1,11 @@
 # io.read_file
 
-_Lit un fichier de donnÃ©es (CSV, JSON, XLSX, Parquet) et le met Ã  disposition des Ã©tapes suivantes._
+_Lit un fichier de données (CSV, JSON, XLSX, Parquet) et le met à disposition des étapes suivantes._
 
 ## Parametres
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| source | string | **Oui** | — | Le chemin d'accÃ¨s au fichier Ã  lire. |
-| destination | string | Non | — | Le chemin oÃ¹ copier/rendre les donnÃ©es disponibles (auto-gÃ©nÃ©rÃ© si vide). |
-| format | string | Non | auto | Format du fichier source (auto = dÃ©duit de l'extension). (csv, json, xlsx, parquet, auto) |
+| source | string | **Oui** | — | Le chemin d'accès au fichier à lire. |
+| destination | string | Non | — | Le chemin où copier/rendre les données disponibles (auto-généré si vide). |
+| format | string | Non | auto | Format du fichier source (auto = déduit de l'extension). (csv, json, xlsx, parquet, auto) |

@@ -6,5 +6,5 @@ _Compresse un dossier ou un fichier dans une archive ZIP._
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| source | string | **Oui** | — | Chemin du fichier ou dossier source Ã  compresser. |
-| destination | string | **Oui** | — | Chemin de l'archive ZIP destination Ã  gÃ©nÃ©rer. |
+| source | string | **Oui** | — | Chemin du fichier ou dossier source à compresser. |
+| destination | string | **Oui** | — | Chemin de l'archive ZIP destination à générer. |

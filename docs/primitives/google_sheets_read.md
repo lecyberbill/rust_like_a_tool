@@ -1,6 +1,6 @@
 # google.sheets_read
 
-_Extrait des donnÃ©es depuis Google Sheets vers un fichier local CSV._
+_Extrait des données depuis Google Sheets vers un fichier local CSV._
 
 ## Parametres
 
@@ -8,5 +8,5 @@ _Extrait des donnÃ©es depuis Google Sheets vers un fichier local CSV._
 |-----------|------|--------|--------|-------------|
 | credentials | string | **Oui** | — | Chemin vers le fichier JSON de credentials Google Service Account. |
 | spreadsheet_id | string | **Oui** | — | L'identifiant du spreadsheet Google Sheets. |
-| worksheet_title | string | Non | — | Le nom de l'onglet/feuille Ã  lire (optionnel, lit la premiÃ¨re feuille si vide). |
-| local_path | string | **Oui** | — | Chemin local oÃ¹ sauvegarder les donnÃ©es extraites en CSV. |
+| worksheet_title | string | Non | — | Le nom de l'onglet/feuille à lire (optionnel, lit la première feuille si vide). |
+| local_path | string | **Oui** | — | Chemin local où sauvegarder les données extraites en CSV. |

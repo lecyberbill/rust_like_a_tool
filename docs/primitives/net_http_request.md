@@ -1,15 +1,15 @@
 # net.http_request
 
-_ExÃ©cute une requÃªte HTTP (GET, POST, etc.) avec support d'en-tÃªtes, Ã©criture optionnelle vers un fichier de destination, ou extraction regex du corps de la rÃ©ponse._
+_Exécute une requête HTTP (GET, POST, etc.) avec support d'en-têtes, écriture optionnelle vers un fichier de destination, ou extraction regex du corps de la réponse._
 
 ## Parametres
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| url | string | **Oui** | — | L'URL de la requÃªte. |
-| method | string | Non | GET | MÃ©thode HTTP Ã  utiliser. (GET, POST, PUT, DELETE) |
-| destination | string | Non | — | Chemin de fichier local optionnel pour enregistrer la rÃ©ponse brute. |
-| headers | string | Non | — | En-tÃªtes HTTP au format JSON. |
-| body | string | Non | — | Corps optionnel de la requÃªte. |
-| extract_regex | string | Non | — | Regex optionnelle pour extraire des Ã©lÃ©ments du corps (ex: liens d'images). |
+| url | string | **Oui** | — | L'URL de la requête. |
+| method | string | Non | GET | Méthode HTTP à utiliser. (GET, POST, PUT, DELETE) |
+| destination | string | Non | — | Chemin de fichier local optionnel pour enregistrer la réponse brute. |
+| headers | string | Non | — | En-têtes HTTP au format JSON. |
+| body | string | Non | — | Corps optionnel de la requête. |
+| extract_regex | string | Non | — | Regex optionnelle pour extraire des éléments du corps (ex: liens d'images). |
 | extract_destination | string | Non | — | Fichier JSON optionnel pour sauvegarder les correspondances de la regex (tableau). |

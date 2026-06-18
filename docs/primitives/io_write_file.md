@@ -1,10 +1,10 @@
 # io.write_file
 
-_CrÃ©e ou Ã©crase un fichier local avec le contenu textuel spÃ©cifiÃ©._
+_Crée ou écrase un fichier local avec le contenu textuel spécifié._
 
 ## Parametres
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| path | string | **Oui** | — | Le chemin d'accÃ¨s au fichier Ã  crÃ©er/Ã©crire. |
-| content | string | **Oui** | — | Le contenu textuel Ã  Ã©crire dans le fichier. |
+| path | string | **Oui** | — | Le chemin d'accès au fichier à créer/écrire. |
+| content | string | **Oui** | — | Le contenu textuel à écrire dans le fichier. |

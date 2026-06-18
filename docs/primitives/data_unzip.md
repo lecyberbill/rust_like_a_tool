@@ -1,6 +1,6 @@
 # data.unzip
 
-_DÃ©compresse une archive ZIP dans un dossier de destination._
+_Décompresse une archive ZIP dans un dossier de destination._
 
 ## Parametres
 

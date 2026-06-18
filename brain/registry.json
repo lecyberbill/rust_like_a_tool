@@ -1,13 +1,13 @@
 {
   "primitives": {
     "io.copy": {
-      "description": "Copie un flux de donnÃ©es ou un fichier local.",
+      "description": "Copie un flux de données ou un fichier local.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier source."
+            "description": "Le chemin d'accès au fichier source."
           },
           "destination": {
             "type": "string",
@@ -30,7 +30,7 @@
               "newer"
             ],
             "default": "overwrite",
-            "description": "Mode de rÃ©solution si le fichier de destination existe."
+            "description": "Mode de résolution si le fichier de destination existe."
           }
         },
         "required": [
@@ -40,13 +40,13 @@
       }
     },
     "io.move": {
-      "description": "DÃ©place ou renomme un fichier local.",
+      "description": "Déplace ou renomme un fichier local.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier Ã  dÃ©placer ou renommer."
+            "description": "Le chemin du fichier à déplacer ou renommer."
           },
           "destination": {
             "type": "string",
@@ -60,7 +60,7 @@
               "newer"
             ],
             "default": "overwrite",
-            "description": "Mode de rÃ©solution si le fichier de destination existe."
+            "description": "Mode de résolution si le fichier de destination existe."
           }
         },
         "required": [
@@ -70,13 +70,13 @@
       }
     },
     "io.delete": {
-      "description": "Supprime un fichier ou un dossier local, avec option de mise Ã  la corbeille.",
+      "description": "Supprime un fichier ou un dossier local, avec option de mise à la corbeille.",
       "parameters": {
         "type": "object",
         "properties": {
           "path": {
             "type": "string",
-            "description": "Le chemin du fichier ou dossier Ã  supprimer."
+            "description": "Le chemin du fichier ou dossier à supprimer."
           },
           "secure": {
             "type": "string",
@@ -85,7 +85,7 @@
               "permanent"
             ],
             "default": "trash",
-            "description": "Mode de suppression: trash (corbeille locale .trash) ou permanent (dÃ©finitive)."
+            "description": "Mode de suppression: trash (corbeille locale .trash) ou permanent (définitive)."
           },
           "retention_days": {
             "type": "integer",
@@ -98,13 +98,13 @@
       }
     },
     "io.metadata": {
-      "description": "Lit les mÃ©tadonnÃ©es de base d'un fichier ou d'un dossier.",
+      "description": "Lit les métadonnées de base d'un fichier ou d'un dossier.",
       "parameters": {
         "type": "object",
         "properties": {
           "path": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier ou dossier."
+            "description": "Le chemin d'accès au fichier ou dossier."
           }
         },
         "required": [
@@ -113,17 +113,17 @@
       }
     },
     "io.write_file": {
-      "description": "CrÃ©e ou Ã©crase un fichier local avec le contenu textuel spÃ©cifiÃ©.",
+      "description": "Crée ou écrase un fichier local avec le contenu textuel spécifié.",
       "parameters": {
         "type": "object",
         "properties": {
           "path": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier Ã  crÃ©er/Ã©crire."
+            "description": "Le chemin d'accès au fichier à créer/écrire."
           },
           "content": {
             "type": "string",
-            "description": "Le contenu textuel Ã  Ã©crire dans le fichier."
+            "description": "Le contenu textuel à écrire dans le fichier."
           }
         },
         "required": [
@@ -133,17 +133,17 @@
       }
     },
     "io.read_file": {
-      "description": "Lit un fichier de donnÃ©es (CSV, JSON, XLSX, Parquet) et le met Ã  disposition des Ã©tapes suivantes.",
+      "description": "Lit un fichier de données (CSV, JSON, XLSX, Parquet) et le met à disposition des étapes suivantes.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier Ã  lire."
+            "description": "Le chemin d'accès au fichier à lire."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin oÃ¹ copier/rendre les donnÃ©es disponibles (auto-gÃ©nÃ©rÃ© si vide)."
+            "description": "Le chemin où copier/rendre les données disponibles (auto-généré si vide)."
           },
           "format": {
             "type": "string",
@@ -155,7 +155,7 @@
               "auto"
             ],
             "default": "auto",
-            "description": "Format du fichier source (auto = dÃ©duit de l'extension)."
+            "description": "Format du fichier source (auto = déduit de l'extension)."
           }
         },
         "required": [
@@ -164,17 +164,17 @@
       }
     },
     "net.download": {
-      "description": "TÃ©lÃ©charge un fichier depuis une URL HTTP/HTTPS.",
+      "description": "Télécharge un fichier depuis une URL HTTP/HTTPS.",
       "parameters": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
-            "description": "L'URL HTTP ou HTTPS du fichier Ã  tÃ©lÃ©charger."
+            "description": "L'URL HTTP ou HTTPS du fichier à télécharger."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin local oÃ¹ enregistrer le fichier tÃ©lÃ©chargÃ©."
+            "description": "Le chemin local où enregistrer le fichier téléchargé."
           }
         },
         "required": [
@@ -184,13 +184,13 @@
       }
     },
     "net.upload": {
-      "description": "TÃ©lÃ©verse un fichier local vers un serveur distant (HTTP/HTTPS).",
+      "description": "Téléverse un fichier local vers un serveur distant (HTTP/HTTPS).",
       "parameters": {
         "type": "object",
         "properties": {
           "file_path": {
             "type": "string",
-            "description": "Le chemin du fichier local Ã  tÃ©lÃ©verser."
+            "description": "Le chemin du fichier local à téléverser."
           },
           "url": {
             "type": "string",
@@ -203,11 +203,11 @@
               "PUT"
             ],
             "default": "POST",
-            "description": "MÃ©thode HTTP Ã  utiliser."
+            "description": "Méthode HTTP à utiliser."
           },
           "headers": {
             "type": "string",
-            "description": "En-tÃªtes additionnels au format JSON (ex: pour l'authentification)."
+            "description": "En-têtes additionnels au format JSON (ex: pour l'authentification)."
           }
         },
         "required": [
@@ -217,13 +217,13 @@
       }
     },
     "net.ftp_download": {
-      "description": "TÃ©lÃ©charge un fichier depuis un serveur FTP.",
+      "description": "Télécharge un fichier depuis un serveur FTP.",
       "parameters": {
         "type": "object",
         "properties": {
           "host": {
             "type": "string",
-            "description": "L'adresse IP ou nom d'hÃ´te du serveur FTP."
+            "description": "L'adresse IP ou nom d'hôte du serveur FTP."
           },
           "port": {
             "type": "string",
@@ -244,7 +244,7 @@
           },
           "local_path": {
             "type": "string",
-            "description": "Le chemin local oÃ¹ enregistrer le fichier tÃ©lÃ©chargÃ©."
+            "description": "Le chemin local où enregistrer le fichier téléchargé."
           }
         },
         "required": [
@@ -257,13 +257,13 @@
       }
     },
     "net.ftp_upload": {
-      "description": "TÃ©lÃ©verse un fichier local vers un serveur FTP.",
+      "description": "Téléverse un fichier local vers un serveur FTP.",
       "parameters": {
         "type": "object",
         "properties": {
           "host": {
             "type": "string",
-            "description": "L'adresse IP ou nom d'hÃ´te du serveur FTP."
+            "description": "L'adresse IP ou nom d'hôte du serveur FTP."
           },
           "port": {
             "type": "string",
@@ -284,7 +284,7 @@
           },
           "local_path": {
             "type": "string",
-            "description": "Le chemin du fichier local Ã  tÃ©lÃ©verser."
+            "description": "Le chemin du fichier local à téléverser."
           }
         },
         "required": [
@@ -297,13 +297,13 @@
       }
     },
     "net.ftp_download_filtered": {
-      "description": "TÃ©lÃ©charge sÃ©lectivement des fichiers depuis FTP selon l'Ã¢ge et la taille (UTC).",
+      "description": "Télécharge sélectivement des fichiers depuis FTP selon l'âge et la taille (UTC).",
       "parameters": {
         "type": "object",
         "properties": {
           "host": {
             "type": "string",
-            "description": "HÃ´te du serveur FTP."
+            "description": "Hôte du serveur FTP."
           },
           "port": {
             "type": "string",
@@ -328,11 +328,11 @@
           },
           "max_age_hours": {
             "type": "string",
-            "description": "Optionnel: Ã¢ge maximal des fichiers en heures (ex: '24' pour modifier dans les derniÃ¨res 24h)"
+            "description": "Optionnel: âge maximal des fichiers en heures (ex: '24' pour modifier dans les dernières 24h)"
           },
           "min_age_hours": {
             "type": "string",
-            "description": "Optionnel: Ã¢ge minimal / anciennetÃ© en heures (ex: '72' pour exiger 3 jours d'anciennetÃ©)"
+            "description": "Optionnel: âge minimal / ancienneté en heures (ex: '72' pour exiger 3 jours d'ancienneté)"
           },
           "min_size_mb": {
             "type": "string",
@@ -353,13 +353,13 @@
       }
     },
     "net.sftp_download_filtered": {
-      "description": "TÃ©lÃ©charge sÃ©lectivement des fichiers depuis SFTP selon l'Ã¢ge et la taille (UTC).",
+      "description": "Télécharge sélectivement des fichiers depuis SFTP selon l'âge et la taille (UTC).",
       "parameters": {
         "type": "object",
         "properties": {
           "host": {
             "type": "string",
-            "description": "HÃ´te du serveur SFTP."
+            "description": "Hôte du serveur SFTP."
           },
           "port": {
             "type": "string",
@@ -372,15 +372,15 @@
           },
           "password": {
             "type": "string",
-            "description": "Mot de passe SSH (ou clÃ©)."
+            "description": "Mot de passe SSH (ou clé)."
           },
           "key_path": {
             "type": "string",
-            "description": "Optionnel: chemin clÃ© privÃ©e SSH."
+            "description": "Optionnel: chemin clé privée SSH."
           },
           "key_passphrase": {
             "type": "string",
-            "description": "Optionnel: passphrase de clÃ© privÃ©e."
+            "description": "Optionnel: passphrase de clé privée."
           },
           "remote_dir": {
             "type": "string",
@@ -392,11 +392,11 @@
           },
           "max_age_hours": {
             "type": "string",
-            "description": "Optionnel: Ã¢ge maximal des fichiers en heures (ex: '24')"
+            "description": "Optionnel: âge maximal des fichiers en heures (ex: '24')"
           },
           "min_age_hours": {
             "type": "string",
-            "description": "Optionnel: Ã¢ge minimal / anciennetÃ© en heures (ex: '72')"
+            "description": "Optionnel: âge minimal / ancienneté en heures (ex: '72')"
           },
           "min_size_mb": {
             "type": "string",
@@ -416,18 +416,18 @@
       }
     },
     "net.sftp_download": {
-      "description": "TÃ©lÃ©charge un fichier depuis un serveur SFTP sÃ©curisÃ© (SSH).",
+      "description": "Télécharge un fichier depuis un serveur SFTP sécurisé (SSH).",
       "parameters": {
         "type": "object",
         "properties": {
           "host": {
             "type": "string",
-            "description": "L'adresse IP ou nom d'hÃ´te du serveur SFTP."
+            "description": "L'adresse IP ou nom d'hôte du serveur SFTP."
           },
           "port": {
             "type": "string",
             "default": "22",
-            "description": "Le port SSH/SFTP (dÃ©faut 22)."
+            "description": "Le port SSH/SFTP (défaut 22)."
           },
           "user": {
             "type": "string",
@@ -435,15 +435,15 @@
           },
           "password": {
             "type": "string",
-            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clÃ© privÃ©e n'est fournie)."
+            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clé privée n'est fournie)."
           },
           "key_path": {
             "type": "string",
-            "description": "Optionnel : Le chemin local vers le fichier de clÃ© privÃ©e SSH (ex: ~/.ssh/id_rsa)."
+            "description": "Optionnel : Le chemin local vers le fichier de clé privée SSH (ex: ~/.ssh/id_rsa)."
           },
           "key_passphrase": {
             "type": "string",
-            "description": "Optionnel : Le mot de passe/passphrase dÃ©verrouillant la clÃ© privÃ©e SSH si nÃ©cessaire."
+            "description": "Optionnel : Le mot de passe/passphrase déverrouillant la clé privée SSH si nécessaire."
           },
           "remote_path": {
             "type": "string",
@@ -463,18 +463,18 @@
       }
     },
     "net.sftp_upload": {
-      "description": "TÃ©lÃ©verse un fichier local vers un serveur SFTP sÃ©curisÃ© (SSH).",
+      "description": "Téléverse un fichier local vers un serveur SFTP sécurisé (SSH).",
       "parameters": {
         "type": "object",
         "properties": {
           "host": {
             "type": "string",
-            "description": "L'adresse IP ou nom d'hÃ´te du serveur SFTP."
+            "description": "L'adresse IP ou nom d'hôte du serveur SFTP."
           },
           "port": {
             "type": "string",
             "default": "22",
-            "description": "Le port SSH/SFTP (dÃ©faut 22)."
+            "description": "Le port SSH/SFTP (défaut 22)."
           },
           "user": {
             "type": "string",
@@ -482,15 +482,15 @@
           },
           "password": {
             "type": "string",
-            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clÃ© privÃ©e n'est fournie)."
+            "description": "Optionnel : Le mot de passe de connexion SSH (requis si aucune clé privée n'est fournie)."
           },
           "key_path": {
             "type": "string",
-            "description": "Optionnel : Le chemin local vers le fichier de clÃ© privÃ©e SSH (ex: ~/.ssh/id_rsa)."
+            "description": "Optionnel : Le chemin local vers le fichier de clé privée SSH (ex: ~/.ssh/id_rsa)."
           },
           "key_passphrase": {
             "type": "string",
-            "description": "Optionnel : Le mot de passe/passphrase dÃ©verrouillant la clÃ© privÃ©e SSH si nÃ©cessaire."
+            "description": "Optionnel : Le mot de passe/passphrase déverrouillant la clé privée SSH si nécessaire."
           },
           "remote_path": {
             "type": "string",
@@ -498,7 +498,7 @@
           },
           "local_path": {
             "type": "string",
-            "description": "Le chemin du fichier local Ã  tÃ©lÃ©verser."
+            "description": "Le chemin du fichier local à téléverser."
           }
         },
         "required": [
@@ -559,7 +559,7 @@
           },
           "attachment": {
             "type": "string",
-            "description": "Chemin d'un fichier Ã  joindre (ex: rÃ©sultat d'une Ã©tape prÃ©cÃ©dente)."
+            "description": "Chemin d'un fichier à joindre (ex: résultat d'une étape précédente)."
           }
         },
         "required": [
@@ -569,30 +569,30 @@
       }
     },
     "data.filter": {
-      "description": "Filtre les lignes d'un fichier texte structurÃ© (CSV) selon une rÃ¨gle logique sur une colonne.",
+      "description": "Filtre les lignes d'un fichier texte structuré (CSV) selon une règle logique sur une colonne.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier source."
+            "description": "Le chemin d'accès au fichier source."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin du fichier de destination filtrÃ©."
+            "description": "Le chemin du fichier de destination filtré."
           },
           "delimiter": {
             "type": "string",
             "default": ",",
-            "description": "DÃ©limiteur de champs (ex: , ou ;)."
+            "description": "Délimiteur de champs (ex: , ou ;)."
           },
           "column_index": {
             "type": "integer",
-            "description": "Index 0-based de la colonne Ã  filtrer (utilisÃ© si pas d'en-tÃªte)."
+            "description": "Index 0-based de la colonne à filtrer (utilisé si pas d'en-tête)."
           },
           "column_name": {
             "type": "string",
-            "description": "Nom de la colonne Ã  filtrer (nÃ©cessite has_headers=true)."
+            "description": "Nom de la colonne à filtrer (nécessite has_headers=true)."
           },
           "operator": {
             "type": "string",
@@ -613,7 +613,7 @@
               "in",
               "not_in"
             ],
-            "description": "OpÃ©rateur de comparaison logique."
+            "description": "Opérateur de comparaison logique."
           },
           "value": {
             "type": "string",
@@ -622,7 +622,7 @@
           "has_headers": {
             "type": "boolean",
             "default": false,
-            "description": "Indique si la premiÃ¨re ligne du fichier contient les en-tÃªtes."
+            "description": "Indique si la première ligne du fichier contient les en-têtes."
           }
         },
         "required": [
@@ -634,13 +634,13 @@
       }
     },
     "data.csv_to_json": {
-      "description": "Convertit un fichier dÃ©limitÃ© (CSV) en un fichier structurÃ© JSON (tableau d'objets).",
+      "description": "Convertit un fichier délimité (CSV) en un fichier structuré JSON (tableau d'objets).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier CSV source."
+            "description": "Le chemin d'accès au fichier CSV source."
           },
           "destination": {
             "type": "string",
@@ -649,12 +649,12 @@
           "delimiter": {
             "type": "string",
             "default": ",",
-            "description": "DÃ©limiteur de champs (ex: , ou ;)."
+            "description": "Délimiteur de champs (ex: , ou ;)."
           },
           "has_headers": {
             "type": "boolean",
             "default": true,
-            "description": "Indique si la premiÃ¨re ligne contient les clÃ©s du dictionnaire JSON."
+            "description": "Indique si la première ligne contient les clés du dictionnaire JSON."
           }
         },
         "required": [
@@ -664,13 +664,13 @@
       }
     },
     "data.json_to_csv": {
-      "description": "Convertit un fichier structurÃ© JSON (tableau d'objets) en un fichier dÃ©limitÃ© CSV.",
+      "description": "Convertit un fichier structuré JSON (tableau d'objets) en un fichier délimité CSV.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier JSON source."
+            "description": "Le chemin d'accès au fichier JSON source."
           },
           "destination": {
             "type": "string",
@@ -679,12 +679,12 @@
           "delimiter": {
             "type": "string",
             "default": ",",
-            "description": "DÃ©limiteur de champs (ex: , ou ;)."
+            "description": "Délimiteur de champs (ex: , ou ;)."
           },
           "has_headers": {
             "type": "boolean",
             "default": true,
-            "description": "Indique s'il faut gÃ©nÃ©rer la premiÃ¨re ligne du fichier CSV avec les clÃ©s comme en-tÃªtes."
+            "description": "Indique s'il faut générer la première ligne du fichier CSV avec les clés comme en-têtes."
           }
         },
         "required": [
@@ -694,13 +694,13 @@
       }
     },
     "data.xml_to_json": {
-      "description": "Convertit un fichier XML hiÃ©rarchique en fichier JSON standard.",
+      "description": "Convertit un fichier XML hiérarchique en fichier JSON standard.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier XML source."
+            "description": "Le chemin d'accès au fichier XML source."
           },
           "destination": {
             "type": "string",
@@ -720,15 +720,15 @@
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier XML source."
+            "description": "Le chemin d'accès au fichier XML source."
           },
           "stylesheet": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de feuille de style XSLT (.xsl ou .xslt)."
+            "description": "Le chemin d'accès au fichier de feuille de style XSLT (.xsl ou .xslt)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de sortie transformÃ©."
+            "description": "Le chemin d'accès au fichier de sortie transformé."
           }
         },
         "required": [
@@ -739,17 +739,17 @@
       }
     },
     "data.to_xlsx": {
-      "description": "Exporte un fichier de donnÃ©es (CSV ou JSON) vers une feuille de calcul Excel (.xlsx).",
+      "description": "Exporte un fichier de données (CSV ou JSON) vers une feuille de calcul Excel (.xlsx).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier source (CSV ou JSON)."
+            "description": "Le chemin d'accès au fichier source (CSV ou JSON)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier Excel (.xlsx) de destination."
+            "description": "Le chemin d'accès au fichier Excel (.xlsx) de destination."
           },
           "sheet_name": {
             "type": "string",
@@ -764,27 +764,27 @@
       }
     },
     "data.json_to_xml": {
-      "description": "Convertit un tableau d'objets JSON ou un CSV en fichier XML structurÃ©.",
+      "description": "Convertit un tableau d'objets JSON ou un CSV en fichier XML structuré.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier JSON ou CSV source."
+            "description": "Le chemin d'accès au fichier JSON ou CSV source."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier XML de destination."
+            "description": "Le chemin d'accès au fichier XML de destination."
           },
           "root_element": {
             "type": "string",
             "default": "root",
-            "description": "Nom du nÅ“ud XML racine (optionnel)."
+            "description": "Nom du nœud XML racine (optionnel)."
           },
           "row_element": {
             "type": "string",
             "default": "row",
-            "description": "Nom du nÅ“ud XML pour chaque ligne (optionnel)."
+            "description": "Nom du nœud XML pour chaque ligne (optionnel)."
           }
         },
         "required": [
@@ -794,13 +794,13 @@
       }
     },
     "net.http_request": {
-      "description": "ExÃ©cute une requÃªte HTTP (GET, POST, etc.) avec support d'en-tÃªtes, Ã©criture optionnelle vers un fichier de destination, ou extraction regex du corps de la rÃ©ponse.",
+      "description": "Exécute une requête HTTP (GET, POST, etc.) avec support d'en-têtes, écriture optionnelle vers un fichier de destination, ou extraction regex du corps de la réponse.",
       "parameters": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
-            "description": "L'URL de la requÃªte."
+            "description": "L'URL de la requête."
           },
           "method": {
             "type": "string",
@@ -811,23 +811,23 @@
               "DELETE"
             ],
             "default": "GET",
-            "description": "MÃ©thode HTTP Ã  utiliser."
+            "description": "Méthode HTTP à utiliser."
           },
           "destination": {
             "type": "string",
-            "description": "Chemin de fichier local optionnel pour enregistrer la rÃ©ponse brute."
+            "description": "Chemin de fichier local optionnel pour enregistrer la réponse brute."
           },
           "headers": {
             "type": "string",
-            "description": "En-tÃªtes HTTP au format JSON."
+            "description": "En-têtes HTTP au format JSON."
           },
           "body": {
             "type": "string",
-            "description": "Corps optionnel de la requÃªte."
+            "description": "Corps optionnel de la requête."
           },
           "extract_regex": {
             "type": "string",
-            "description": "Regex optionnelle pour extraire des Ã©lÃ©ments du corps (ex: liens d'images)."
+            "description": "Regex optionnelle pour extraire des éléments du corps (ex: liens d'images)."
           },
           "extract_destination": {
             "type": "string",
@@ -840,7 +840,7 @@
       }
     },
     "data.groupby": {
-      "description": "Groupe les lignes d'un jeu de donnÃ©es (CSV, JSON, Parquet) et calcule des agrÃ©gations (somme, moyenne, min, max, count).",
+      "description": "Groupe les lignes d'un jeu de données (CSV, JSON, Parquet) et calcule des agrégations (somme, moyenne, min, max, count).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -850,15 +850,15 @@
           },
           "destination": {
             "type": "string",
-            "description": "Fichier de destination pour stocker le rÃ©sultat de l'agrÃ©gation."
+            "description": "Fichier de destination pour stocker le résultat de l'agrégation."
           },
           "groupby_columns": {
             "type": "string",
-            "description": "Noms des colonnes de regroupement sÃ©parÃ©s par des virgules (ex: status,country)."
+            "description": "Noms des colonnes de regroupement séparés par des virgules (ex: status,country)."
           },
           "aggregate_column": {
             "type": "string",
-            "description": "Nom de la colonne numÃ©rique sur laquelle calculer l'agrÃ©gat."
+            "description": "Nom de la colonne numérique sur laquelle calculer l'agrégat."
           },
           "operation": {
             "type": "string",
@@ -869,7 +869,7 @@
               "max",
               "count"
             ],
-            "description": "OpÃ©ration d'agrÃ©gation Ã  rÃ©aliser."
+            "description": "Opération d'agrégation à réaliser."
           }
         },
         "required": [
@@ -882,29 +882,29 @@
       }
     },
     "data.join": {
-      "description": "RÃ©alise une jointure relationnelle entre deux fichiers de donnÃ©es (CSV, JSON, Parquet) et Ã©crit le rÃ©sultat dans un fichier cible.",
+      "description": "Réalise une jointure relationnelle entre deux fichiers de données (CSV, JSON, Parquet) et écrit le résultat dans un fichier cible.",
       "parameters": {
         "type": "object",
         "properties": {
           "left_source": {
             "type": "string",
-            "description": "Fichier de donnÃ©es de gauche (CSV, JSON ou Parquet)."
+            "description": "Fichier de données de gauche (CSV, JSON ou Parquet)."
           },
           "right_source": {
             "type": "string",
-            "description": "Fichier de donnÃ©es de droite (CSV, JSON ou Parquet)."
+            "description": "Fichier de données de droite (CSV, JSON ou Parquet)."
           },
           "destination": {
             "type": "string",
-            "description": "Fichier cible pour Ã©crire le rÃ©sultat de la jointure."
+            "description": "Fichier cible pour écrire le résultat de la jointure."
           },
           "left_on": {
             "type": "string",
-            "description": "Colonne clÃ© dans le fichier de gauche."
+            "description": "Colonne clé dans le fichier de gauche."
           },
           "right_on": {
             "type": "string",
-            "description": "Colonne clÃ© dans le fichier de droite."
+            "description": "Colonne clé dans le fichier de droite."
           },
           "how": {
             "type": "string",
@@ -927,21 +927,21 @@
       }
     },
     "core.condition": {
-      "description": "Primitive d'orchestration logique. Ã‰value une expression conditionnelle et exÃ©cute les branches de maniÃ¨re conditionnelle.",
+      "description": "Primitive d'orchestration logique. Évalue une expression conditionnelle et exécute les branches de manière conditionnelle.",
       "parameters": {
         "type": "object",
         "properties": {
           "expression": {
             "type": "string",
-            "description": "L'expression logique Ã  Ã©valuer (ex: ${FILE_EXISTS} == true ou ${FILE_SIZE} > 1000)."
+            "description": "L'expression logique à évaluer (ex: ${FILE_EXISTS} == true ou ${FILE_SIZE} > 1000)."
           },
           "then_steps": {
             "type": "array",
-            "description": "Liste d'Ã©tapes Ã  exÃ©cuter si la condition est vraie."
+            "description": "Liste d'étapes à exécuter si la condition est vraie."
           },
           "else_steps": {
             "type": "array",
-            "description": "Liste d'Ã©tapes facultatives Ã  exÃ©cuter si la condition est fausse."
+            "description": "Liste d'étapes facultatives à exécuter si la condition est fausse."
           }
         },
         "required": [
@@ -951,17 +951,17 @@
       }
     },
     "data.split": {
-      "description": "Divise un jeu de donnÃ©es (CSV, JSON, Parquet) en plusieurs fichiers selon les valeurs uniques d'une colonne cible.",
+      "description": "Divise un jeu de données (CSV, JSON, Parquet) en plusieurs fichiers selon les valeurs uniques d'une colonne cible.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination_prefix": {
             "type": "string",
-            "description": "Le prÃ©fixe des fichiers crÃ©Ã©s (ex: outputs/user_split)."
+            "description": "Le préfixe des fichiers créés (ex: outputs/user_split)."
           },
           "by_column": {
             "type": "string",
@@ -976,17 +976,17 @@
       }
     },
     "data.merge": {
-      "description": "Fusionne verticalement plusieurs fichiers de donnÃ©es (CSV, JSON, Parquet) de structure identique en un unique fichier cible.",
+      "description": "Fusionne verticalement plusieurs fichiers de données (CSV, JSON, Parquet) de structure identique en un unique fichier cible.",
       "parameters": {
         "type": "object",
         "properties": {
           "sources": {
             "type": "string",
-            "description": "Liste des chemins de fichiers sources sÃ©parÃ©s par des virgules (ex: file1.csv,file2.csv)."
+            "description": "Liste des chemins de fichiers sources séparés par des virgules (ex: file1.csv,file2.csv)."
           },
           "destination": {
             "type": "string",
-            "description": "Le fichier de destination consolidÃ©."
+            "description": "Le fichier de destination consolidé."
           }
         },
         "required": [
@@ -996,13 +996,13 @@
       }
     },
     "data.metrics": {
-      "description": "Calcule une mÃ©trique statistique ou textuelle (somme, moyenne, min, max, count, null_count, n_unique, match_regex, non_match_regex) sur une colonne.",
+      "description": "Calcule une métrique statistique ou textuelle (somme, moyenne, min, max, count, null_count, n_unique, match_regex, non_match_regex) sur une colonne.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source (CSV, JSON, Parquet)."
+            "description": "Le fichier de données source (CSV, JSON, Parquet)."
           },
           "column_name": {
             "type": "string",
@@ -1021,19 +1021,19 @@
               "match_regex",
               "non_match_regex"
             ],
-            "description": "Le type de mÃ©trique Ã  calculer."
+            "description": "Le type de métrique à calculer."
           },
           "regex_pattern": {
             "type": "string",
-            "description": "Expression rÃ©guliÃ¨re utilisÃ©e si l'opÃ©ration est match_regex ou non_match_regex."
+            "description": "Expression régulière utilisée si l'opération est match_regex ou non_match_regex."
           },
           "limit_rows": {
             "type": "integer",
-            "description": "Optionnel: limiter les N premiÃ¨res lignes pour le calcul."
+            "description": "Optionnel: limiter les N premières lignes pour le calcul."
           },
           "destination_variable": {
             "type": "string",
-            "description": "Le nom de la variable dans l'orchestrateur pour stocker le rÃ©sultat."
+            "description": "Le nom de la variable dans l'orchestrateur pour stocker le résultat."
           }
         },
         "required": [
@@ -1045,25 +1045,25 @@
       }
     },
     "data.chunk_cumulative": {
-      "description": "DÃ©coupe sÃ©quentiellement un jeu de donnÃ©es en plusieurs fichiers (parts) dÃ¨s qu'un seuil cumulÃ© sur une colonne est franchi.",
+      "description": "Découpe séquentiellement un jeu de données en plusieurs fichiers (parts) dès qu'un seuil cumulé sur une colonne est franchi.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination_prefix": {
             "type": "string",
-            "description": "Le prÃ©fixe des fichiers crÃ©Ã©s (ex: outputs/part)."
+            "description": "Le préfixe des fichiers créés (ex: outputs/part)."
           },
           "accumulate_column": {
             "type": "string",
-            "description": "Le nom de la colonne numÃ©rique sur laquelle faire le cumul."
+            "description": "Le nom de la colonne numérique sur laquelle faire le cumul."
           },
           "threshold": {
             "type": "number",
-            "description": "Le seuil d'accumulation pour dÃ©clencher la sauvegarde d'un fichier partition."
+            "description": "Le seuil d'accumulation pour déclencher la sauvegarde d'un fichier partition."
           }
         },
         "required": [
@@ -1075,17 +1075,17 @@
       }
     },
     "data.clean": {
-      "description": "Nettoie et transforme un jeu de donnÃ©es (CSV, JSON, Parquet). Supporte le tri, le dÃ©doublonnage, la sÃ©lection/renommage de colonnes, le traitement des valeurs nulles (fill/drop) et l'ajout de colonnes calculÃ©es ou conditionnelles via un compilateur d'expression lÃ©ger.",
+      "description": "Nettoie et transforme un jeu de données (CSV, JSON, Parquet). Supporte le tri, le dédoublonnage, la sélection/renommage de colonnes, le traitement des valeurs nulles (fill/drop) et l'ajout de colonnes calculées ou conditionnelles via un compilateur d'expression léger.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier source."
+            "description": "Le chemin d'accès au fichier source."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de destination propre."
+            "description": "Le chemin d'accès au fichier de destination propre."
           },
           "sort_by": {
             "type": "string",
@@ -1094,7 +1094,7 @@
           "sort_descending": {
             "type": "boolean",
             "default": false,
-            "description": "Optionnel : Trier par ordre dÃ©croissant si vrai."
+            "description": "Optionnel : Trier par ordre décroissant si vrai."
           },
           "deduplicate": {
             "type": "boolean",
@@ -1103,11 +1103,11 @@
           },
           "deduplicate_on": {
             "type": "string",
-            "description": "Optionnel : Liste de colonnes sÃ©parÃ©es par des virgules pour le dÃ©doublonnage."
+            "description": "Optionnel : Liste de colonnes séparées par des virgules pour le dédoublonnage."
           },
           "select_columns": {
             "type": "string",
-            "description": "Optionnel : Liste de colonnes Ã  conserver sÃ©parÃ©es par des virgules (ex: age,nom_complet)."
+            "description": "Optionnel : Liste de colonnes à conserver séparées par des virgules (ex: age,nom_complet)."
           },
           "rename_columns": {
             "type": "string",
@@ -1124,19 +1124,19 @@
           },
           "derive_columns": {
             "type": "string",
-            "description": "Optionnel : CrÃ©ation de colonnes calculÃ©es ou conditionnelles sÃ©parÃ©es par des virgules au format col_nouvelle=EXPRESSION. L'expression supporte : 1. OpÃ©rateurs mathÃ©matiques (+, -, *, /) ex: total = qty * price. 2. ConcatÃ©nations textuelles (+ et guillemets) ex: nom_complet = prenom + ' ' + nom. 3. Conditions IF-THEN-ELSE avec opÃ©rateurs (==, !=, >, >=, <, <=) ex: statut = IF age >= 18 THEN 'adulte' ELSE 'mineur'."
+            "description": "Optionnel : Création de colonnes calculées ou conditionnelles séparées par des virgules au format col_nouvelle=EXPRESSION. L'expression supporte : 1. Opérateurs mathématiques (+, -, *, /) ex: total = qty * price. 2. Concaténations textuelles (+ et guillemets) ex: nom_complet = prenom + ' ' + nom. 3. Conditions IF-THEN-ELSE avec opérateurs (==, !=, >, >=, <, <=) ex: statut = IF age >= 18 THEN 'adulte' ELSE 'mineur'."
           },
           "right_source": {
             "type": "string",
-            "description": "Optionnel : Le chemin du second fichier Ã  joindre."
+            "description": "Optionnel : Le chemin du second fichier à joindre."
           },
           "left_on": {
             "type": "string",
-            "description": "Optionnel : La colonne clÃ© de jointure du fichier source principal."
+            "description": "Optionnel : La colonne clé de jointure du fichier source principal."
           },
           "right_on": {
             "type": "string",
-            "description": "Optionnel : La colonne clÃ© de jointure du second fichier."
+            "description": "Optionnel : La colonne clé de jointure du second fichier."
           },
           "how_join": {
             "type": "string",
@@ -1151,7 +1151,7 @@
           "streaming": {
             "type": "boolean",
             "default": false,
-            "description": "Optionnel : Activer l'exÃ©cution en flux (streaming) dans Polars pour optimiser la mÃ©moire RAM."
+            "description": "Optionnel : Activer l'exécution en flux (streaming) dans Polars pour optimiser la mémoire RAM."
           }
         },
         "required": [
@@ -1161,13 +1161,13 @@
       }
     },
     "data.validate": {
-      "description": "Valide les lignes d'un jeu de donnÃ©es (CSV, JSON, Parquet) par rapport Ã  des rÃ¨gles d'assertions et sÃ©pare les lignes rejetÃ©es dans un fichier de quarantaine.",
+      "description": "Valide les lignes d'un jeu de données (CSV, JSON, Parquet) par rapport à des règles d'assertions et sépare les lignes rejetées dans un fichier de quarantaine.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier de donnÃ©es source."
+            "description": "Le chemin du fichier de données source."
           },
           "destination": {
             "type": "string",
@@ -1179,12 +1179,12 @@
           },
           "rules": {
             "type": "string",
-            "description": "Tableau JSON de rÃ¨gles d'assertions. Ex: [{\"column\": \"age\", \"operator\": \">=\", \"value\": 0}, {\"column\": \"email\", \"operator\": \"matches\", \"value\": \"^[^@]+@[^@]+\\\\.[^@]+$\"}]"
+            "description": "Tableau JSON de règles d'assertions. Ex: [{\"column\": \"age\", \"operator\": \">=\", \"value\": 0}, {\"column\": \"email\", \"operator\": \"matches\", \"value\": \"^[^@]+@[^@]+\\\\.[^@]+$\"}]"
           },
           "streaming": {
             "type": "boolean",
             "default": false,
-            "description": "Optionnel : Activer l'exÃ©cution en flux (streaming) dans Polars pour optimiser la mÃ©moire RAM."
+            "description": "Optionnel : Activer l'exécution en flux (streaming) dans Polars pour optimiser la mémoire RAM."
           }
         },
         "required": [
@@ -1196,17 +1196,17 @@
       }
     },
     "db.query": {
-      "description": "ExÃ©cute une requÃªte SQL SELECT sur une base de donnÃ©es (SQLite, Postgres, MySQL, Snowflake, ODBC) et Ã©crit le rÃ©sultat dans un fichier.",
+      "description": "Exécute une requête SQL SELECT sur une base de données (SQLite, Postgres, MySQL, Snowflake, ODBC) et écrit le résultat dans un fichier.",
       "parameters": {
         "type": "object",
         "properties": {
           "connection_string": {
             "type": "string",
-            "description": "ChaÃ®ne de connexion (ex: sqlite://db.sqlite ou postgresql://user:pass@host:5432/db)."
+            "description": "Chaîne de connexion (ex: sqlite://db.sqlite ou postgresql://user:pass@host:5432/db)."
           },
           "query": {
             "type": "string",
-            "description": "La requÃªte SQL SELECT Ã  exÃ©cuter."
+            "description": "La requête SQL SELECT à exécuter."
           },
           "destination": {
             "type": "string",
@@ -1221,13 +1221,13 @@
       }
     },
     "db.insert": {
-      "description": "Importe les donnÃ©es d'un fichier (CSV ou JSON) dans une table de base de donnÃ©es (SQLite, Postgres, MySQL, Snowflake, ODBC).",
+      "description": "Importe les données d'un fichier (CSV ou JSON) dans une table de base de données (SQLite, Postgres, MySQL, Snowflake, ODBC).",
       "parameters": {
         "type": "object",
         "properties": {
           "connection_string": {
             "type": "string",
-            "description": "ChaÃ®ne de connexion de la base de donnÃ©es."
+            "description": "Chaîne de connexion de la base de données."
           },
           "table_name": {
             "type": "string",
@@ -1235,7 +1235,7 @@
           },
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier de donnÃ©es source (.csv ou .json)."
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
           },
           "mode": {
             "type": "string",
@@ -1249,7 +1249,7 @@
           "schema_drift": {
             "type": "boolean",
             "default": false,
-            "description": "Activer la dÃ©rive de schÃ©ma automatique pour ajouter les colonnes manquantes dans la base."
+            "description": "Activer la dérive de schéma automatique pour ajouter les colonnes manquantes dans la base."
           }
         },
         "required": [
@@ -1270,7 +1270,7 @@
           },
           "database": {
             "type": "string",
-            "description": "Nom de la base de donnÃ©es."
+            "description": "Nom de la base de données."
           },
           "collection": {
             "type": "string",
@@ -1278,11 +1278,11 @@
           },
           "filter": {
             "type": "string",
-            "description": "ChaÃ®ne JSON reprÃ©sentant le filtre de recherche (par dÃ©faut {})."
+            "description": "Chaîne JSON représentant le filtre de recherche (par défaut {})."
           },
           "projection": {
             "type": "string",
-            "description": "ChaÃ®ne JSON reprÃ©sentant la projection des champs."
+            "description": "Chaîne JSON représentant la projection des champs."
           },
           "destination": {
             "type": "string",
@@ -1298,7 +1298,7 @@
       }
     },
     "mongodb.insert": {
-      "description": "Importe les donnÃ©es d'un fichier (CSV ou JSON) dans une collection MongoDB.",
+      "description": "Importe les données d'un fichier (CSV ou JSON) dans une collection MongoDB.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1308,7 +1308,7 @@
           },
           "database": {
             "type": "string",
-            "description": "Nom de la base de donnÃ©es."
+            "description": "Nom de la base de données."
           },
           "collection": {
             "type": "string",
@@ -1316,7 +1316,7 @@
           },
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier de donnÃ©es source (.csv ou .json)."
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
           },
           "mode": {
             "type": "string",
@@ -1337,7 +1337,7 @@
       }
     },
     "s3.upload": {
-      "description": "TÃ©lÃ©verse un fichier local vers un bucket compatible S3 (AWS, MinIO, etc.).",
+      "description": "Téléverse un fichier local vers un bucket compatible S3 (AWS, MinIO, etc.).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1347,28 +1347,28 @@
           },
           "file_path": {
             "type": "string",
-            "description": "Chemin du fichier local Ã  tÃ©lÃ©verser."
+            "description": "Chemin du fichier local à téléverser."
           },
           "object_key": {
             "type": "string",
-            "description": "ClÃ© sous laquelle enregistrer l'objet dans S3."
+            "description": "Clé sous laquelle enregistrer l'objet dans S3."
           },
           "aws_access_key_id": {
             "type": "string",
-            "description": "ID de clÃ© d'accÃ¨s AWS / MinIO."
+            "description": "ID de clé d'accès AWS / MinIO."
           },
           "aws_secret_access_key": {
             "type": "string",
-            "description": "ClÃ© d'accÃ¨s secrÃ¨te AWS / MinIO."
+            "description": "Clé d'accès secrète AWS / MinIO."
           },
           "region": {
             "type": "string",
             "default": "us-east-1",
-            "description": "RÃ©gion S3 (ex: us-east-1)."
+            "description": "Région S3 (ex: us-east-1)."
           },
           "endpoint": {
             "type": "string",
-            "description": "Endpoint URL personnalisÃ© optionnel (nÃ©cessaire pour MinIO local, ex: http://localhost:9000)."
+            "description": "Endpoint URL personnalisé optionnel (nécessaire pour MinIO local, ex: http://localhost:9000)."
           }
         },
         "required": [
@@ -1381,7 +1381,7 @@
       }
     },
     "s3.download": {
-      "description": "TÃ©lÃ©charge un objet depuis un bucket compatible S3 vers le systÃ¨me de fichiers local.",
+      "description": "Télécharge un objet depuis un bucket compatible S3 vers le système de fichiers local.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1391,28 +1391,28 @@
           },
           "object_key": {
             "type": "string",
-            "description": "ClÃ© de l'objet dans S3."
+            "description": "Clé de l'objet dans S3."
           },
           "destination": {
             "type": "string",
-            "description": "Chemin local oÃ¹ enregistrer l'objet tÃ©lÃ©chargÃ©."
+            "description": "Chemin local où enregistrer l'objet téléchargé."
           },
           "aws_access_key_id": {
             "type": "string",
-            "description": "ID de clÃ© d'accÃ¨s AWS / MinIO."
+            "description": "ID de clé d'accès AWS / MinIO."
           },
           "aws_secret_access_key": {
             "type": "string",
-            "description": "ClÃ© d'accÃ¨s secrÃ¨te AWS / MinIO."
+            "description": "Clé d'accès secrète AWS / MinIO."
           },
           "region": {
             "type": "string",
             "default": "us-east-1",
-            "description": "RÃ©gion S3 (ex: us-east-1)."
+            "description": "Région S3 (ex: us-east-1)."
           },
           "endpoint": {
             "type": "string",
-            "description": "Endpoint URL personnalisÃ© optionnel (nÃ©cessaire pour MinIO local, ex: http://localhost:9000)."
+            "description": "Endpoint URL personnalisé optionnel (nécessaire pour MinIO local, ex: http://localhost:9000)."
           }
         },
         "required": [
@@ -1425,29 +1425,29 @@
       }
     },
     "ai.summarize": {
-      "description": "GÃ©nÃ¨re des rÃ©sumÃ©s concis via LLM d'une colonne textuelle et les Ã©crit dans une colonne cible.",
+      "description": "Génère des résumés concis via LLM d'une colonne textuelle et les écrit dans une colonne cible.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de donnÃ©es source (CSV/JSON)."
+            "description": "Le chemin d'accès au fichier de données source (CSV/JSON)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de destination propre gÃ©nÃ©rÃ©."
+            "description": "Le chemin d'accès au fichier de destination propre généré."
           },
           "column": {
             "type": "string",
-            "description": "Le nom de la colonne de texte source Ã  rÃ©sumer."
+            "description": "Le nom de la colonne de texte source à résumer."
           },
           "target_column": {
             "type": "string",
-            "description": "Le nom de la colonne de destination recevant le rÃ©sumÃ© (optionnel, ex: res_col)."
+            "description": "Le nom de la colonne de destination recevant le résumé (optionnel, ex: res_col)."
           },
           "prompt": {
             "type": "string",
-            "description": "Consignes de prompt systÃ¨me pour guider le rÃ©sumÃ© (optionnel)."
+            "description": "Consignes de prompt système pour guider le résumé (optionnel)."
           },
           "model_provider": {
             "type": "string",
@@ -1455,15 +1455,15 @@
               "openai_compatible",
               "gemini"
             ],
-            "description": "Le provider de modÃ¨le LLM Ã  utiliser (optionnel)."
+            "description": "Le provider de modèle LLM à utiliser (optionnel)."
           },
           "model_id": {
             "type": "string",
-            "description": "L'identifiant du modÃ¨le LLM Ã  utiliser pour cette Ã©tape (optionnel)."
+            "description": "L'identifiant du modèle LLM à utiliser pour cette étape (optionnel)."
           },
           "base_url": {
             "type": "string",
-            "description": "URL de base de l'API LLM locale pour cette Ã©tape (optionnel)."
+            "description": "URL de base de l'API LLM locale pour cette étape (optionnel)."
           }
         },
         "required": [
@@ -1474,29 +1474,29 @@
       }
     },
     "ai.extract": {
-      "description": "Extrait des informations structurÃ©es (JSON) via LLM depuis une colonne textuelle vers de nouvelles colonnes.",
+      "description": "Extrait des informations structurées (JSON) via LLM depuis une colonne textuelle vers de nouvelles colonnes.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de donnÃ©es source (CSV/JSON)."
+            "description": "Le chemin d'accès au fichier de données source (CSV/JSON)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de destination propre gÃ©nÃ©rÃ©."
+            "description": "Le chemin d'accès au fichier de destination propre généré."
           },
           "column": {
             "type": "string",
-            "description": "Le nom de la colonne de texte source Ã  analyser."
+            "description": "Le nom de la colonne de texte source à analyser."
           },
           "schema": {
             "type": "string",
-            "description": "Le schÃ©ma JSON dÃ©crivant les propriÃ©tÃ©s Ã  extraire (ex: {\"properties\": {\"nom\": {\"type\": \"string\"}}})."
+            "description": "Le schéma JSON décrivant les propriétés à extraire (ex: {\"properties\": {\"nom\": {\"type\": \"string\"}}})."
           },
           "prompt": {
             "type": "string",
-            "description": "Instructions systÃ¨me additionnelles pour guider l'extraction LLM (optionnel)."
+            "description": "Instructions système additionnelles pour guider l'extraction LLM (optionnel)."
           },
           "model_provider": {
             "type": "string",
@@ -1504,15 +1504,15 @@
               "openai_compatible",
               "gemini"
             ],
-            "description": "Le provider de modÃ¨le LLM Ã  utiliser (optionnel)."
+            "description": "Le provider de modèle LLM à utiliser (optionnel)."
           },
           "model_id": {
             "type": "string",
-            "description": "L'identifiant du modÃ¨le LLM Ã  utiliser pour cette Ã©tape (optionnel)."
+            "description": "L'identifiant du modèle LLM à utiliser pour cette étape (optionnel)."
           },
           "base_url": {
             "type": "string",
-            "description": "URL de base de l'API LLM locale pour cette Ã©tape (optionnel)."
+            "description": "URL de base de l'API LLM locale pour cette étape (optionnel)."
           }
         },
         "required": [
@@ -1524,13 +1524,13 @@
       }
     },
     "core.sub_flow": {
-      "description": "ExÃ©cute un ensemble d'Ã©tapes imbriquÃ©es comme sous-graphe dans la recette principale.",
+      "description": "Exécute un ensemble d'étapes imbriquées comme sous-graphe dans la recette principale.",
       "parameters": {
         "type": "object",
         "properties": {
           "steps": {
             "type": "array",
-            "description": "La liste des Ã©tapes imbriquÃ©es Ã  exÃ©cuter comme sous-flux.",
+            "description": "La liste des étapes imbriquées à exécuter comme sous-flux.",
             "items": {
               "type": "object"
             }
@@ -1542,29 +1542,29 @@
       }
     },
     "data.lookup": {
-      "description": "Recherche et joint des donnÃ©es depuis un rÃ©fÃ©rentiel externe (jointure gauche Polars).",
+      "description": "Recherche et joint des données depuis un référentiel externe (jointure gauche Polars).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es principal (CSV/JSON/Parquet)."
+            "description": "Le fichier de données principal (CSV/JSON/Parquet)."
           },
           "lookup_file": {
             "type": "string",
-            "description": "Le fichier dictionnaire / rÃ©fÃ©rentiel externe."
+            "description": "Le fichier dictionnaire / référentiel externe."
           },
           "source_key": {
             "type": "string",
-            "description": "La clÃ© de liaison dans le fichier principal."
+            "description": "La clé de liaison dans le fichier principal."
           },
           "lookup_key": {
             "type": "string",
-            "description": "La clÃ© de liaison dans le fichier dictionnaire."
+            "description": "La clé de liaison dans le fichier dictionnaire."
           },
           "lookup_value": {
             "type": "string",
-            "description": "La colonne du dictionnaire Ã  ramener dans le fichier principal."
+            "description": "La colonne du dictionnaire à ramener dans le fichier principal."
           },
           "destination": {
             "type": "string",
@@ -1582,21 +1582,21 @@
       }
     },
     "data.deduplicate": {
-      "description": "Supprime les lignes en doublons basÃ©es sur des clÃ©s spÃ©cifiques.",
+      "description": "Supprime les lignes en doublons basées sur des clés spécifiques.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination": {
             "type": "string",
-            "description": "Le fichier de destination nettoyÃ©."
+            "description": "Le fichier de destination nettoyé."
           },
           "subset": {
             "type": "string",
-            "description": "Liste des colonnes de clÃ© de dÃ©doublonnage, sÃ©parÃ©es par virgules (ex: id,email)."
+            "description": "Liste des colonnes de clé de dédoublonnage, séparées par virgules (ex: id,email)."
           },
           "keep": {
             "type": "string",
@@ -1616,13 +1616,13 @@
       }
     },
     "data.anonymize": {
-      "description": "Anonymise et masque les colonnes sensibles (PII) d'un jeu de donnÃ©es.",
+      "description": "Anonymise et masque les colonnes sensibles (PII) d'un jeu de données.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination": {
             "type": "string",
@@ -1630,7 +1630,7 @@
           },
           "rules": {
             "type": "string",
-            "description": "Mappings de rÃ¨gles d'anonymisation au format col1:strategy1,col2:strategy2. StratÃ©gies: hash, mask, mask_email, replace."
+            "description": "Mappings de règles d'anonymisation au format col1:strategy1,col2:strategy2. Stratégies: hash, mask, mask_email, replace."
           }
         },
         "required": [
@@ -1641,13 +1641,13 @@
       }
     },
     "data.pivot": {
-      "description": "Pivote une table de donnÃ©es du format long au format large (lignes en colonnes).",
+      "description": "Pivote une table de données du format long au format large (lignes en colonnes).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination": {
             "type": "string",
@@ -1655,15 +1655,15 @@
           },
           "index": {
             "type": "string",
-            "description": "Nom(s) des colonnes d'index de ligne sÃ©parÃ©s par des virgules (ex: year,country)."
+            "description": "Nom(s) des colonnes d'index de ligne séparés par des virgules (ex: year,country)."
           },
           "on": {
             "type": "string",
-            "description": "Nom de la colonne dont les valeurs distinctes deviendront les en-tÃªtes des nouvelles colonnes."
+            "description": "Nom de la colonne dont les valeurs distinctes deviendront les en-têtes des nouvelles colonnes."
           },
           "values": {
             "type": "string",
-            "description": "Nom de la colonne contenant les valeurs Ã  ventiler dans les nouvelles colonnes."
+            "description": "Nom de la colonne contenant les valeurs à ventiler dans les nouvelles colonnes."
           },
           "aggregate": {
             "type": "string",
@@ -1677,7 +1677,7 @@
               "count"
             ],
             "default": "first",
-            "description": "Fonction d'agrÃ©gation Ã  appliquer pour les valeurs."
+            "description": "Fonction d'agrégation à appliquer pour les valeurs."
           }
         },
         "required": [
@@ -1690,13 +1690,13 @@
       }
     },
     "data.unpivot": {
-      "description": "DÃ©pivote une table de donnÃ©es du format large au format long (colonnes en lignes).",
+      "description": "Dépivote une table de données du format large au format long (colonnes en lignes).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination": {
             "type": "string",
@@ -1704,21 +1704,21 @@
           },
           "index": {
             "type": "string",
-            "description": "Nom(s) des colonnes d'identifiants Ã  conserver sÃ©parÃ©es par des virgules (ex: id,name)."
+            "description": "Nom(s) des colonnes d'identifiants à conserver séparées par des virgules (ex: id,name)."
           },
           "on": {
             "type": "string",
-            "description": "Optionnel: Nom(s) des colonnes de mesures Ã  dÃ©pivoter sÃ©parÃ©es par des virgules. Si vide, toutes les autres colonnes."
+            "description": "Optionnel: Nom(s) des colonnes de mesures à dépivoter séparées par des virgules. Si vide, toutes les autres colonnes."
           },
           "variable_name": {
             "type": "string",
             "default": "variable",
-            "description": "Nom de la colonne finale contenant les anciens en-tÃªtes (dÃ©faut: variable)."
+            "description": "Nom de la colonne finale contenant les anciens en-têtes (défaut: variable)."
           },
           "value_name": {
             "type": "string",
             "default": "value",
-            "description": "Nom de la colonne finale contenant les valeurs des mesures (dÃ©faut: value)."
+            "description": "Nom de la colonne finale contenant les valeurs des mesures (défaut: value)."
           }
         },
         "required": [
@@ -1729,33 +1729,33 @@
       }
     },
     "data.delta": {
-      "description": "Compare deux jeux de donnÃ©es (CSV, JSON, Parquet) sur clÃ©s primaires pour calculer les diffÃ©rences incrÃ©mentales (upserts, deletes et optionnellement synchronisation complÃ¨te).",
+      "description": "Compare deux jeux de données (CSV, JSON, Parquet) sur clés primaires pour calculer les différences incrémentales (upserts, deletes et optionnellement synchronisation complète).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source le plus rÃ©cent."
+            "description": "Le fichier de données source le plus récent."
           },
           "target": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es cible de rÃ©fÃ©rence (historique)."
+            "description": "Le fichier de données cible de référence (historique)."
           },
           "keys": {
             "type": "string",
-            "description": "Nom(s) de la ou des clÃ©s primaires sÃ©parÃ©es par des virgules (ex: id,code)."
+            "description": "Nom(s) de la ou des clés primaires séparées par des virgules (ex: id,code)."
           },
           "destination_upsert": {
             "type": "string",
-            "description": "Fichier pour enregistrer les nouvelles lignes et les lignes mises Ã  jour (inserts + updates)."
+            "description": "Fichier pour enregistrer les nouvelles lignes et les lignes mises à jour (inserts + updates)."
           },
           "destination_delete": {
             "type": "string",
-            "description": "Fichier pour enregistrer les lignes supprimÃ©es."
+            "description": "Fichier pour enregistrer les lignes supprimées."
           },
           "destination_sync": {
             "type": "string",
-            "description": "Optionnel: Fichier pour enregistrer le jeu de donnÃ©es consolidÃ© et entiÃ¨rement synchronisÃ©."
+            "description": "Optionnel: Fichier pour enregistrer le jeu de données consolidé et entièrement synchronisé."
           }
         },
         "required": [
@@ -1768,21 +1768,21 @@
       }
     },
     "data.type_cast": {
-      "description": "Convertit et formate les colonnes d'un jeu de donnÃ©es selon des types cibles stricts (integer, float, boolean, string, date).",
+      "description": "Convertit et formate les colonnes d'un jeu de données selon des types cibles stricts (integer, float, boolean, string, date).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le fichier de donnÃ©es source."
+            "description": "Le fichier de données source."
           },
           "destination": {
             "type": "string",
-            "description": "Le fichier de destination propre avec les colonnes typÃ©es."
+            "description": "Le fichier de destination propre avec les colonnes typées."
           },
           "casts": {
             "type": "string",
-            "description": "ChaÃ®ne au format JSON dÃ©finissant le type des colonnes Ã  convertir (ex: {\"id\": \"int\", \"price\": \"float\", \"date\": \"date:%Y-%m-%d\"})."
+            "description": "Chaîne au format JSON définissant le type des colonnes à convertir (ex: {\"id\": \"int\", \"price\": \"float\", \"date\": \"date:%Y-%m-%d\"})."
           }
         },
         "required": [
@@ -1793,13 +1793,13 @@
       }
     },
     "db.upsert": {
-      "description": "Upsert (mise Ã  jour ou insertion) idempotent des lignes d'un fichier dans une table SQL sur clÃ©s primaires de conflit.",
+      "description": "Upsert (mise à jour ou insertion) idempotent des lignes d'un fichier dans une table SQL sur clés primaires de conflit.",
       "parameters": {
         "type": "object",
         "properties": {
           "connection_string": {
             "type": "string",
-            "description": "ChaÃ®ne de connexion de la base de donnÃ©es (ex: sqlite://db.sqlite)."
+            "description": "Chaîne de connexion de la base de données (ex: sqlite://db.sqlite)."
           },
           "table_name": {
             "type": "string",
@@ -1807,16 +1807,16 @@
           },
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier de donnÃ©es source (.csv ou .json)."
+            "description": "Le chemin du fichier de données source (.csv ou .json)."
           },
           "keys": {
             "type": "string",
-            "description": "ClÃ©(s) primaire(s) pour dÃ©tecter les doublons et faire la mise Ã  jour, sÃ©parÃ©es par virgules (ex: id)."
+            "description": "Clé(s) primaire(s) pour détecter les doublons et faire la mise à jour, séparées par virgules (ex: id)."
           },
           "schema_drift": {
             "type": "boolean",
             "default": false,
-            "description": "Activer la dÃ©rive de schÃ©ma automatique pour ajouter les colonnes manquantes dans la base."
+            "description": "Activer la dérive de schéma automatique pour ajouter les colonnes manquantes dans la base."
           }
         },
         "required": [
@@ -1828,25 +1828,25 @@
       }
     },
     "data.split_out": {
-      "description": "Ã‰clate les colonnes contenant des listes ou des chaÃ®nes sÃ©rialisÃ©es JSON vers des lignes distinctes (explode).",
+      "description": "Éclate les colonnes contenant des listes ou des chaînes sérialisées JSON vers des lignes distinctes (explode).",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier source."
+            "description": "Le chemin d'accès au fichier source."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier de destination propre Ã©clatÃ©."
+            "description": "Le chemin d'accès au fichier de destination propre éclaté."
           },
           "column": {
             "type": "string",
-            "description": "Le nom de la colonne Ã  Ã©clater."
+            "description": "Le nom de la colonne à éclater."
           },
           "delimiter": {
             "type": "string",
-            "description": "Optionnel: DÃ©limiteur de texte pour Ã©clater si ce n'est pas un tableau JSON direct (ex: virgule)."
+            "description": "Optionnel: Délimiteur de texte pour éclater si ce n'est pas un tableau JSON direct (ex: virgule)."
           }
         },
         "required": [
@@ -1863,11 +1863,11 @@
         "properties": {
           "source": {
             "type": "string",
-            "description": "Chemin du fichier ou dossier source Ã  compresser."
+            "description": "Chemin du fichier ou dossier source à compresser."
           },
           "destination": {
             "type": "string",
-            "description": "Chemin de l'archive ZIP destination Ã  gÃ©nÃ©rer."
+            "description": "Chemin de l'archive ZIP destination à générer."
           }
         },
         "required": [
@@ -1877,7 +1877,7 @@
       }
     },
     "data.unzip": {
-      "description": "DÃ©compresse une archive ZIP dans un dossier de destination.",
+      "description": "Décompresse une archive ZIP dans un dossier de destination.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1897,13 +1897,13 @@
       }
     },
     "core.wait": {
-      "description": "Met en pause l'exÃ©cution du workflow pendant une durÃ©e spÃ©cifiÃ©e (secondes ou HH:MM:SS).",
+      "description": "Met en pause l'exécution du workflow pendant une durée spécifiée (secondes ou HH:MM:SS).",
       "parameters": {
         "type": "object",
         "properties": {
           "duration": {
             "type": "string",
-            "description": "DurÃ©e de l'attente. Exemples: '5' (5 secondes), '02:30' (2 min 30 s), '01:00:00' (1 heure)."
+            "description": "Durée de l'attente. Exemples: '5' (5 secondes), '02:30' (2 min 30 s), '01:00:00' (1 heure)."
           }
         },
         "required": [
@@ -1912,7 +1912,7 @@
       }
     },
     "core.loop": {
-      "description": "ItÃ¨re l'exÃ©cution d'une liste d'Ã©tapes sur des variables, des lignes de fichier ou des chemins de fichiers filtrÃ©s.",
+      "description": "Itère l'exécution d'une liste d'étapes sur des variables, des lignes de fichier ou des chemins de fichiers filtrés.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1923,11 +1923,11 @@
               "files",
               "rows"
             ],
-            "description": "Type d'Ã©lÃ©ments Ã  parcourir."
+            "description": "Type d'éléments à parcourir."
           },
           "items_source": {
             "type": "string",
-            "description": "Source des Ã©lÃ©ments (valeurs sÃ©parÃ©es par des virgules, chemin d'accÃ¨s au dossier ou fichier)."
+            "description": "Source des éléments (valeurs séparées par des virgules, chemin d'accès au dossier ou fichier)."
           },
           "pattern": {
             "type": "string",
@@ -1936,11 +1936,11 @@
           },
           "max_age_hours": {
             "type": "string",
-            "description": "Optionnel (pour files) : Ã‚ge maximum du fichier en heures (ex: '24' pour les fichiers modifiÃ©s dans les derniÃ¨res 24h)."
+            "description": "Optionnel (pour files) : Âge maximum du fichier en heures (ex: '24' pour les fichiers modifiés dans les dernières 24h)."
           },
           "min_age_hours": {
             "type": "string",
-            "description": "Optionnel (pour files) : Ã‚ge minimum / anciennetÃ© en heures (ex: '72' pour exiger au moins 3 jours d'anciennetÃ©)."
+            "description": "Optionnel (pour files) : Âge minimum / ancienneté en heures (ex: '72' pour exiger au moins 3 jours d'ancienneté)."
           },
           "min_size_mb": {
             "type": "string",
@@ -1952,7 +1952,7 @@
           },
           "steps": {
             "type": "array",
-            "description": "Liste d'Ã©tapes enfants Ã  exÃ©cuter Ã  chaque itÃ©ration."
+            "description": "Liste d'étapes enfants à exécuter à chaque itération."
           }
         },
         "required": [
@@ -1963,17 +1963,17 @@
       }
     },
     "core.switch": {
-      "description": "Primitive d'orchestration logique. Route l'exÃ©cution vers diffÃ©rents sous-graphes selon la valeur d'une clÃ© ou d'un paramÃ¨tre.",
+      "description": "Primitive d'orchestration logique. Route l'exécution vers différents sous-graphes selon la valeur d'une clé ou d'un paramètre.",
       "parameters": {
         "type": "object",
         "properties": {
           "value": {
             "type": "string",
-            "description": "La valeur ou variable Ã  tester (ex: ${ENV_MODE} ou ${STATUS})."
+            "description": "La valeur ou variable à tester (ex: ${ENV_MODE} ou ${STATUS})."
           },
           "cases": {
             "type": "object",
-            "description": "Dictionnaire associant des valeurs de cas Ã  des listes d'Ã©tapes d'exÃ©cution (ex: {\"dev\": [...], \"prod\": [...]})."
+            "description": "Dictionnaire associant des valeurs de cas à des listes d'étapes d'exécution (ex: {\"dev\": [...], \"prod\": [...]})."
           }
         },
         "required": [
@@ -1983,7 +1983,7 @@
       }
     },
     "google.sheets_read": {
-      "description": "Extrait des donnÃ©es depuis Google Sheets vers un fichier local CSV.",
+      "description": "Extrait des données depuis Google Sheets vers un fichier local CSV.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -1997,11 +1997,11 @@
           },
           "worksheet_title": {
             "type": "string",
-            "description": "Le nom de l'onglet/feuille Ã  lire (optionnel, lit la premiÃ¨re feuille si vide)."
+            "description": "Le nom de l'onglet/feuille à lire (optionnel, lit la première feuille si vide)."
           },
           "local_path": {
             "type": "string",
-            "description": "Chemin local oÃ¹ sauvegarder les donnÃ©es extraites en CSV."
+            "description": "Chemin local où sauvegarder les données extraites en CSV."
           }
         },
         "required": [
@@ -2012,7 +2012,7 @@
       }
     },
     "google.sheets_write": {
-      "description": "Ã‰crit des donnÃ©es depuis un fichier local CSV vers Google Sheets.",
+      "description": "Écrit des données depuis un fichier local CSV vers Google Sheets.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2030,12 +2030,12 @@
           },
           "local_path": {
             "type": "string",
-            "description": "Chemin local du fichier CSV Ã  importer."
+            "description": "Chemin local du fichier CSV à importer."
           },
           "clear_sheet": {
             "type": "boolean",
             "default": true,
-            "description": "Vider la feuille avant d'Ã©crire les nouvelles donnÃ©es."
+            "description": "Vider la feuille avant d'écrire les nouvelles données."
           }
         },
         "required": [
@@ -2052,15 +2052,15 @@
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin d'accÃ¨s au fichier source (CSV/JSON/Parquet)."
+            "description": "Le chemin d'accès au fichier source (CSV/JSON/Parquet)."
           },
           "destination_dir": {
             "type": "string",
-            "description": "Le rÃ©pertoire de destination pour les fichiers partitionnÃ©s."
+            "description": "Le répertoire de destination pour les fichiers partitionnés."
           },
           "by_columns": {
             "type": "string",
-            "description": "Les colonnes de partitionnement sÃ©parÃ©es par des virgules."
+            "description": "Les colonnes de partitionnement séparées par des virgules."
           }
         },
         "required": [
@@ -2071,13 +2071,13 @@
       }
     },
     "data.scd": {
-      "description": "GÃ¨re les dimensions Ã  Ã©volution lente (SCD Type 2) en comparant source et cible.",
+      "description": "Gère les dimensions à évolution lente (SCD Type 2) en comparant source et cible.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier source contenant les nouvelles donnÃ©es."
+            "description": "Le chemin du fichier source contenant les nouvelles données."
           },
           "target": {
             "type": "string",
@@ -2085,25 +2085,25 @@
           },
           "keys": {
             "type": "string",
-            "description": "Les colonnes clÃ©s de jointure sÃ©parÃ©es par des virgules."
+            "description": "Les colonnes clés de jointure séparées par des virgules."
           },
           "compare_columns": {
             "type": "string",
-            "description": "Les colonnes Ã  comparer pour dÃ©tecter les changements (optionnel, toutes si vide)."
+            "description": "Les colonnes à comparer pour détecter les changements (optionnel, toutes si vide)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin du fichier de sortie avec la dimension versionnÃ©e."
+            "description": "Le chemin du fichier de sortie avec la dimension versionnée."
           },
           "valid_from_col": {
             "type": "string",
             "default": "valid_from",
-            "description": "Nom de la colonne marquant le dÃ©but de validitÃ©."
+            "description": "Nom de la colonne marquant le début de validité."
           },
           "valid_to_col": {
             "type": "string",
             "default": "valid_to",
-            "description": "Nom de la colonne marquant la fin de validitÃ©."
+            "description": "Nom de la colonne marquant la fin de validité."
           },
           "is_current_col": {
             "type": "string",
@@ -2112,7 +2112,7 @@
           },
           "valid_from_value": {
             "type": "string",
-            "description": "Valeur de dÃ©but de validitÃ© (optionnel, ex: date du jour)."
+            "description": "Valeur de début de validité (optionnel, ex: date du jour)."
           }
         },
         "required": [
@@ -2124,13 +2124,13 @@
       }
     },
     "data.read": {
-      "description": "Lit un fichier dans tout format supportÃ© (CSV, JSON, Parquet, JSONL/NDJSON) et l'Ã©crit en CSV.",
+      "description": "Lit un fichier dans tout format supporté (CSV, JSON, Parquet, JSONL/NDJSON) et l'écrit en CSV.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier source (auto-dÃ©tection du format par extension)."
+            "description": "Le chemin du fichier source (auto-détection du format par extension)."
           },
           "destination": {
             "type": "string",
@@ -2144,7 +2144,7 @@
       }
     },
     "data.write": {
-      "description": "Lit un fichier CSV source et l'Ã©crit dans le format dÃ©tectÃ© par l'extension de destination (CSV, JSON, Parquet, JSONL/NDJSON).",
+      "description": "Lit un fichier CSV source et l'écrit dans le format détecté par l'extension de destination (CSV, JSON, Parquet, JSONL/NDJSON).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2154,7 +2154,7 @@
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin du fichier de sortie (format auto-dÃ©tectÃ© par extension)."
+            "description": "Le chemin du fichier de sortie (format auto-détecté par extension)."
           }
         },
         "required": [
@@ -2164,17 +2164,17 @@
       }
     },
     "data.convert": {
-      "description": "Convertit un fichier entre tous formats supportÃ©s (CSV, JSON, Parquet, JSONL/NDJSON) par auto-dÃ©tection des extensions source et destination.",
+      "description": "Convertit un fichier entre tous formats supportés (CSV, JSON, Parquet, JSONL/NDJSON) par auto-détection des extensions source et destination.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Le chemin du fichier source (format auto-dÃ©tectÃ© par extension)."
+            "description": "Le chemin du fichier source (format auto-détecté par extension)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin du fichier de destination (format auto-dÃ©tectÃ© par extension)."
+            "description": "Le chemin du fichier de destination (format auto-détecté par extension)."
           }
         },
         "required": [
@@ -2184,7 +2184,7 @@
       }
     },
     "data.generate_fake": {
-      "description": "GÃ©nÃ¨re des donnÃ©es factices (PII, montants, patterns, dates) Ã  l'aide d'un dictionnaire de rÃ©fÃ©rence personnalisable.",
+      "description": "Génère des données factices (PII, montants, patterns, dates) à l'aide d'un dictionnaire de référence personnalisable.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2194,11 +2194,11 @@
           },
           "count": {
             "type": "integer",
-            "description": "Nombre de lignes Ã  gÃ©nÃ©rer (ex: 1000)."
+            "description": "Nombre de lignes à générer (ex: 1000)."
           },
           "destination": {
             "type": "string",
-            "description": "Le chemin du fichier de sortie gÃ©nÃ©rÃ©."
+            "description": "Le chemin du fichier de sortie généré."
           },
           "format": {
             "type": "string",
@@ -2216,28 +2216,8 @@
         ]
       }
     },
-    "flow.report": {
-      "description": "GÃ©nÃ¨re un rapport texte depuis le contexte d'exÃ©cution du flux (${STEPS.N.STATUS}, ${FLOW.TOTAL_DURATION_MS}, etc.).",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "template": {
-            "type": "string",
-            "description": "Template texte avec placeholders ${STEPS.N.STATUS}, ${FLOW.*}, etc."
-          },
-          "destination": {
-            "type": "string",
-            "description": "Fichier de sortie du rapport."
-          }
-        },
-        "required": [
-          "template",
-          "destination"
-        ]
-      }
-    },
     "data.profile": {
-      "description": "Profile un dataset: stats, nulls, distribution par colonne.",
+      "description": "Profile un dataset: statistiques, nulls, distribution par colonne.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2247,7 +2227,7 @@
           },
           "destination": {
             "type": "string",
-            "description": "Fichier JSON de sortie des stats."
+            "description": "Fichier JSON de sortie des statistiques."
           }
         },
         "required": [
@@ -2257,7 +2237,7 @@
       }
     },
     "data.schema_check": {
-      "description": "Verifie la conformite d'un dataset face a un schema attendu.",
+      "description": "Verifie la conformite du schema d'un dataset face a un schema attendu.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2271,7 +2251,7 @@
           },
           "destination": {
             "type": "string",
-            "description": "Rapport de verification JSON."
+            "description": "Rapport de verification (JSON)."
           }
         },
         "required": [
@@ -2281,7 +2261,7 @@
       }
     },
     "data.sync": {
-      "description": "Synchronise un CSV avec une table SQL (INSERT/UPDATE/DELETE).",
+      "description": "Synchronise un fichier CSV avec une table SQL (INSERT/UPDATE/DELETE automatique).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -2295,11 +2275,11 @@
           },
           "table_name": {
             "type": "string",
-            "description": "Table cible."
+            "description": "Nom de la table cible."
           },
           "key_columns": {
             "type": "string",
-            "description": "Cles de jointure."
+            "description": "Colonnes cles pour la jointure (separees par des virgules)."
           }
         },
         "required": [
@@ -2311,13 +2291,13 @@
       }
     },
     "data.to_db": {
-      "description": "Ecrit un dataset dans une table SQL (creation auto du schema).",
+      "description": "Ecrit un dataset dans une table SQL avec creation automatique du schema.",
       "parameters": {
         "type": "object",
         "properties": {
           "source": {
             "type": "string",
-            "description": "Fichier source."
+            "description": "Fichier source (CSV/JSON)."
           },
           "connection_string": {
             "type": "string",
@@ -2325,7 +2305,7 @@
           },
           "table_name": {
             "type": "string",
-            "description": "Nom de la table."
+            "description": "Nom de la table cible."
           },
           "mode": {
             "type": "string",
@@ -2334,13 +2314,33 @@
               "append"
             ],
             "default": "replace",
-            "description": "Mode d'ecriture."
+            "description": "Mode d'ecriture (replace ou append)."
           }
         },
         "required": [
           "source",
           "connection_string",
           "table_name"
+        ]
+      }
+    },
+    "flow.report": {
+      "description": "Genere un rapport texte depuis le contexte d'execution du flux (${STEPS.N.STATUS}, ${FLOW.TOTAL_DURATION_MS}, etc.).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "Template texte avec placeholders ${STEPS.*} et ${FLOW.*}."
+          },
+          "destination": {
+            "type": "string",
+            "description": "Fichier de sortie du rapport."
+          }
+        },
+        "required": [
+          "template",
+          "destination"
         ]
       }
     }

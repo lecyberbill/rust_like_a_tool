@@ -1,10 +1,10 @@
 # net.download
 
-_TÃ©lÃ©charge un fichier depuis une URL HTTP/HTTPS._
+_Télécharge un fichier depuis une URL HTTP/HTTPS._
 
 ## Parametres
 
 | Parametre | Type | Requis | Defaut | Description |
 |-----------|------|--------|--------|-------------|
-| url | string | **Oui** | — | L'URL HTTP ou HTTPS du fichier Ã  tÃ©lÃ©charger. |
-| destination | string | **Oui** | — | Le chemin local oÃ¹ enregistrer le fichier tÃ©lÃ©chargÃ©. |
+| url | string | **Oui** | — | L'URL HTTP ou HTTPS du fichier à télécharger. |
+| destination | string | **Oui** | — | Le chemin local où enregistrer le fichier téléchargé. |
