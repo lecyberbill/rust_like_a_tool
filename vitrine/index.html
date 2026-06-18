@@ -627,7 +627,22 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
         <div class="modal-content" style="width: 80vw; max-width: 1000px; height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--border); border-radius: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
                 <div class="modal-title" style="color: #c084fc; font-weight: 800; font-size: 1.3rem; margin: 0;">Gestion des Utilisateurs</div>
-                <button class="toggle-logs-btn" onclick="closeAdminPanel()">✖ Fermer</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="toggle-logs-btn" onclick="showCreateUserForm()" style="border-color:var(--success);color:var(--success);padding:4px 12px;font-size:0.8rem;">➕ Créer un utilisateur</button>
+                    <button class="toggle-logs-btn" onclick="closeAdminPanel()">✖ Fermer</button>
+                </div>
+            </div>
+            <div id="admin-create-form" style="display:none;margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;gap:8px;flex-wrap:wrap;align-items:end;">
+                <div style="flex:1;min-width:150px;">
+                    <label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Utilisateur</label>
+                    <input type="text" id="admin-new-username" class="editor-input" placeholder="Nom d'utilisateur" style="width:100%;">
+                </div>
+                <div style="flex:1;min-width:150px;">
+                    <label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Mot de passe</label>
+                    <input type="password" id="admin-new-password" class="editor-input" placeholder="Mot de passe" style="width:100%;">
+                </div>
+                <button class="toggle-logs-btn" onclick="createUserFromAdmin()" style="background:linear-gradient(135deg,var(--success) 0%,rgba(0,255,102,0.6) 100%);color:#000;border:none;font-weight:800;padding:6px 16px;">Créer</button>
+                <button class="toggle-logs-btn" onclick="hideCreateUserForm()" style="border-color:transparent;padding:6px 10px;">Annuler</button>
             </div>
             <div style="flex: 1; overflow-y: auto;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">

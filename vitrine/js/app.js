@@ -315,6 +315,37 @@ async function openAdminPanel() {
 
 function closeAdminPanel() {
     document.getElementById('admin-modal').style.display = 'none';
+    document.getElementById('admin-create-form').style.display = 'none';
+}
+
+function showCreateUserForm() {
+    document.getElementById('admin-create-form').style.display = 'flex';
+}
+
+function hideCreateUserForm() {
+    document.getElementById('admin-create-form').style.display = 'none';
+    document.getElementById('admin-new-username').value = '';
+    document.getElementById('admin-new-password').value = '';
+}
+
+async function createUserFromAdmin() {
+    const username = document.getElementById('admin-new-username').value.trim();
+    const password = document.getElementById('admin-new-password').value;
+    if (!username || !password) { addLog('Veuillez remplir tous les champs.', 'error'); return; }
+    try {
+        const r = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await r.json();
+        if (data.error) { addLog('Erreur création : ' + data.error, 'error'); return; }
+        addLog(`Utilisateur '${username}' créé (rôle: operator).`, 'success');
+        hideCreateUserForm();
+        openAdminPanel();
+    } catch (e) {
+        addLog('Erreur réseau : ' + e.message, 'error');
+    }
 }
 
 async function changeUserRole(userId, role) {
@@ -491,10 +522,18 @@ async function testNotifConfig() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
         });
+        if (!r.ok) {
+            addLog('Erreur serveur test notification (HTTP ' + r.status + ')', 'error');
+            return;
+        }
         const data = await r.json();
-        addLog('Test email: ' + (data.email || 'N/A') + ' | Webhook: ' + (data.webhook || 'N/A'), 'info');
+        if (data.error) {
+            addLog('Erreur test notification: ' + data.error, 'error');
+            return;
+        }
+        addLog('Email: ' + (data.email || 'N/A') + ' | Webhook: ' + (data.webhook || 'N/A'), 'info');
     } catch (e) {
-        addLog('Erreur test notification: ' + e, 'error');
+        addLog('Erreur test notification: ' + e.message, 'error');
     }
 }
 
