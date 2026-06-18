@@ -21,7 +21,6 @@
             <!-- Theme Toggle Button -->
             <button class="toggle-logs-btn" onclick="toggleTheme()" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">🌗 Thème</button>
             <button class="toggle-logs-btn" id="logout-btn" onclick="logout()" style="padding: 6px 12px; font-size: 0.8rem; display: none; align-items: center; gap: 6px; border-color: var(--error); color: var(--error);">🚪 Déconnexion</button>
-            <button class="toggle-logs-btn" id="admin-btn" onclick="openAdminPanel()" style="padding:6px 12px; font-size:0.8rem; display:none; align-items:center; gap:6px; border-color:#c084fc; color:#c084fc;">👥 Admin</button>
         </div>
         
         <!-- Workshop canvas control actions (visible only in Workshop view) -->
@@ -38,8 +37,6 @@
         </div>
         <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
-            <button class="toggle-logs-btn" onclick="openVersionsModal()" style="border-color: #c084fc; color: #c084fc;">📋 Versions</button>
-            <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color: #c084fc; color: #c084fc;">🔔 Notifications</button>
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
         </div>
     </header>
@@ -218,6 +215,13 @@
                     <input type="text" id="setting-base-url" class="editor-input" style="background: rgba(0, 0, 0, 0.3);" value="http://localhost:1234/v1">
                 </div>
 
+                <hr style="border-color:var(--border);margin:16px 0;">
+                <h4 style="font-weight:800;color:#c084fc;text-transform:uppercase;font-size:0.85rem;letter-spacing:0.5px;margin-bottom:12px;">Administration</h4>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <button class="toggle-logs-btn" id="admin-btn" onclick="openAdminPanel()" style="display:none;border-color:#c084fc;color:#c084fc;justify-content:center;">👥 Gestion des utilisateurs</button>
+                    <button class="toggle-logs-btn" onclick="openVersionsModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">📋 Historique des versions</button>
+                    <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">🔔 Configuration notifications</button>
+                </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                     <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
                     <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
