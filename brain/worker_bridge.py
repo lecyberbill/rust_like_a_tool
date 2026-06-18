@@ -31,7 +31,6 @@ METADATA_ARGS = {
     "loop_over", "items_source", "steps", "cases", "pattern",
     "then_steps", "else_steps", "expression", "duration",
     "max_age_hours", "min_age_hours", "max_size_mb", "min_size_mb",
-    "format",  # routing hint for io.read_file; not understood by Rust io.copy handler
     "sheet_name",  # only meaningful for data.to_xlsx exporter
     "root_element", "row_element",  # only for json_to_xml
     "template", "expected_schema", "sandbox", "key_columns",  # handled in Python orchestrator
@@ -75,6 +74,9 @@ class WorkerBridge:
         filtered_args = {k: v for k, v in args.items()}
         if primitive_name == "data.generate_fake":
             filtered_args.pop("destination", None)
+        elif primitive_name == "io.read_file":
+            # io.read_file n'accepte pas --format
+            filtered_args.pop("format", None)
 
         for key, value in filtered_args.items():
             if key in METADATA_ARGS:
