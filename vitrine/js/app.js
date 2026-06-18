@@ -458,6 +458,19 @@ async function rollbackToVersion(version) {
     }
 }
 
+// ── Toast Notification ──────────────────────────────────────
+function showToast(message, type = 'info') {
+    const existing = document.querySelector('.toast-notification');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    const bg = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--accent)';
+    toast.style.cssText = `position:fixed;top:20px;right:20px;padding:14px 24px;background:${bg};color:#000;font-weight:700;border-radius:10px;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:400px;font-size:0.9rem;`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
+}
+
 // ── Notification Config ─────────────────────────────────────
 async function openNotifConfigModal() {
     const modal = document.getElementById('notif-config-modal');
@@ -530,11 +543,15 @@ async function testNotifConfig() {
         const data = await r.json();
         if (data.error) {
             addLog('Erreur test notification: ' + data.error, 'error');
+            showToast('Erreur: ' + data.error, 'error');
             return;
         }
-        addLog('Test email: ' + (data.email || 'N/A') + ' | Test webhook: ' + (data.webhook || 'N/A'), 'info');
+        const msg = 'Email: ' + (data.email || 'N/A') + ' | Webhook: ' + (data.webhook || 'N/A');
+        addLog(msg, 'info');
+        showToast(msg, data.email === 'OK' || data.webhook === 'OK' ? 'success' : 'warning');
     } catch (e) {
         addLog('Erreur test notification: ' + e.message, 'error');
+        showToast('Erreur: ' + e.message, 'error');
     }
 }
 
