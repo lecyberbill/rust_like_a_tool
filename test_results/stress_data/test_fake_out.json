@@ -1,0 +1,242 @@
+[
+  {
+    "client_id": "1",
+    "name": "Jérémy Thomas",
+    "email": "maxence.michel297@gmial.com",
+    "country": "Espagne",
+    "age": "42795",
+    "pattern_val": "19176"
+  },
+  {
+    "client_id": "2",
+    "name": "Louis Meyer",
+    "email": "abigail-schmitt@laposte.net",
+    "country": "Suisse",
+    "age": "94210",
+    "pattern_val": "34151"
+  },
+  {
+    "client_id": "3",
+    "name": "Elise Garcia",
+    "email": "mia_smith@t-online.de",
+    "country": "Irlande",
+    "age": "80235",
+    "pattern_val": "32122"
+  },
+  {
+    "client_id": "4",
+    "name": "Raphaël Ferrari",
+    "email": "evasantos@gmx.de",
+    "country": "France",
+    "age": "89027",
+    "pattern_val": "44521"
+  },
+  {
+    "client_id": "5",
+    "name": "Florian Petit",
+    "email": "guillaumecolombo@gmail.com",
+    "country": "Sénégal",
+    "age": "85073",
+    "pattern_val": "61015"
+  },
+  {
+    "client_id": "6",
+    "name": "Oscar Fernandez",
+    "email": "pauline-sanchez@aol.com",
+    "country": "États-Unis",
+    "age": "25166",
+    "pattern_val": "20466"
+  },
+  {
+    "client_id": "7",
+    "name": "Jérémy Davis",
+    "email": "benjamin_thomas@gmail.com",
+    "country": "Espagne",
+    "age": "76008",
+    "pattern_val": "07195"
+  },
+  {
+    "client_id": "8",
+    "name": "Julie Rossi",
+    "email": "béatricealmeida954@t-online.de",
+    "country": "Pays-Bas",
+    "age": "64792",
+    "pattern_val": "47535"
+  },
+  {
+    "client_id": "9",
+    "name": "Abigail Mathieu",
+    "email": "oscarmorel@hotmail.com",
+    "country": "Luxembourg",
+    "age": "82294",
+    "pattern_val": "82088"
+  },
+  {
+    "client_id": "10",
+    "name": "Sarah Blanc",
+    "email": "alex-mercier@msn.com",
+    "country": "Sénégal",
+    "age": "92586",
+    "pattern_val": "24427"
+  },
+  {
+    "client_id": "11",
+    "name": "Morgane Garnier",
+    "email": "florian.lopez206@free.fr",
+    "country": "Pays-Bas",
+    "age": "77235",
+    "pattern_val": "19172"
+  },
+  {
+    "client_id": "12",
+    "name": "David Schmitt",
+    "email": "mathis.wagner@mailbox.org",
+    "country": "Suisse",
+    "age": "66412",
+    "pattern_val": "63218"
+  },
+  {
+    "client_id": "13",
+    "name": "Alexis Souza",
+    "email": "emilie-morel@protonmail.com",
+    "country": "Royaume-Uni",
+    "age": "79062",
+    "pattern_val": "88731"
+  },
+  {
+    "client_id": "14",
+    "name": "Maëlle Rodrigues",
+    "email": "william-esposito@yahoo.fr",
+    "country": "Royaume-Uni",
+    "age": "53555",
+    "pattern_val": "56420"
+  },
+  {
+    "client_id": "15",
+    "name": "Alizée Lopez",
+    "email": "nathangirard@laposte.net",
+    "country": "Norvège",
+    "age": "17652",
+    "pattern_val": "60560"
+  },
+  {
+    "client_id": "16",
+    "name": "Louis Girard",
+    "email": "aurorehenry@gmial.com",
+    "country": "Royaume-Uni",
+    "age": "46051",
+    "pattern_val": "96677"
+  },
+  {
+    "client_id": "17",
+    "name": "Antoine Smith",
+    "email": "oliver-vincent647@bouyguestelecom.fr",
+    "country": "Japon",
+    "age": "30559",
+    "pattern_val": "34850"
+  },
+  {
+    "client_id": "18",
+    "name": "Hugo Wilson",
+    "email": "elijah-moreau105@t-online.de",
+    "country": "Luxembourg",
+    "age": "72900",
+    "pattern_val": "09421"
+  },
+  {
+    "client_id": "19",
+    "name": "Quentin Durand",
+    "email": "lénagauthier@bouyguestelecom.fr",
+    "country": "Suède",
+    "age": "81225",
+    "pattern_val": "16876"
+  },
+  {
+    "client_id": "20",
+    "name": "Jade Esposito",
+    "email": "nathanthomas@t-online.de",
+    "country": "États-Unis",
+    "age": "57537",
+    "pattern_val": "03013"
+  },
+  {
+    "client_id": "21",
+    "name": "Emma Martinez",
+    "email": "fabienpereira503@outlook.fr",
+    "country": "Canada",
+    "age": "32621",
+    "pattern_val": "29576"
+  },
+  {
+    "client_id": "22",
+    "name": "Mathis Rousseau",
+    "email": "julienweber462@outlook.fr",
+    "country": "Autriche",
+    "age": "9956",
+    "pattern_val": "46851"
+  },
+  {
+    "client_id": "23",
+    "name": "Antoine Helene",
+    "email": "eva.moreau@t-online.de",
+    "country": "Espagne",
+    "age": "15828",
+    "pattern_val": "75465"
+  },
+  {
+    "client_id": "24",
+    "name": "Juliette Garnier",
+    "email": "elijah.ferrari@gmx.de",
+    "country": "Pays-Bas",
+    "age": "41444",
+    "pattern_val": "40066"
+  },
+  {
+    "client_id": "25",
+    "name": "Kévin Johnson",
+    "email": "camillericci286@mailbox.org",
+    "country": "États-Unis",
+    "age": "9870",
+    "pattern_val": "32950"
+  },
+  {
+    "client_id": "26",
+    "name": "Elise Ferrari",
+    "email": "eva-caron889@gmial.com",
+    "country": "Sénégal",
+    "age": "41713",
+    "pattern_val": "77372"
+  },
+  {
+    "client_id": "27",
+    "name": "Béatrice Hoffmann",
+    "email": "emmacosta@sfr.fr",
+    "country": "Belgique",
+    "age": "55336",
+    "pattern_val": "49401"
+  },
+  {
+    "client_id": "28",
+    "name": "Alice Santos",
+    "email": "guillaume_ricci@sfr.fr",
+    "country": "France",
+    "age": "57157",
+    "pattern_val": "26167"
+  },
+  {
+    "client_id": "29",
+    "name": "Amandine Benoit",
+    "email": "ethan-johnson@bouyguestelecom.fr",
+    "country": "Sénégal",
+    "age": "4276",
+    "pattern_val": "43239"
+  },
+  {
+    "client_id": "30",
+    "name": "Lucas Ferrari",
+    "email": "fabienchevalier@icloud.com",
+    "country": "Tunisie",
+    "age": "26531",
+    "pattern_val": "32997"
+  }
+]

@@ -1786,11 +1786,6 @@
             "enum": ["csv", "json"],
             "default": "csv",
             "description": "Format d'exportation : csv ou json."
-          },
-          "generator_path": {
-            "type": "string",
-            "default": "D:/Projet/fake_GEN",
-            "description": "Chemin d'accès optionnel au dossier fake_GEN pour récupérer lists.js."
           }
         },
         "required": ["columns", "count", "destination"]

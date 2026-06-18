@@ -10,8 +10,8 @@
         "label": "1. Jointure & AiMapper (100k)",
         "color": "#10B981",
         "position": {
-          "x": 28,
-          "y": 69
+          "x": 298,
+          "y": 133
         },
         "mappings": [
           {
@@ -94,8 +94,8 @@
         "label": "2. Filtrer Montants > 10",
         "color": "#3B82F6",
         "position": {
-          "x": 422,
-          "y": 101
+          "x": 687,
+          "y": 120
         }
       },
       "args": {
@@ -117,8 +117,8 @@
         "label": "3. Masquer Emails & Client_ID",
         "color": "#8B5CF6",
         "position": {
-          "x": 744,
-          "y": 215
+          "x": 1064,
+          "y": 130
         }
       },
       "args": {
@@ -137,8 +137,8 @@
         "label": "4. Insertion PostgreSQL",
         "color": "#EF4444",
         "position": {
-          "x": 1232,
-          "y": 199
+          "x": 1585,
+          "y": 130
         }
       },
       "args": {
@@ -147,6 +147,24 @@
         "source": "test_results/stress_data/transactions_anonymized.csv",
         "mode": "replace",
         "schema_drift": true
+      }
+    },
+    {
+      "step": 5,
+      "primitive": "data.generate_fake",
+      "depends_on": [],
+      "args": {
+        "columns": "",
+        "count": "1000",
+        "destination": "",
+        "format": "csv"
+      },
+      "ui": {
+        "label": "Générateur de données factices (5)",
+        "position": {
+          "x": -146,
+          "y": 132
+        }
       }
     }
   ],

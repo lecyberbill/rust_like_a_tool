@@ -894,13 +894,12 @@ pub fn handle_data_convert(args: &[String]) -> Result<(), MuscleError> {
     handle_data_read(args)
 }
 
-/// data.generate_fake — génère des données factices via un dictionnaire et un script helper Python
+/// data.generate_fake — génère des données factices via le helper Python embarqué
 pub fn handle_generate_fake(args: &[String]) -> Result<(), MuscleError> {
     let mut columns = None;
     let mut count = None;
     let mut destination = None;
     let mut format = String::from("csv");
-    let mut generator_path = String::from("D:/Projet/fake_GEN");
 
     let mut i = 0;
     while i < args.len() {
@@ -937,14 +936,6 @@ pub fn handle_generate_fake(args: &[String]) -> Result<(), MuscleError> {
                     return Err(MuscleError::MissingArg("Missing --format".to_string()));
                 }
             }
-            "--generator-path" | "--generator_path" => {
-                if i + 1 < args.len() {
-                    generator_path = args[i + 1].clone();
-                    i += 2;
-                } else {
-                    return Err(MuscleError::MissingArg("Missing --generator-path".to_string()));
-                }
-            }
             other => {
                 return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
             }
@@ -955,11 +946,10 @@ pub fn handle_generate_fake(args: &[String]) -> Result<(), MuscleError> {
     let count = count.ok_or_else(|| MuscleError::MissingArg("Missing required argument --count".to_string()))?;
     let destination = destination.ok_or_else(|| MuscleError::MissingArg("Missing required argument --destination".to_string()))?;
 
-    run_fake_gen_helper(&generator_path, columns, count, destination, &format)
+    run_fake_gen_helper(columns, count, destination, &format)
 }
 
 fn run_fake_gen_helper(
-    generator_path: &str,
     columns: &str,
     count: &str,
     destination: &str,
@@ -979,7 +969,6 @@ fn run_fake_gen_helper(
 
     let output = cmd
         .arg("brain/fake_gen_helper.py")
-        .arg(generator_path)
         .arg(columns)
         .arg(count)
         .arg(destination)
