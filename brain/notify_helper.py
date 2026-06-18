@@ -31,8 +31,18 @@ def main():
 
         # Attachment optionnel (--attachment <path>)
         attachment_path = None
-        if len(sys.argv) >= 11 and sys.argv[9] == "--attachment":
-            attachment_path = sys.argv[10]
+        dry_run = False
+        i = 9
+        while i < len(sys.argv):
+            if sys.argv[i] == "--attachment" and i + 1 < len(sys.argv):
+                attachment_path = sys.argv[i + 1]; i += 2
+            elif sys.argv[i] == "--dry-run":
+                dry_run = True; i += 1
+            else: i += 1
+
+        if dry_run:
+            print(f"[DRY-RUN] SMTP {host}:{port} user={user} to={to} subject='{subject}' body='{body[:80]}...' attachment={attachment_path}")
+            sys.exit(0)
 
         try:
             if attachment_path and os.path.exists(attachment_path):

@@ -118,9 +118,10 @@ def _send_webhook(config: dict, subject: str, body: str):
     except Exception as e:
         print(f"[NOTIF ERROR] Webhook: {e}")
 
-def test_email(config: dict) -> str:
+def test_email(config: dict, dry_run: bool = False) -> str:
     host = config.get("smtp_host", "")
     port = int(config.get("smtp_port", 25))
+    if dry_run: return f"DRY-RUN: SMTP {host}:{port}"
     user = config.get("smtp_user", "")
     password = _resolve_password(config)
     from_addr = config.get("smtp_from", "")
