@@ -445,7 +445,36 @@ async def handle_http_request(reader, writer):
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
-                # ── Per-workspace notification config ────────────
+                # ── Promotion d'environnement ─────────────────────
+                elif clean_path.count("/") == 4 and clean_path.endswith("/promote") and method == "POST":
+                    ws_id = clean_path.split("/")[2]
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        data = json.loads(body_data)
+                        source = data.get("source_env", "dev")
+                        target = data.get("target_env", "test")
+                        reg = load_workspaces_registry()
+                        ws = reg.setdefault("workspaces", {}).setdefault(ws_id, {})
+                        recipe_file = Path(__file__).parent / ws.get("recipe_file", "history_recipes/recipe_default.json")
+                        if recipe_file.exists():
+                            recipe = json.loads(recipe_file.read_text(encoding="utf-8"))
+                            env = recipe.setdefault("env", {})
+                            if source in env and isinstance(env[source], dict):
+                                env.setdefault(target, {})
+                                for k, v in env[source].items():
+                                    if k not in env[target] or not env[target][k]:
+                                        env[target][k] = v
+                                recipe_file.write_text(json.dumps(recipe, indent=2, ensure_ascii=False), encoding="utf-8")
+                                resp_body = json.dumps({"ok": True, "source": source, "target": target, "vars_pushed": len(env[source])})
+                            else:
+                                resp_body = json.dumps({"error": f"Source env '{source}' not found or empty"})
+                        else:
+                            resp_body = json.dumps({"error": "Recipe file not found"})
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
                 elif clean_path.count("/") == 4 and clean_path.endswith("/notif-config") and method == "GET":
                     ws_id = clean_path.split("/")[2]
                     try:

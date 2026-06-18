@@ -641,6 +641,32 @@ class Orchestrator:
                 step_events[step_num].set()
                 return True
 
+            # data.profile — profiling de dataset (stats, nulls, distribution)
+            if primitive == "data.profile":
+                resolved_args = self.resolve_secrets(args, local_env, target_env, flow_ctx)
+                source = resolved_args.get("source", "")
+                dest = resolved_args.get("destination", "")
+                profile_ok = True
+                if source:
+                    import subprocess
+                    python = Path(".venv/Scripts/python.exe") if (Path(__file__).parent.parent / ".venv/Scripts/python.exe").exists() else "python"
+                    try:
+                        r = subprocess.run([str(python), "brain/profile_helper.py", source, dest], capture_output=True, text=True, timeout=60)
+                        if r.returncode != 0:
+                            print(f"[ERROR] data.profile failed: {r.stderr}"); profile_ok = False
+                        else:
+                            print(r.stdout)
+                    except Exception as e:
+                        print(f"[ERROR] data.profile exception: {e}"); profile_ok = False
+                step_end = time.perf_counter()
+                status = "success" if profile_ok else "error"
+                step_performance[step_num] = {"step": step_num, "label": step_item.get("ui",{}).get("label") or f"Profile {step_num}", "duration_ms": int((step_end-step_start)*1000), "status": status}
+                if status == "success": completed_steps.add(step_num); save_current_checkpoint()
+                else: failed_steps.add(step_num)
+                if status_callback: status_callback(step_num, status, "")
+                step_events[step_num].set()
+                return profile_ok
+
             # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
                 resolved_args = self.resolve_secrets(args, local_env, target_env)

@@ -1,0 +1,9 @@
+{
+  "smtp_host": "test.com",
+  "smtp_port": "587",
+  "smtp_user": "u",
+  "smtp_pass": "${VAULT_SMTP_PASS}",
+  "smtp_from": "",
+  "smtp_to": "",
+  "webhook_url": ""
+}

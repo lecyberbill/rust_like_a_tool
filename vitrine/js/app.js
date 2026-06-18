@@ -39,6 +39,28 @@ function changeEnvPod(env) {
     detectAndRenderEnvVars();
 }
 
+async function promoteEnv() {
+    const wsId = currentRecipe ? currentRecipe.plan_id : null;
+    if (!wsId) { showToast('Aucun flux actif', 'warning'); return; }
+    const envOrder = ['dev', 'test', 'prod'];
+    const idx = envOrder.indexOf(activeEnv);
+    if (idx < 0 || idx >= envOrder.length - 1) {
+        showToast('Deja au niveau le plus eleve (' + activeEnv.toUpperCase() + ')', 'warning');
+        return;
+    }
+    const target = envOrder[idx + 1];
+    if (!confirm(`Promouvoir les variables de ${activeEnv.toUpperCase()} vers ${target.toUpperCase()} ?`)) return;
+    try {
+        const r = await fetch(`/api/workspace/${wsId}/promote`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_env: activeEnv, target_env: target })
+        });
+        const data = await r.json();
+        if (data.ok) showToast(`Variables ${data.vars_pushed} poussees de ${activeEnv.toUpperCase()} vers ${target.toUpperCase()}`, 'success');
+        else showToast('Erreur: ' + (data.error || 'inconnue'), 'error');
+    } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
+}
+
 function toggleLogs() {
     const panel = document.getElementById('log-panel');
     if (panel) panel.classList.toggle('collapsed');
@@ -1356,6 +1378,7 @@ const primitiveCatalogData = {
         { name: "data.lookup", label: "Jointure dictionnaire", desc: "Enrichit le dataset principal par jointure gauche avec un référentiel.", args: { source: "", lookup_file: "", source_key: "", lookup_key: "", lookup_value: "", destination: "" } },
         { name: "data.deduplicate", label: "Supprimer les doublons", desc: "Supprime les lignes dupliquées basées sur des colonnes clés.", args: { source: "", destination: "", subset: "", keep: "first" } },
         { name: "data.anonymize", label: "Masquage / RGPD", desc: "Anonymise les colonnes sensibles (PII) par hash, masquage ou remplacement (format: col1:strategy1,col2:strategy2).", args: { source: "", destination: "", rules: "" } },
+        { name: "data.profile", label: "Profil de données", desc: "Statistiques (min, max, mean, nulls, distribution) sur un dataset.", args: { source: "", destination: "" } },
         { name: "data.pivot", label: "Pivoter (format large)", desc: "Pivote une table du format long au format large (lignes en colonnes).", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
         { name: "data.unpivot", label: "Dépivoter (format long)", desc: "Dépivote une table du format large au format long (colonnes en lignes).", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } },
         { name: "data.xml_transform", label: "Transformer XML (XSLT)", desc: "Applique une transformation XSLT sur un fichier XML source.", args: { source: "", stylesheet: "", destination: "" } },

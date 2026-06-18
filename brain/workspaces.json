@@ -40,6 +40,18 @@
         "enabled": false,
         "type": "none"
       }
+    },
+    "ws_test": {
+      "notifications": {
+        "enabled": "true",
+        "smtp_host": "",
+        "smtp_port": "",
+        "smtp_user": "",
+        "smtp_pass": "",
+        "smtp_from": "",
+        "smtp_to": "a@b.com",
+        "webhook_url": ""
+      }
     }
   }
 }

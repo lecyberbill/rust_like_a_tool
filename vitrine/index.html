@@ -230,8 +230,9 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             <div id="env-vars-container" style="flex: 1; padding: 20px; overflow-y: auto;">
                 <div class="no-vars-msg">Aucun placeholder de secret détecté dans le flux courant.</div>
             </div>
-            <div style="padding: 20px; border-top: 1px solid var(--border);">
+            <div style="padding: 20px; border-top: 1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
                 <button class="save-secrets-btn" onclick="saveGlobalSecrets()">💾 Sauvegarder dans le Coffre</button>
+                <button class="save-secrets-btn" onclick="promoteEnv()" style="background:linear-gradient(135deg,var(--running) 0%,rgba(245,158,11,0.6) 100%);color:#000;">⬆ Promouvoir vers l'environnement supérieur</button>
             </div>
         </aside>
 
