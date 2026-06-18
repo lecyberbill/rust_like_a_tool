@@ -112,11 +112,76 @@ function closeDataPreview() {
     if (panel) panel.classList.add('collapsed');
 }
 
-function openAuditTrailModal() {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'GET_AUDIT_TRAIL' }));
+function onAuditSearchChange() {
+    const q = document.getElementById('audit-search-input').value.trim();
+    const status = document.getElementById('audit-status-filter').value;
+    fetchAuditRunHistory(q, status);
+}
+
+async function fetchAuditRunHistory(q, status) {
+    const tbody = document.getElementById('audit-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">Chargement...</td></tr>';
+
+    try {
+        let url = '/api/run-history';
+        const params = [];
+        if (q) params.push(`q=${encodeURIComponent(q)}`);
+        if (status) params.push(`status=${encodeURIComponent(status)}`);
+        if (params.length) url += '?' + params.join('&');
+
+        const r = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+        });
+        const data = await r.json();
+        if (data.error) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--error);">${data.error}</td></tr>`;
+            return;
+        }
+        const records = Array.isArray(data) ? data : (data.records || data.history || []);
+        renderAuditRecords(records);
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--error);">Erreur : ${e.message}</td></tr>`;
     }
+}
+
+function renderAuditRecords(records) {
+    const tbody = document.getElementById('audit-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">Aucun enregistrement trouvé.</td></tr>';
+        return;
+    }
+
+    records.forEach(record => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+        const date = record.timestamp ? new Date(record.timestamp).toLocaleString() : '-';
+        const isSuccess = record.status === 'success';
+        const statusBadge = `<span class="status-badge" style="background: ${isSuccess ? 'rgba(0,255,102,0.1)' : 'rgba(239,68,68,0.1)'}; color: ${isSuccess ? 'var(--success)' : 'var(--error)'}; border: 1px solid ${isSuccess ? 'var(--success)' : 'var(--error)'}; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${(record.status || 'unknown').toUpperCase()}</span>`;
+
+        tr.innerHTML = `
+            <td style="padding: 10px;">${date}</td>
+            <td style="padding: 10px; font-weight: bold; color: var(--accent);">${record.workspace_id || record.workspaceId || '-'}</td>
+            <td style="padding: 10px;">${record.username || record.user || '-'}</td>
+            <td style="padding: 10px; font-family: 'Roboto Mono', monospace; font-size: 0.8rem;">${record.hostname || record.host || '-'}${record.os_name ? ' (' + record.os_name + ')' : ''}</td>
+            <td style="padding: 10px;">${statusBadge}</td>
+            <td style="padding: 10px; font-family: 'Roboto Mono', monospace; font-weight: bold;">${record.duration_ms || record.duration || 0} ms</td>
+            <td style="padding: 10px; text-align: right;">
+                <button class="toggle-logs-btn" onclick="openAuditDetailsModal('${record.run_id || record.id}')" style="background: rgba(192, 132, 252, 0.05); color: #c084fc; border-color: rgba(192, 132, 252, 0.2);">🔍 Voir détails</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openAuditTrailModal() {
+    document.getElementById('audit-search-input').value = '';
+    document.getElementById('audit-status-filter').value = '';
     document.getElementById('audit-modal').style.display = 'flex';
+    fetchAuditRunHistory('', '');
 }
 
 function closeAuditTrailModal() {

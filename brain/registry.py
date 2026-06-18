@@ -4,6 +4,7 @@ import json
 import asyncio
 import datetime
 from pathlib import Path
+import json
 
 REGISTRY_FILE = Path(__file__).parent / "workspaces.json"
 ACTIVE_CONNECTIONS = set()
@@ -84,3 +85,13 @@ async def broadcast_workspaces_list():
         "active_workspace": registry.get("active_workspace"),
         "workspaces": workspaces
     })
+
+def load_run_history() -> list:
+    path = Path(__file__).parent / "run_history.json"
+    if not path.exists():
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []

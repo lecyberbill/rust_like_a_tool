@@ -21,6 +21,7 @@
             <!-- Theme Toggle Button -->
             <button class="toggle-logs-btn" onclick="toggleTheme()" style="padding: 6px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">🌗 Thème</button>
             <button class="toggle-logs-btn" id="logout-btn" onclick="logout()" style="padding: 6px 12px; font-size: 0.8rem; display: none; align-items: center; gap: 6px; border-color: var(--error); color: var(--error);">🚪 Déconnexion</button>
+            <button class="toggle-logs-btn" id="admin-btn" onclick="openAdminPanel()" style="padding:6px 12px; font-size:0.8rem; display:none; align-items:center; gap:6px; border-color:#c084fc; color:#c084fc;">👥 Admin</button>
         </div>
         
         <!-- Workshop canvas control actions (visible only in Workshop view) -->
@@ -37,6 +38,8 @@
         </div>
         <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
+            <button class="toggle-logs-btn" onclick="openVersionsModal()" style="border-color: #c084fc; color: #c084fc;">📋 Versions</button>
+            <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color: #c084fc; color: #c084fc;">🔔 Notifications</button>
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
         </div>
     </header>
@@ -550,6 +553,13 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 <div class="settings-input-group">
                     <label>Expression Cron (ex: */5 * * * * pour toutes les 5 mins)</label>
                     <input type="text" id="trigger-cron-expr" class="editor-input" value="*/5 * * * *">
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+                        <button class="toggle-logs-btn" style="padding:2px 8px; font-size:0.72rem;" onclick="document.getElementById('trigger-cron-expr').value='*/5 * * * *'">Toutes les 5 min</button>
+                        <button class="toggle-logs-btn" style="padding:2px 8px; font-size:0.72rem;" onclick="document.getElementById('trigger-cron-expr').value='0 * * * *'">Toutes les heures</button>
+                        <button class="toggle-logs-btn" style="padding:2px 8px; font-size:0.72rem;" onclick="document.getElementById('trigger-cron-expr').value='0 8 * * *'">Tous les jours à 8h</button>
+                        <button class="toggle-logs-btn" style="padding:2px 8px; font-size:0.72rem;" onclick="document.getElementById('trigger-cron-expr').value='0 8 * * 1'">Toutes les semaines (lun)</button>
+                        <button class="toggle-logs-btn" style="padding:2px 8px; font-size:0.72rem;" onclick="document.getElementById('trigger-cron-expr').value='0 8 1 * *'">Tous les mois le 1er</button>
+                    </div>
                 </div>
             </div>
             
@@ -591,6 +601,15 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 <button class="toggle-logs-btn" onclick="closeAuditTrailModal()">✖ Fermer</button>
             </div>
             
+            <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+                <input type="text" id="audit-search-input" placeholder="Rechercher par flux, utilisateur..." oninput="onAuditSearchChange()" style="flex: 1; min-width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: var(--text); font-size: 0.85rem; outline: none;">
+                <select id="audit-status-filter" onchange="onAuditSearchChange()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: var(--text); font-size: 0.85rem; outline: none;">
+                    <option value="">Tous les statuts</option>
+                    <option value="success">Succès</option>
+                    <option value="error">Erreur</option>
+                    <option value="running">En cours</option>
+                </select>
+            </div>
             <div style="flex: 1; overflow-y: auto;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                     <thead>
@@ -636,6 +655,98 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
             </div>
             <div id="primitive-doc-container" style="flex: 1; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px; padding-right: 8px;">
                 <!-- Rempli dynamiquement par showPrimitiveDoc() -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Admin -->
+    <div id="admin-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 80vw; max-width: 1000px; height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: #c084fc; font-weight: 800; font-size: 1.3rem; margin: 0;">Gestion des Utilisateurs</div>
+                <button class="toggle-logs-btn" onclick="closeAdminPanel()">✖ Fermer</button>
+            </div>
+            <div style="flex: 1; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); font-weight: bold;">
+                            <th style="padding: 10px;">ID</th>
+                            <th style="padding: 10px;">Nom d'utilisateur</th>
+                            <th style="padding: 10px;">Rôle</th>
+                            <th style="padding: 10px;">Tenant</th>
+                            <th style="padding: 10px;">Date de création</th>
+                            <th style="padding: 10px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-table-body">
+                        <tr><td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">Chargement des utilisateurs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Versions -->
+    <div id="versions-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 600px; max-height: 75vh; display: flex; flex-direction: column; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: #c084fc; font-weight: 800; font-size: 1.3rem; margin: 0;">Historique des Versions</div>
+                <button class="toggle-logs-btn" onclick="closeVersionsModal()">✖ Fermer</button>
+            </div>
+            <div id="versions-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                <div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 30px;">Chargement des versions...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Notification Config -->
+    <div id="notif-config-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: 500px; text-align: left; padding: 24px; background: rgba(10, 10, 25, 0.95); border: 1px solid var(--border); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                <div class="modal-title" style="color: #c084fc; font-weight: 800; font-size: 1.3rem; margin: 0;">Configuration des Notifications</div>
+                <button class="toggle-logs-btn" onclick="closeNotifConfigModal()">✖ Fermer</button>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">Configuration SMTP</div>
+                <div class="settings-input-group" style="margin-bottom:10px;">
+                    <label>Hôte SMTP</label>
+                    <input type="text" id="notif-smtp-host" class="editor-input" placeholder="smtp.example.com" style="width:100%;">
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div class="settings-input-group" style="flex:1;">
+                        <label>Port</label>
+                        <input type="text" id="notif-smtp-port" class="editor-input" placeholder="587" style="width:100%;">
+                    </div>
+                    <div class="settings-input-group" style="flex:1;">
+                        <label>Utilisateur</label>
+                        <input type="text" id="notif-smtp-user" class="editor-input" placeholder="user@example.com" style="width:100%;">
+                    </div>
+                </div>
+                <div class="settings-input-group" style="margin-bottom:10px;">
+                    <label>Mot de passe</label>
+                    <input type="password" id="notif-smtp-pass" class="editor-input" placeholder="••••••••" style="width:100%;">
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div class="settings-input-group" style="flex:1;">
+                        <label>Expéditeur (From)</label>
+                        <input type="text" id="notif-smtp-from" class="editor-input" placeholder="alerts@example.com" style="width:100%;">
+                    </div>
+                    <div class="settings-input-group" style="flex:1;">
+                        <label>Destinataire (To)</label>
+                        <input type="text" id="notif-smtp-to" class="editor-input" placeholder="admin@example.com" style="width:100%;">
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom: 20px; padding-top: 12px; border-top: 1px solid var(--border);">
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">Webhook</div>
+                <div class="settings-input-group">
+                    <label>URL du Webhook</label>
+                    <input type="text" id="notif-webhook-url" class="editor-input" placeholder="https://hooks.example.com/alert" style="width:100%;">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="toggle-logs-btn" onclick="testNotifConfig()" style="border-color: var(--accent); color: var(--accent);">Tester</button>
+                <button class="toggle-logs-btn" onclick="saveNotifConfig()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800;">💾 Sauvegarder</button>
             </div>
         </div>
     </div>

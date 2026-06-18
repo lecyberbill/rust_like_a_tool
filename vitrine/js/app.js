@@ -239,8 +239,12 @@ async function authSubmit() {
         }
         AUTH_TOKEN = data.token;
         localStorage.setItem('auth_token', AUTH_TOKEN);
+        localStorage.setItem('auth_role', data.role || '');
         document.getElementById('auth-modal').style.display = 'none';
         document.getElementById('logout-btn').style.display = 'inline-flex';
+        if (data.role === 'admin') {
+            document.getElementById('admin-btn').style.display = 'inline-flex';
+        }
         initWebSocket();
     } catch (e) {
         errDiv.textContent = 'Erreur de connexion au serveur.';
@@ -251,12 +255,212 @@ async function authSubmit() {
 function logout() {
     AUTH_TOKEN = '';
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_role');
     document.getElementById('auth-username').value = '';
     document.getElementById('auth-password').value = '';
     document.getElementById('logout-btn').style.display = 'none';
+    document.getElementById('admin-btn').style.display = 'none';
     AUTH_MODE = 'login';
     if (ws) { ws.close(); }
     checkAuthStatus();
+}
+
+// ── Admin Panel ──────────────────────────────────────────────
+async function openAdminPanel() {
+    const tbody = document.getElementById('admin-users-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">Chargement des utilisateurs...</td></tr>';
+    document.getElementById('admin-modal').style.display = 'flex';
+
+    try {
+        const r = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+        });
+        const users = await r.json();
+        if (users.error) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: var(--error);">${users.error}</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = '';
+        if (!users || users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">Aucun utilisateur.</td></tr>';
+            return;
+        }
+        users.forEach(u => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--border)';
+            const created = u.created_at ? new Date(u.created_at).toLocaleString() : '-';
+            tr.innerHTML = `
+                <td style="padding: 10px; font-family: monospace;">${u.id}</td>
+                <td style="padding: 10px; font-weight: 600;">${u.username}</td>
+                <td style="padding: 10px;">
+                    <select class="editor-input" onchange="changeUserRole(${u.id}, this.value)" style="width:120px; padding:4px 6px; font-size:0.8rem;">
+                        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        <option value="operator" ${u.role === 'operator' ? 'selected' : ''}>Opérateur</option>
+                        <option value="viewer" ${u.role === 'viewer' ? 'selected' : ''}>Lecteur</option>
+                    </select>
+                </td>
+                <td style="padding: 10px; font-family: monospace; font-size:0.8rem;">${u.tenant_id || '-'}</td>
+                <td style="padding: 10px; font-size:0.85rem;">${created}</td>
+                <td style="padding: 10px; text-align: right;">
+                    <button class="toggle-logs-btn" onclick="deleteUser(${u.id})" style="background: rgba(239,68,68,0.05); color: var(--error); border-color: rgba(239,68,68,0.2); padding:4px 10px; font-size:0.8rem;">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: var(--error);">Erreur de chargement : ${e.message}</td></tr>`;
+    }
+}
+
+function closeAdminPanel() {
+    document.getElementById('admin-modal').style.display = 'none';
+}
+
+async function changeUserRole(userId, role) {
+    try {
+        const r = await fetch('/api/users/role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+            body: JSON.stringify({ user_id: userId, role })
+        });
+        const data = await r.json();
+        if (data.error) {
+            addLog(`Erreur changement rôle : ${data.error}`, 'error');
+        } else {
+            addLog(`Rôle de l'utilisateur ${userId} mis à jour : ${role}`, 'success');
+        }
+    } catch (e) {
+        addLog(`Erreur réseau : ${e.message}`, 'error');
+    }
+}
+
+async function deleteUser(userId) {
+    if (!confirm(`Supprimer l'utilisateur ${userId} ?`)) return;
+    try {
+        const r = await fetch(`/api/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+        });
+        const data = await r.json();
+        if (data.error) {
+            addLog(`Erreur suppression : ${data.error}`, 'error');
+        } else {
+            addLog(`Utilisateur ${userId} supprimé.`, 'success');
+            openAdminPanel();
+        }
+    } catch (e) {
+        addLog(`Erreur réseau : ${e.message}`, 'error');
+    }
+}
+
+// ── Version History ─────────────────────────────────────────
+async function openVersionsModal() {
+    const container = document.getElementById('versions-list');
+    if (!container) return;
+    container.innerHTML = '<div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 30px;">Chargement des versions...</div>';
+    document.getElementById('versions-modal').style.display = 'flex';
+
+    const workspaceId = currentRecipe ? currentRecipe.plan_id || Object.keys(localWorkspaces)[0] : null;
+    if (!workspaceId) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 30px;">Aucun workspace actif.</div>';
+        return;
+    }
+
+    try {
+        const r = await fetch(`/api/recipe/versions/${workspaceId}`, {
+            headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+        });
+        const versions = await r.json();
+        if (versions.error) {
+            container.innerHTML = `<div style="color: var(--error); text-align: center; padding: 30px;">${versions.error}</div>`;
+            return;
+        }
+        container.innerHTML = '';
+        if (!versions || versions.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); font-style: italic; text-align: center; padding: 30px;">Aucune version disponible.</div>';
+            return;
+        }
+        versions.forEach(v => {
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,0.02);';
+            const ts = v.timestamp ? new Date(v.timestamp).toLocaleString() : '-';
+            card.innerHTML = `
+                <div>
+                    <div style="font-weight:600; font-size:0.9rem; color:var(--accent);">Version ${v.version || '?'}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted); font-family:monospace;">${ts}</div>
+                </div>
+                <button class="toggle-logs-btn" onclick="rollbackToVersion('${v.version}')" style="background:rgba(245,158,11,0.05); color:var(--running); border-color:rgba(245,158,11,0.2); padding:4px 12px; font-size:0.8rem;">⏪ Restaurer</button>
+            `;
+            container.appendChild(card);
+        });
+    } catch (e) {
+        container.innerHTML = `<div style="color: var(--error); text-align: center; padding: 30px;">Erreur : ${e.message}</div>`;
+    }
+}
+
+function closeVersionsModal() {
+    document.getElementById('versions-modal').style.display = 'none';
+}
+
+async function rollbackToVersion(version) {
+    const workspaceId = currentRecipe ? currentRecipe.plan_id || Object.keys(localWorkspaces)[0] : null;
+    if (!workspaceId) {
+        addLog('Aucun workspace actif pour le rollback.', 'error');
+        return;
+    }
+    try {
+        const r = await fetch(`/api/recipe/rollback/${version}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
+            body: JSON.stringify({ workspace_id: workspaceId })
+        });
+        const data = await r.json();
+        if (data.error) {
+            addLog(`Erreur rollback : ${data.error}`, 'error');
+        } else {
+            addLog(`Recette restaurée vers la version ${version}.`, 'success');
+            closeVersionsModal();
+        }
+    } catch (e) {
+        addLog(`Erreur réseau : ${e.message}`, 'error');
+    }
+}
+
+// ── Notification Config ─────────────────────────────────────
+function openNotifConfigModal() {
+    const saved = JSON.parse(localStorage.getItem('notif_config') || '{}');
+    if (saved.smtp_host) document.getElementById('notif-smtp-host').value = saved.smtp_host;
+    if (saved.smtp_port) document.getElementById('notif-smtp-port').value = saved.smtp_port;
+    if (saved.smtp_user) document.getElementById('notif-smtp-user').value = saved.smtp_user;
+    if (saved.smtp_pass) document.getElementById('notif-smtp-pass').value = saved.smtp_pass;
+    if (saved.smtp_from) document.getElementById('notif-smtp-from').value = saved.smtp_from;
+    if (saved.smtp_to) document.getElementById('notif-smtp-to').value = saved.smtp_to;
+    if (saved.webhook_url) document.getElementById('notif-webhook-url').value = saved.webhook_url;
+    document.getElementById('notif-config-modal').style.display = 'flex';
+}
+
+function closeNotifConfigModal() {
+    document.getElementById('notif-config-modal').style.display = 'none';
+}
+
+function saveNotifConfig() {
+    const config = {
+        smtp_host: document.getElementById('notif-smtp-host').value,
+        smtp_port: document.getElementById('notif-smtp-port').value,
+        smtp_user: document.getElementById('notif-smtp-user').value,
+        smtp_pass: document.getElementById('notif-smtp-pass').value,
+        smtp_from: document.getElementById('notif-smtp-from').value,
+        smtp_to: document.getElementById('notif-smtp-to').value,
+        webhook_url: document.getElementById('notif-webhook-url').value
+    };
+    localStorage.setItem('notif_config', JSON.stringify(config));
+    addLog('Configuration des notifications sauvegardée.', 'success');
+    closeNotifConfigModal();
+}
+
+function testNotifConfig() {
+    addLog('Test de notification envoyé (simulation).', 'info');
 }
 
 function initWebSocket() {
@@ -1437,6 +1641,10 @@ window.addEventListener('DOMContentLoaded', () => {
     initPrimitivesCatalog();
     if (AUTH_TOKEN) {
         initWebSocket();
+        if (localStorage.getItem('auth_role') === 'admin') {
+            const adminBtn = document.getElementById('admin-btn');
+            if (adminBtn) adminBtn.style.display = 'inline-flex';
+        }
     } else {
         checkAuthStatus();
     }

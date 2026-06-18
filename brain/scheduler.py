@@ -219,6 +219,16 @@ async def directory_watcher_loop():
 
 from metrics import METRICS
 
+def _extract_token(message: str) -> str:
+    for line in message.split("\r\n"):
+        if line.lower().startswith("authorization: bearer "):
+            return line.split(" ", 2)[2]
+    # Fallback: query param ?token=
+    for part in message.split(" ")[1:2]:
+        if "?token=" in part:
+            return part.split("?token=", 1)[1].split("&", 1)[0].split(" ", 1)[0]
+    return ""
+
 async def handle_http_request(reader, writer):
     try:
         data = await reader.read(4096)
@@ -233,6 +243,7 @@ async def handle_http_request(reader, writer):
             parts = req_line.split()
             if len(parts) >= 2:
                 method, path = parts[0], parts[1]
+                clean_path = path.split('?')[0]
                 if path == "/api/setup-status" and method == "GET":
                     from auth import _get_db
                     conn = _get_db()
@@ -302,6 +313,102 @@ async def handle_http_request(reader, writer):
                             "Connection: close\r\n\r\n"
                             f"{resp_body}"
                         )
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                # ── Admin : gestion utilisateurs ────────────────
+                elif clean_path == "/api/users" and method == "GET":
+                    token = _extract_token(message)
+                    try:
+                        from auth import list_users
+                        users = list_users(token)
+                        resp_body = json.dumps(users)
+                    except ValueError as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path == "/api/users/role" and method == "POST":
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        from auth import update_role, validate_token
+                        data = json.loads(body_data)
+                        token = _extract_token(message)
+                        update_role(token, int(data["user_id"]), data["role"])
+                        resp_body = json.dumps({"ok": True})
+                    except (ValueError, KeyError) as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path.startswith("/api/users/") and method == "DELETE":
+                    try:
+                        from auth import delete_user
+                        token = _extract_token(message)
+                        user_id = int(clean_path.split("/")[-1])
+                        delete_user(token, user_id)
+                        resp_body = json.dumps({"ok": True})
+                    except (ValueError, KeyError) as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                # ── Recipe versioning ────────────────────────────
+                elif clean_path == "/api/recipe/snapshot" and method == "POST":
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        from versions import save_snapshot
+                        data = json.loads(body_data)
+                        result = save_snapshot(data.get("workspace_id", "unknown"), data)
+                        resp_body = json.dumps(result)
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path.startswith("/api/recipe/versions/") and method == "GET":
+                    ws = clean_path.split("/api/recipe/versions/", 1)[1]
+                    try:
+                        from versions import list_versions
+                        versions = list_versions(ws)
+                        resp_body = json.dumps(versions)
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path.startswith("/api/recipe/rollback/") and method == "POST":
+                    parts = clean_path.split("/")
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        from versions import rollback
+                        data = json.loads(body_data)
+                        recipe = rollback(data.get("workspace_id", ""), int(parts[-1]))
+                        if recipe:
+                            resp_body = json.dumps({"ok": True, "recipe": recipe})
+                        else:
+                            resp_body = json.dumps({"error": "Version not found"})
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                # ── Run history search ───────────────────────────
+                elif clean_path == "/api/run-history" and method == "GET":
+                    qs = urllib.parse.urlparse(path).query
+                    params = urllib.parse.parse_qs(qs)
+                    query = params.get("q", [""])[0].lower()
+                    status_filter = params.get("status", [""])[0].lower()
+                    try:
+                        from registry import load_run_history
+                        history = load_run_history()
+                        if query:
+                            history = [r for r in history if query in json.dumps(r).lower()]
+                        if status_filter:
+                            history = [r for r in history if r.get("status", "").lower() == status_filter]
+                        resp_body = json.dumps(history[:100])
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
                 elif path == "/metrics":
