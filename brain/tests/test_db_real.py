@@ -9,8 +9,18 @@ os.environ["SECRET_VAULT_KEY"] = "wfgy_core_secret_key_12345"
 BINARY = Path(__file__).parent.parent.parent / "rust_muscle" / "target" / "debug" / "rust_muscle.exe"
 OUTPUT = Path(__file__).parent.parent.parent / "workspace" / "output"
 
-PG_DSN = "postgresql://test_user:test_user@localhost:5432/postgres"
+PG_DSN = "postgresql://user_test:user_test@localhost:5432/postgres"
 MONGO_URI = os.environ.get("SECRET_MONGO_URI", "mongodb://localhost:27017")
+
+
+def pg_available():
+    try:
+        import psycopg2
+        c = psycopg2.connect(host="localhost", port=5432, user="user_test", password="user_test", dbname="postgres", connect_timeout=3)
+        c.close()
+        return True
+    except Exception:
+        return False
 
 
 def run_recipe(recipe: dict) -> dict:
@@ -35,6 +45,8 @@ class TestPostgreSQLReel:
 
     @pytest.fixture(autouse=True)
     def setup_method(self):
+        if not pg_available():
+            pytest.skip("PostgreSQL non disponible — lancer le conteneur Docker")
         import psycopg2
         self.conn = psycopg2.connect(host="localhost", port=5432, user="test_user", password="test_user", dbname="postgres")
         self.cur = self.conn.cursor()
