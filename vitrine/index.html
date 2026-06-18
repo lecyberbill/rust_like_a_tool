@@ -37,6 +37,7 @@
         </div>
         <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
+            <button class="toggle-logs-btn" id="admin-btn-header" onclick="openAdminPanel()" style="display:none;border-color:#c084fc;color:#c084fc;">👥 Utilisateurs</button>
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
             <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()" style="position:static; width:auto; height:auto; background:none; border:1px solid var(--border); border-radius:6px; padding:6px 10px;">⚙️</button>
         </div>

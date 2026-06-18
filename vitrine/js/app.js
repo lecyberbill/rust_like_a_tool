@@ -249,12 +249,16 @@ async function authSubmit() {
         localStorage.setItem('auth_token', AUTH_TOKEN);
         document.getElementById('auth-modal').style.display = 'none';
         document.getElementById('logout-btn').style.display = 'inline-flex';
-        document.getElementById('admin-btn').style.display = 'inline-flex';
-        initWebSocket();
-    } catch (e) {
+        ['admin-btn', 'admin-btn-header'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'inline-flex';
+        });
+    }
+    catch (e) {
         errDiv.textContent = 'Erreur de connexion au serveur.';
         errDiv.style.display = 'block';
     }
+}
 }
 
 function logout() {
@@ -263,7 +267,10 @@ function logout() {
     document.getElementById('auth-username').value = '';
     document.getElementById('auth-password').value = '';
     document.getElementById('logout-btn').style.display = 'none';
-    document.getElementById('admin-btn').style.display = 'none';
+    ['admin-btn', 'admin-btn-header'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
     AUTH_MODE = 'login';
     if (ws) { ws.close(); }
     checkAuthStatus();
@@ -1738,7 +1745,10 @@ window.addEventListener('DOMContentLoaded', () => {
     initPrimitivesCatalog();
     if (AUTH_TOKEN) {
         initWebSocket();
-        document.getElementById('admin-btn').style.display = 'inline-flex';
+        ['admin-btn', 'admin-btn-header'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'inline-flex';
+        });
     } else {
         checkAuthStatus();
     }
