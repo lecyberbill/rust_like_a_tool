@@ -111,9 +111,21 @@ def require_role(token: str, min_role: str) -> dict:
     """Vérifie le rôle. admin > operator > viewer. Retourne le payload ou lève ValueError."""
     payload = validate_token(token)
     if not payload: raise ValueError("Invalid token")
+    role = payload.get("role")
+    # Fallback tokens legacy sans role : interroger la DB
+    if not role:
+        uid = payload.get("sub")
+        if uid:
+            conn = _get_db()
+            row = conn.execute("SELECT role FROM users WHERE id = ?", (uid,)).fetchone()
+            conn.close()
+            if row: role = row["role"]
+    if not role:
+        role = "viewer"
     hierarchy = {"admin": 2, "operator": 1, "viewer": 0}
-    if hierarchy.get(payload.get("role", "viewer"), 0) < hierarchy.get(min_role, 0):
-        raise ValueError(f"Role {payload.get('role')} insufficient, requires {min_role}")
+    if hierarchy.get(role, 0) < hierarchy.get(min_role, 0):
+        raise ValueError(f"Role {role} insufficient, requires {min_role}")
+    payload["role"] = role
     return payload
 
 def list_users(token: str) -> list[dict]:
