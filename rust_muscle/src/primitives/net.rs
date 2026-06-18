@@ -1280,6 +1280,7 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
     let mut subject = String::from("ETL Job Notification");
     let mut url = None;
     let mut message = None;
+    let mut attachment = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -1374,6 +1375,16 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
                     ));
                 }
             }
+            "--attachment" => {
+                if i + 1 < args.len() {
+                    attachment = Some(&args[i + 1]);
+                    i += 2;
+                } else {
+                    return Err(MuscleError::MissingArg(
+                        "Missing value for --attachment".to_string(),
+                    ));
+                }
+            }
             other => {
                 return Err(MuscleError::InvalidArg(format!(
                     "Unknown argument '{}'",
@@ -1396,7 +1407,7 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
                     "Missing required argument --to for email notification".to_string(),
                 )
             })?;
-            let run_args = [
+            let mut run_args = vec![
                 smtp_host.as_str(),
                 smtp_port.as_str(),
                 smtp_user.as_str(),
@@ -1405,6 +1416,10 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
                 subject.as_str(),
                 message.as_str(),
             ];
+            if let Some(a) = attachment {
+                run_args.push("--attachment");
+                run_args.push(a);
+            }
             run_notify_helper("email", &run_args)
         }
         "webhook" => {

@@ -408,6 +408,10 @@
           "message": {
             "type": "string",
             "description": "Le corps du message ou de la payload."
+          },
+          "attachment": {
+            "type": "string",
+            "description": "Chemin d'un fichier à joindre (ex: résultat d'une étape précédente)."
           }
         },
         "required": ["type", "message"]

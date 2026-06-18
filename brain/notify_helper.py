@@ -1,9 +1,13 @@
 # [WFGY] Zone: SAFE | λ: 0.1 | Action: Notification dispatcher (SMTP & Webhooks)
 import sys
+import os
 import smtplib
 import urllib.request
 import json
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 def main():
     if len(sys.argv) < 3:
@@ -14,7 +18,7 @@ def main():
 
     if action == "email":
         if len(sys.argv) < 9:
-            print("Usage: python notify_helper.py email <host> <port> <user> <password> <to> <subject> <body>", file=sys.stderr)
+            print("Usage: python notify_helper.py email <host> <port> <user> <password> <to> <subject> <body> [--attachment <path>]", file=sys.stderr)
             sys.exit(1)
         
         host = sys.argv[2]
@@ -25,17 +29,31 @@ def main():
         subject = sys.argv[7]
         body = sys.argv[8]
 
+        # Attachment optionnel (--attachment <path>)
+        attachment_path = None
+        if len(sys.argv) >= 11 and sys.argv[9] == "--attachment":
+            attachment_path = sys.argv[10]
+
         try:
-            msg = MIMEText(body, 'plain', 'utf-8')
+            if attachment_path and os.path.exists(attachment_path):
+                msg = MIMEMultipart()
+                msg.attach(MIMEText(body, 'plain', 'utf-8'))
+                with open(attachment_path, "rb") as f:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(f.read())
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(attachment_path)}"')
+                msg.attach(part)
+            else:
+                msg = MIMEText(body, 'plain', 'utf-8')
+            
             msg['Subject'] = subject
             msg['From'] = user
             msg['To'] = to
 
-            # Connect and send
             server = smtplib.SMTP(host, port, timeout=10)
             if user and password:
                 server.ehlo()
-                # Use starttls if not local test port
                 if port != 1025 and port != 25:
                     try:
                         server.starttls()
