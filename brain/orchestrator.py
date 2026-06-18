@@ -21,7 +21,8 @@ logging.basicConfig(
     stream=sys.stdout
 )
 # Suppress noisy library logs
-logging.getLogger("websockets").setLevel(logging.WARNING)
+logging.getLogger("websockets").setLevel(logging.CRITICAL)
+logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 log = logging.getLogger("wfgy.orchestrator")
 
@@ -1745,8 +1746,6 @@ async def main():
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
             log.info("SSL enabled", extra={"cert": ssl_cert})
         
-        import logging
-        logging.getLogger("websockets").setLevel(logging.WARNING)
         proto = "wss" if ssl_context else "ws"
         log.info("Starting WebSocket server", extra={"port": port, "env": env_mode, "proto": proto})
         
