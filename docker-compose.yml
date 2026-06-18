@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  wfgy-core:
+    build: .
+    container_name: wfgy-etl
+    restart: unless-stopped
+    ports:
+      - "8765:8765"   # WebSocket
+      - "8766:8766"   # HTTP / Metrics
+    volumes:
+      - ./workspace:/app/workspace
+      - ./brain/logs:/app/brain/logs
+      - ./brain/vaults:/app/brain/vaults
+      - ./brain/users.db:/app/brain/users.db
+      - ./.env:/app/.env:ro
+    environment:
+      - WFGY_ENV=prod
+      - WFGY_LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8766/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
