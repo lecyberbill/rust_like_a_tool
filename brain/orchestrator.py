@@ -308,7 +308,7 @@ class Orchestrator:
 
         return lineage
 
-    def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev") -> dict:
+    def resolve_secrets(self, args: dict, local_env: dict = None, target_env: str = "dev", flow_ctx: dict = None) -> dict:
         resolved = {}
         if local_env is None:
             local_env = {}
@@ -326,8 +326,22 @@ class Orchestrator:
                 placeholders = re.findall(r"\$\{([^}]+)\}", v)
                 resolved_val = v
                 for var_name in placeholders:
-                    # Priorité: 1. local execution_context, 2. local_env[target_env], 3. OS env, 4. ENV_CONFIG
-                    val = self.execution_context.get(var_name)
+                    # Priorité: 1. flow_ctx pour ${STEPS.*} ${FLOW.*}, 2. execution_context, 3. env_vars, 4. OS env, 5. ENV_CONFIG
+                    val = None
+                    if flow_ctx:
+                        # ${STEPS.1.STATUS} → flow_ctx["STEPS"][1]["STATUS"]
+                        parts = var_name.split(".")
+                        if len(parts) >= 2 and parts[0] in ("STEPS", "FLOW"):
+                            obj = flow_ctx
+                            for p in parts:
+                                if p.isdigit():
+                                    obj = obj.get(int(p))
+                                else:
+                                    obj = obj.get(p) if isinstance(obj, dict) else None
+                                if obj is None: break
+                            val = str(obj) if obj is not None else None
+                    if val is None:
+                        val = self.execution_context.get(var_name)
                     if val is None:
                         val = env_vars.get(var_name)
                     if val is None:
@@ -447,7 +461,10 @@ class Orchestrator:
                     log.error("Cycle detected in recipe DAG", extra={"step": step_num})
                     return False
 
-        # 2. Préparation des structures de contrôle asynchrones
+        # 2. Contexte d'exécution pour résolution ${STEPS.*} et ${FLOW.*}
+        run_start = time.perf_counter()
+        flow_ctx = {"STEPS": {}, "FLOW": {"start_time": time.strftime("%Y-%m-%dT%H:%M:%S")}}
+
         step_events = {step.get("step"): asyncio.Event() for step in steps}
         failed_steps = set()
         completed_steps = set()
@@ -596,6 +613,28 @@ class Orchestrator:
                 save_current_checkpoint()
                 if status_callback:
                     status_callback(step_num, "success", f"Attente terminée ({duration_seconds}s).")
+                step_events[step_num].set()
+                return True
+
+            # flow.report — génère un rapport texte depuis le contexte d'exécution
+            if primitive == "flow.report":
+                resolved_args = self.resolve_secrets(args, local_env, target_env, flow_ctx)
+                template = resolved_args.get("template", "")
+                destination = resolved_args.get("destination", "")
+                if template and destination:
+                    Path(destination).parent.mkdir(parents=True, exist_ok=True)
+                    Path(destination).write_text(template, encoding="utf-8")
+                    print(template)
+                    print(f"[ORCHESTRATOR] Rapport généré → {destination}")
+                step_end = time.perf_counter()
+                step_performance[step_num] = {
+                    "step": step_num, "label": step_item.get("ui", {}).get("label") or f"Rapport {step_num}",
+                    "duration_ms": int((step_end - step_start) * 1000), "status": "success"
+                }
+                completed_steps.add(step_num)
+                save_current_checkpoint()
+                if status_callback:
+                    status_callback(step_num, "success", template)
                 step_events[step_num].set()
                 return True
 
@@ -980,7 +1019,7 @@ class Orchestrator:
 
             step_timeout = retry_cfg.get("timeout_seconds", 300)
             for attempt in range(1, attempts + 1):
-                resolved_args = self.resolve_secrets(args, local_env, target_env)
+                resolved_args = self.resolve_secrets(args, local_env, target_env, flow_ctx)
                 code, stdout, stderr = await self.bridge.execute(primitive, resolved_args, timeout_seconds=step_timeout)
 
                 if code == 0:
@@ -1005,6 +1044,20 @@ class Orchestrator:
             if stderr.strip():
                 print(f"[RUST STDERR] (Step {step_num}):\n{stderr.strip()}")
 
+            # Enregistrement dans le contexte d'exécution
+            step_end = time.perf_counter()
+            step_status = "success" if code == 0 else "error"
+            flow_ctx["STEPS"][step_num] = {
+                "step": step_num,
+                "primitive": primitive,
+                "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                "duration_ms": int((step_end - step_start) * 1000),
+                "status": step_status,
+                "source": resolved_args.get("source", ""),
+                "destination": resolved_args.get("destination", ""),
+                "rows": "",
+            }
+
             if code != 0:
                 METRICS.counter_inc("wfgy_step_failures_total", {"primitive": primitive, "code": str(code)})
                 print(f"[ERROR] Step {step_num} failed after {attempts} attempts. Code: {code}")
@@ -1012,7 +1065,6 @@ class Orchestrator:
                 if status_callback:
                     status_callback(step_num, "error", f"{translated_error} | Détails: {stderr.strip()}")
                 failed_steps.add(step_num)
-                step_end = time.perf_counter()
                 step_performance[step_num] = {
                     "step": step_num,
                     "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
@@ -1077,6 +1129,9 @@ class Orchestrator:
 
         run_end = time.perf_counter()
         total_duration_ms = int((run_end - run_start) * 1000)
+        flow_ctx["FLOW"]["end_time"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        flow_ctx["FLOW"]["total_duration_ms"] = str(total_duration_ms)
+        flow_ctx["FLOW"]["status"] = "success" if len(failed_steps) == 0 else "error"
 
         # Nettoyer le checkpoint si le run s'est terminé avec succès
         if len(failed_steps) == 0:

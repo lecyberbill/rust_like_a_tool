@@ -1378,7 +1378,8 @@ const primitiveCatalogData = {
         { name: "core.wait", label: "Attente (Retention Wait)", desc: "Pause l'exécution du workflow pendant une durée configurable.", args: { duration: "10" } },
         { name: "core.sub_flow", label: "Sous-flux de traitement", desc: "Exécute un ensemble d'étapes imbriquées comme sous-graphe.", args: { steps: [] } },
         { name: "core.loop", label: "Boucle d'itération", desc: "Itère sur des variables, fichiers ou lignes avec injection de contexte.", args: { loop_over: "variables", items_source: "", pattern: "*", max_age_hours: "", min_age_hours: "", min_size_mb: "", max_size_mb: "", steps: [] } },
-        { name: "core.switch", label: "Aiguillage Switch", desc: "Route l'exécution vers différents sous-graphes selon une valeur.", args: { value: "", cases: {} } }
+        { name: "core.switch", label: "Aiguillage Switch", desc: "Route l'exécution vers différents sous-graphes selon une valeur.", args: { value: "", cases: {} } },
+        { name: "flow.report", label: "Rapport d'exécution", desc: "Génère un rapport texte avec les métriques du flux (${STEPS.N.STATUS}, ${FLOW.TOTAL_DURATION_MS}, ...).", args: { template: "", destination: "" } }
     ]
 };
 
