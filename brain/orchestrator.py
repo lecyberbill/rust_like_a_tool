@@ -463,7 +463,7 @@ class Orchestrator:
 
         # 2. Contexte d'exécution pour résolution ${STEPS.*} et ${FLOW.*}
         run_start = time.perf_counter()
-        flow_ctx = {"STEPS": {}, "FLOW": {"start_time": time.strftime("%Y-%m-%dT%H:%M:%S")}}
+        flow_ctx = {"STEPS": {}, "FLOW": {"START_TIME": time.strftime("%Y-%m-%dT%H:%M:%S")}}
 
         step_events = {step.get("step"): asyncio.Event() for step in steps}
         failed_steps = set()
@@ -549,16 +549,19 @@ class Orchestrator:
                 step_events[step_num].set()
                 return False
 
-            # AUTO-RÉSOLUTION : source héritée du parent
+            # AUTO-RÉSOLUTION : source héritée du parent (uniquement si le schéma le supporte)
             if dep_list and not args.get("source"):
-                for parent_num in dep_list:
-                    parent_step = step_map.get(parent_num)
-                    if parent_step:
-                        parent_dest = parent_step.get("args", {}).get("destination", "")
-                        if parent_dest:
-                            args["source"] = parent_dest
-                            print(f"[ORCHESTRATOR] Étape {step_num}: source auto-résolue depuis l'étape {parent_num} → {parent_dest}")
-                            break
+                spec = self.validator.registry.get("primitives", {}).get(primitive, {})
+                params = spec.get("parameters", {}).get("properties", {})
+                if "source" in params:
+                    for parent_num in dep_list:
+                        parent_step = step_map.get(parent_num)
+                        if parent_step:
+                            parent_dest = parent_step.get("args", {}).get("destination", "")
+                            if parent_dest:
+                                args["source"] = parent_dest
+                                print(f"[ORCHESTRATOR] Étape {step_num}: source auto-résolue depuis l'étape {parent_num} → {parent_dest}")
+                                break
 
             # AUTO-GÉNÉRATION : destination si vide et si supporté par le schéma du registre
             if not args.get("destination"):
@@ -1048,14 +1051,14 @@ class Orchestrator:
             step_end = time.perf_counter()
             step_status = "success" if code == 0 else "error"
             flow_ctx["STEPS"][step_num] = {
-                "step": step_num,
-                "primitive": primitive,
-                "label": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
-                "duration_ms": int((step_end - step_start) * 1000),
-                "status": step_status,
-                "source": resolved_args.get("source", ""),
-                "destination": resolved_args.get("destination", ""),
-                "rows": "",
+                "STEP": step_num,
+                "PRIMITIVE": primitive,
+                "LABEL": step_item.get("ui", {}).get("label") or f"Étape {step_num}",
+                "DURATION_MS": int((step_end - step_start) * 1000),
+                "STATUS": step_status,
+                "SOURCE": resolved_args.get("source", ""),
+                "DESTINATION": resolved_args.get("destination", ""),
+                "ROWS": "",
             }
 
             if code != 0:
@@ -1129,9 +1132,9 @@ class Orchestrator:
 
         run_end = time.perf_counter()
         total_duration_ms = int((run_end - run_start) * 1000)
-        flow_ctx["FLOW"]["end_time"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-        flow_ctx["FLOW"]["total_duration_ms"] = str(total_duration_ms)
-        flow_ctx["FLOW"]["status"] = "success" if len(failed_steps) == 0 else "error"
+        flow_ctx["FLOW"]["END_TIME"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        flow_ctx["FLOW"]["TOTAL_DURATION_MS"] = str(total_duration_ms)
+        flow_ctx["FLOW"]["STATUS"] = "success" if len(failed_steps) == 0 else "error"
 
         # Nettoyer le checkpoint si le run s'est terminé avec succès
         if len(failed_steps) == 0:

@@ -1,0 +1,56 @@
+{
+  "plan_id": "stress_e2e_complex",
+  "intent_analysis": "Test E2E robuste : generate_fake → filter → metrics → flow.report → notify dry-run",
+  "steps": [
+    {
+      "step": 1, "primitive": "data.generate_fake",
+      "depends_on": [],
+      "ui": { "label": "Generate 50 profiles", "color": "#4A90E2", "position": { "x": 44, "y": 50 } },
+      "args": {
+        "columns": "id:id,first_name:first_name,last_name:last_name,email:email,age:integer,active:boolean,birth:date,code:pattern,salary:float",
+        "count": 50, "destination": "workspace/output/e2e_generated.csv", "format": "csv"
+      }
+    },
+    {
+      "step": 2, "primitive": "data.filter",
+      "depends_on": [1],
+      "ui": { "label": "Filter active only", "color": "#F5A623", "position": { "x": 300, "y": 50 } },
+      "args": { "column_name": "active", "operator": "equals", "value": "True", "has_headers": true }
+    },
+    {
+      "step": 3, "primitive": "data.metrics",
+      "depends_on": [2],
+      "ui": { "label": "Average salary", "color": "#7ED321", "position": { "x": 560, "y": 50 } },
+      "args": { "column_name": "salary", "operation": "mean", "destination_variable": "AVG_SALARY" }
+    },
+    {
+      "step": 4, "primitive": "data.metrics",
+      "depends_on": [2],
+      "ui": { "label": "Average age", "color": "#7ED321", "position": { "x": 560, "y": 180 } },
+      "args": { "column_name": "age", "operation": "mean", "destination_variable": "AVG_AGE" }
+    },
+    {
+      "step": 5, "primitive": "flow.report",
+      "depends_on": [3, 4],
+      "ui": { "label": "Generate report", "color": "#FF6B6B", "position": { "x": 820, "y": 50 } },
+      "args": {
+        "template": "ETL COMPLEX REPORT\nStart: ${FLOW.START_TIME}\nStatus: ${FLOW.STATUS}\n\nStep1 (Generate): ${STEPS.1.STATUS} - ${STEPS.1.DURATION_MS}ms\nStep2 (Filter): ${STEPS.2.STATUS} - ${STEPS.2.DURATION_MS}ms\nStep3 (Avg salary): ${STEPS.3.STATUS} - ${STEPS.3.DURATION_MS}ms\nStep4 (Avg age): ${STEPS.4.STATUS} - ${STEPS.4.DURATION_MS}ms\n\nTotal: ${FLOW.TOTAL_DURATION_MS}ms\nFile: ${STEPS.1.DESTINATION}",
+        "destination": "workspace/output/e2e_report.txt"
+      }
+    },
+    {
+      "step": 6, "primitive": "net.notify",
+      "depends_on": [5],
+      "ui": { "label": "Notify (dry-run)", "color": "#FF8C00", "position": { "x": 1080, "y": 50 } },
+      "args": {
+        "type": "email", "smtp_host": "localhost", "smtp_port": "1025",
+        "smtp_user": "", "smtp_pass": "", "to": "admin@test.com",
+        "subject": "ETL Report - ${FLOW.STATUS}",
+        "message": "Flow completed. See attachment.",
+        "attachment": "workspace/output/e2e_generated.csv",
+        "dry-run": "true"
+      }
+    }
+  ],
+  "env": { "dev": {}, "test": {}, "prod": {} }
+}

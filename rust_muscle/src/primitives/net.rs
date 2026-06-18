@@ -1281,7 +1281,7 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
     let mut url = None;
     let mut message = None;
     let mut attachment = None;
-
+    let mut dry_run = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -1385,6 +1385,10 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
                     ));
                 }
             }
+            "--dry-run" | "--dry_run" => {
+                dry_run = true;
+                i += 2;
+            }
             other => {
                 return Err(MuscleError::InvalidArg(format!(
                     "Unknown argument '{}'",
@@ -1419,6 +1423,9 @@ pub fn handle_net_notify(args: &[String]) -> Result<(), MuscleError> {
             if let Some(a) = attachment {
                 run_args.push("--attachment");
                 run_args.push(a);
+            }
+            if dry_run {
+                run_args.push("--dry-run");
             }
             run_notify_helper("email", &run_args)
         }
