@@ -38,6 +38,10 @@
         <div id="dashboard-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="toggle-logs-btn" onclick="openAuditTrailModal()" style="border-color: #c084fc; color: #c084fc;">📜 Journal d'Audit</button>
             <button class="toggle-logs-btn" onclick="openCreateWorkspaceModal()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">➕ Nouveau Flux</button>
+            <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()" style="position:static; width:auto; height:auto; background:none; border:1px solid var(--border); border-radius:6px; padding:6px 10px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                ⚙️
+            </button>
         </div>
     </header>
 
@@ -184,48 +188,6 @@
                 <button class="env-pod-btn active" data-env="dev" onclick="changeEnvPod('dev')">🛠️ DEV</button>
                 <button class="env-pod-btn" data-env="test" onclick="changeEnvPod('test')">🧪 TEST</button>
                 <button class="env-pod-btn" data-env="prod" onclick="changeEnvPod('prod')">🚀 PROD</button>
-            </div>
-
-            <!-- Floating Settings Gear Button (Bottom-Left side) -->
-            <button class="floating-settings-wheel" onclick="toggleSettingsDrawer()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            </button>
-
-            <!-- Settings Drawer (Bottom-Left Panel) -->
-            <div id="settings-drawer">
-                <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px; margin-bottom: 16px;">Configuration IA</h4>
-                
-                <div class="settings-input-group">
-                    <label>Moteur LLM (Provider)</label>
-                    <select id="setting-provider" class="settings-select" onchange="updateSettingsModelOptions()">
-                        <option value="openai_compatible">Local (LM Studio / Ollama)</option>
-                        <option value="gemini">API Cloud (Gemini)</option>
-                    </select>
-                </div>
-
-                <div class="settings-input-group">
-                    <label>Modèle Cible (Model ID)</label>
-                    <select id="setting-model" class="settings-select">
-                        <!-- Filled dynamically -->
-                    </select>
-                </div>
-
-                <div class="settings-input-group">
-                    <label>URL du Serveur Local (Base URL)</label>
-                    <input type="text" id="setting-base-url" class="editor-input" style="background: rgba(0, 0, 0, 0.3);" value="http://localhost:1234/v1">
-                </div>
-
-                <hr style="border-color:var(--border);margin:16px 0;">
-                <h4 style="font-weight:800;color:#c084fc;text-transform:uppercase;font-size:0.85rem;letter-spacing:0.5px;margin-bottom:12px;">Administration</h4>
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                    <button class="toggle-logs-btn" id="admin-btn" onclick="openAdminPanel()" style="display:none;border-color:#c084fc;color:#c084fc;justify-content:center;">👥 Gestion des utilisateurs</button>
-                    <button class="toggle-logs-btn" onclick="openVersionsModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">📋 Historique des versions</button>
-                    <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">🔔 Configuration notifications</button>
-                </div>
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-                    <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
-                    <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
-                </div>
             </div>
 
             <!-- Bottom-Right Floating Prompt Trigger Bubble -->
@@ -786,6 +748,43 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
                 <button class="toggle-logs-btn" onclick="closeFakeGenEditor()" style="border-color: transparent;">Annuler</button>
                 <button class="toggle-logs-btn" onclick="applyFakeGen()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; font-weight: 800; box-shadow: 0 4px 12px var(--accent-glow);">💾 Appliquer</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Settings Drawer (Global) -->
+    <div id="settings-drawer">
+        <h4 style="font-weight: 800; color: var(--accent); text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.5px; margin-bottom: 16px;">Configuration IA</h4>
+        
+        <div class="settings-input-group">
+            <label>Moteur LLM (Provider)</label>
+            <select id="setting-provider" class="settings-select" onchange="updateSettingsModelOptions()">
+                <option value="openai_compatible">Local (LM Studio / Ollama)</option>
+                <option value="gemini">API Cloud (Gemini)</option>
+            </select>
+        </div>
+
+        <div class="settings-input-group">
+            <label>Modèle Cible (Model ID)</label>
+            <select id="setting-model" class="settings-select">
+                <!-- Filled dynamically -->
+            </select>
+        </div>
+
+        <div class="settings-input-group">
+            <label>URL du Serveur Local (Base URL)</label>
+            <input type="text" id="setting-base-url" class="editor-input" style="background: rgba(0, 0, 0, 0.3);" value="http://localhost:1234/v1">
+        </div>
+
+        <hr style="border-color:var(--border);margin:16px 0;">
+        <h4 style="font-weight:800;color:#c084fc;text-transform:uppercase;font-size:0.85rem;letter-spacing:0.5px;margin-bottom:12px;">Administration</h4>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+            <button class="toggle-logs-btn" id="admin-btn" onclick="openAdminPanel()" style="display:none;border-color:#c084fc;color:#c084fc;justify-content:center;">👥 Gestion des utilisateurs</button>
+            <button class="toggle-logs-btn" onclick="openVersionsModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">📋 Historique des versions</button>
+            <button class="toggle-logs-btn" id="notif-config-btn" onclick="openNotifConfigModal()" style="border-color:#c084fc;color:#c084fc;justify-content:center;">🔔 Configuration notifications</button>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <button class="toggle-logs-btn" onclick="toggleSettingsDrawer()" style="border-color: transparent;">Fermer</button>
+            <button class="toggle-logs-btn" onclick="saveSettings()" style="background: linear-gradient(135deg, var(--accent) 0%, rgba(0,240,255,0.6) 100%); color: #000; border: none; box-shadow: 0 4px 12px var(--accent-glow); font-weight: 800;">💾 Appliquer</button>
         </div>
     </div>
 
