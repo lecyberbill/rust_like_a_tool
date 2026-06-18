@@ -1071,12 +1071,19 @@ class Orchestrator:
                 step_events[step_num].set()
                 return loop_success
 
-            # 3. Injection des valeurs par défaut du registre
+            # 3. Injection des valeurs par défaut du registre + conversion de types
             prim_spec = self.validator.registry.get("primitives", {}).get(primitive, {})
             param_specs = prim_spec.get("parameters", {}).get("properties", {})
             for pname, pspec in param_specs.items():
                 if pname not in args and "default" in pspec:
                     args[pname] = pspec["default"]
+                # Convertir les strings en types natifs pour la validation jsonschema
+                if pname in args and isinstance(args[pname], str):
+                    ptype = pspec.get("type")
+                    if ptype == "boolean":
+                        args[pname] = args[pname].lower() in ("true", "1", "yes")
+                    elif ptype == "integer" and args[pname].lstrip('-').isdigit():
+                        args[pname] = int(args[pname])
 
             # 4. Validation de l'étape de recette
             is_valid, err_msg = self.validator.validate_step(primitive, args)

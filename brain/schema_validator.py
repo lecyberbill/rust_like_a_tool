@@ -45,6 +45,11 @@ class SchemaValidator:
                 expected_type = properties[key].get("type")
                 if expected_type == "string" and not isinstance(val, str):
                     return False, f"Parameter '{key}' should be a string, got {type(val).__name__}"
+                # Accepter les strings pour boolean (frontend envoie des strings)
+                if expected_type == "boolean" and isinstance(val, str) and val.lower() in ("true", "false"):
+                    continue
+                if expected_type == "integer" and isinstance(val, str) and val.lstrip('-').isdigit():
+                    continue
                 
                 enum_vals = properties[key].get("enum")
                 if enum_vals and val not in enum_vals:
