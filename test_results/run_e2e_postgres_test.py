@@ -9,7 +9,7 @@ import asyncio
 from pathlib import Path
 
 # Add brain directory to python path
-sys.path.append(str(Path(__file__).parent / "brain"))
+sys.path.append(str(Path(__file__).parent.parent / "brain"))
 
 from orchestrator import load_env, Orchestrator
 from planner import RecipePlanner
