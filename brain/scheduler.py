@@ -475,6 +475,50 @@ async def handle_http_request(reader, writer):
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
+                # ── Templates de flux ────────────────────────────
+                elif clean_path == "/api/templates" and method == "GET":
+                    try:
+                        tpl_dir = Path(__file__).parent / "templates"
+                        templates = []
+                        if tpl_dir.exists():
+                            for f in sorted(tpl_dir.glob("*.json")):
+                                try:
+                                    tpl = json.loads(f.read_text(encoding="utf-8"))
+                                    templates.append({"id": tpl.get("template_id", f.stem), "name": tpl.get("name", f.stem), "description": tpl.get("description", ""), "variables": tpl.get("variables", [])})
+                                except: pass
+                        resp_body = json.dumps(templates)
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path == "/api/templates/instantiate" and method == "POST":
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        data = json.loads(body_data)
+                        tpl_id = data.get("template_id", "")
+                        variables = data.get("variables", {})
+                        tpl_path = Path(__file__).parent / "templates" / f"{tpl_id}.json"
+                        if not tpl_path.exists():
+                            resp_body = json.dumps({"error": f"Template '{tpl_id}' not found"})
+                        else:
+                            tpl = json.loads(tpl_path.read_text(encoding="utf-8"))
+                            recipe = {"plan_id": f"from_template_{tpl_id}", "intent_analysis": f"Template: {tpl.get('name', '')}", "steps": tpl.get("steps", []), "env": {"dev": {}, "test": {}, "prod": {}}}
+                            # Substitution des variables dans les steps
+                            def _sub(val):
+                                if isinstance(val, str):
+                                    for k, v in variables.items():
+                                        val = val.replace("${"+k+"}", str(v))
+                                return val
+                            for step in recipe["steps"]:
+                                for ak, av in step.get("args", {}).items():
+                                    step["args"][ak] = _sub(av)
+                            resp_body = json.dumps({"ok": True, "recipe": recipe})
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
                 elif clean_path.count("/") == 4 and clean_path.endswith("/notif-config") and method == "GET":
                     ws_id = clean_path.split("/")[2]
                     try:

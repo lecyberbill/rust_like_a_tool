@@ -1,0 +1,14 @@
+{
+  "template_id": "monitoring_alert",
+  "name": "Alerte par email sur échec de flux",
+  "description": "Surveille un répertoire et envoie une alerte email si un fichier est détecté.",
+  "variables": [
+    {"key": "WATCH_DIR", "label": "Dossier à surveiller", "default": "test_results/inbox"},
+    {"key": "SMTP_TO", "label": "Destinataire de l'alerte", "default": "admin@example.com"},
+    {"key": "SMTP_HOST", "label": "Serveur SMTP", "default": "${SECRET_SMTP_HOST}"}
+  ],
+  "steps": [
+    {"step": 1, "primitive": "io.copy", "depends_on": [], "args": {"source": "${WATCH_DIR}/report.csv", "destination": "workspace/output/alert_data.csv"}},
+    {"step": 2, "primitive": "net.notify", "depends_on": [1], "args": {"type": "email", "smtp_host": "${SMTP_HOST}", "smtp_port": "587", "smtp_user": "", "smtp_pass": "", "to": "${SMTP_TO}", "subject": "Fichier detecte", "message": "Un fichier a ete detecte dans ${WATCH_DIR}.", "attachment": ""}}
+  ]
+}

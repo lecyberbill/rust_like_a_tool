@@ -1,0 +1,16 @@
+{
+  "template_id": "csv_import_clean_db",
+  "name": "Import CSV → Nettoyage → Base de données",
+  "description": "Importe, nettoie, déduplique et insère dans une base SQL.",
+  "variables": [
+    {"key": "CSV_PATH", "label": "Chemin du fichier CSV source", "default": ""},
+    {"key": "DB_CONNECTION", "label": "Chaîne de connexion SQL", "default": "${SECRET_DB_URL}"},
+    {"key": "DB_TABLE", "label": "Nom de la table cible", "default": "imported_data"}
+  ],
+  "steps": [
+    {"step": 1, "primitive": "io.copy", "depends_on": [], "args": {"source": "${CSV_PATH}", "destination": "workspace/output/raw.csv"}},
+    {"step": 2, "primitive": "data.deduplicate", "depends_on": [1], "args": {"source": "", "destination": "workspace/output/cleaned.csv", "subset": ""}},
+    {"step": 3, "primitive": "data.profile", "depends_on": [2], "args": {"source": "", "destination": "workspace/output/profile.json"}},
+    {"step": 4, "primitive": "db.insert", "depends_on": [2], "args": {"connection_string": "${DB_CONNECTION}", "table_name": "${DB_TABLE}", "source": "", "mode": "replace"}}
+  ]
+}

@@ -504,6 +504,41 @@ function showToast(message, type = 'info') {
     setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
 }
 
+// ── Template Gallery ──────────────────────────────────────────
+async function openTemplateGallery() {
+    const container = document.getElementById('template-list');
+    if (!container) return;
+    document.getElementById('template-modal').style.display = 'flex';
+    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;">Chargement...</div>';
+    try {
+        const r = await fetch('/api/templates');
+        const templates = await r.json();
+        if (!templates || templates.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:30px;">Aucun gabarit disponible.</div>';
+            return;
+        }
+        container.innerHTML = templates.map(t => {
+            const vars = (t.variables || []).map(v => `<div style="font-size:0.8rem;color:var(--text-muted);margin:2px 0;">${v.label}: <input type="text" id="tpl-var-${t.id}-${v.key}" value="${v.default}" placeholder="${v.key}" style="width:120px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--text);font-size:0.75rem;margin-left:6px;"></div>`).join('');
+            return `<div style="border:1px solid var(--border);border-radius:8px;padding:14px;"><div style="font-weight:700;color:var(--success);font-size:0.95rem;">${t.name}</div><div style="font-size:0.8rem;color:var(--text-muted);margin:6px 0;">${t.description}</div>${vars}<button class="toggle-logs-btn" onclick="instantiateTemplate('${t.id}')" style="margin-top:8px;background:linear-gradient(135deg,var(--success) 0%,rgba(0,255,102,0.6) 100%);color:#000;border:none;font-weight:800;padding:6px 16px;">➕ Creer le flux</button></div>`;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div style="color:var(--error);text-align:center;padding:30px;">Erreur: ' + e.message + '</div>';
+    }
+}
+function closeTemplateGallery() { document.getElementById('template-modal').style.display = 'none'; }
+async function instantiateTemplate(tplId) {
+    const vars = {};
+    document.querySelectorAll(`[id^="tpl-var-${tplId}-"]`).forEach(el => {
+        vars[el.id.replace(`tpl-var-${tplId}-`, '')] = el.value;
+    });
+    try {
+        const r = await fetch('/api/templates/instantiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template_id: tplId, variables: vars }) });
+        const data = await r.json();
+        if (data.recipe) { currentRecipe = data.recipe; renderNodes(getCurrentStepList()); addLog('Gabarit "' + tplId + '" instancie.', 'success'); closeTemplateGallery(); }
+        else showToast('Erreur: ' + (data.error || 'inconnue'), 'error');
+    } catch (e) { showToast('Erreur: ' + e.message, 'error'); }
+}
+
 // ── Notification Config ─────────────────────────────────────
 function toggleNotifType() {
     const t = document.getElementById('notif-type').value;
@@ -1378,7 +1413,7 @@ const primitiveCatalogData = {
         { name: "data.lookup", label: "Jointure dictionnaire", desc: "Enrichit le dataset principal par jointure gauche avec un référentiel.", args: { source: "", lookup_file: "", source_key: "", lookup_key: "", lookup_value: "", destination: "" } },
         { name: "data.deduplicate", label: "Supprimer les doublons", desc: "Supprime les lignes dupliquées basées sur des colonnes clés.", args: { source: "", destination: "", subset: "", keep: "first" } },
         { name: "data.anonymize", label: "Masquage / RGPD", desc: "Anonymise les colonnes sensibles (PII) par hash, masquage ou remplacement (format: col1:strategy1,col2:strategy2).", args: { source: "", destination: "", rules: "" } },
-        { name: "data.profile", label: "Profil de données", desc: "Statistiques (min, max, mean, nulls, distribution) sur un dataset.", args: { source: "", destination: "" } },
+        { name: "data.schema_check", label: "Vérification de schéma", desc: "Compare le schéma d'un dataset à un schéma attendu et alerte en cas de dérive.", args: { source: "", expected_schema: "", destination: "" } },
         { name: "data.pivot", label: "Pivoter (format large)", desc: "Pivote une table du format long au format large (lignes en colonnes).", args: { source: "", destination: "", index: "", on: "", values: "", aggregate: "sum" } },
         { name: "data.unpivot", label: "Dépivoter (format long)", desc: "Dépivote une table du format large au format long (colonnes en lignes).", args: { source: "", destination: "", index: "", on: "", variable_name: "variable", value_name: "value" } },
         { name: "data.xml_transform", label: "Transformer XML (XSLT)", desc: "Applique une transformation XSLT sur un fichier XML source.", args: { source: "", stylesheet: "", destination: "" } },

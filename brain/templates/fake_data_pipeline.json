@@ -1,0 +1,14 @@
+{
+  "template_id": "fake_data_pipeline",
+  "name": "Génération de données factices → Filtrage → Rapport",
+  "description": "Génère des données fictives, les filtre et produit un rapport.",
+  "variables": [
+    {"key": "ROW_COUNT", "label": "Nombre de lignes", "default": "100"},
+    {"key": "NOTIFY_EMAIL", "label": "Email de notification", "default": "admin@example.com"}
+  ],
+  "steps": [
+    {"step": 1, "primitive": "data.generate_fake", "depends_on": [], "args": {"columns": "id:id,first_name:first_name,last_name:last_name,email:email,age:integer", "count": "${ROW_COUNT}", "format": "csv"}},
+    {"step": 2, "primitive": "data.filter", "depends_on": [1], "args": {"column_name": "age", "operator": "greater_than", "value": "18", "has_headers": true}},
+    {"step": 3, "primitive": "flow.report", "depends_on": [2], "args": {"template": "Pipeline termine\nGenere: ${STEPS.1.STATUS}\nFiltre: ${STEPS.2.STATUS}", "destination": "workspace/output/report.txt"}}
+  ]
+}

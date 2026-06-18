@@ -464,6 +464,7 @@ class Orchestrator:
         # 2. Contexte d'exécution pour résolution ${STEPS.*} et ${FLOW.*}
         run_start = time.perf_counter()
         flow_ctx = {"STEPS": {}, "FLOW": {"START_TIME": time.strftime("%Y-%m-%dT%H:%M:%S")}}
+        sandbox_mode = recipe_data.get("sandbox", False) or "--sandbox" in sys.argv
 
         step_events = {step.get("step"): asyncio.Event() for step in steps}
         failed_steps = set()
@@ -666,6 +667,33 @@ class Orchestrator:
                 if status_callback: status_callback(step_num, status, "")
                 step_events[step_num].set()
                 return profile_ok
+
+            # data.schema_check — vérifie la conformité du schéma
+            if primitive == "data.schema_check":
+                resolved_args = self.resolve_secrets(args, local_env, target_env, flow_ctx)
+                source = resolved_args.get("source", "")
+                expected = resolved_args.get("expected_schema", "")
+                dest = resolved_args.get("destination", "")
+                check_ok = True
+                if source and expected:
+                    import subprocess
+                    python = Path(".venv/Scripts/python.exe") if (Path(__file__).parent.parent / ".venv/Scripts/python.exe").exists() else "python"
+                    try:
+                        r = subprocess.run([str(python), "brain/schema_check_helper.py", source, expected, dest], capture_output=True, text=True, timeout=60)
+                        if r.returncode != 0:
+                            print(f"[SCHEMA_DRIFT] {r.stderr.strip()}"); check_ok = False
+                        else:
+                            print(r.stdout)
+                    except Exception as e:
+                        print(f"[ERROR] data.schema_check exception: {e}"); check_ok = False
+                step_end = time.perf_counter()
+                status = "success" if check_ok else "error"
+                step_performance[step_num] = {"step": step_num, "label": step_item.get("ui",{}).get("label") or f"Schema {step_num}", "duration_ms": int((step_end-step_start)*1000), "status": status}
+                if status == "success": completed_steps.add(step_num); save_current_checkpoint()
+                else: failed_steps.add(step_num)
+                if status_callback: status_callback(step_num, status, "Schema OK" if check_ok else "Schema drift detected")
+                step_events[step_num].set()
+                return check_ok
 
             # Gestion spécifique de core.condition (Orchestration logique récursive)
             if primitive == "core.condition":
@@ -1064,11 +1092,14 @@ class Orchestrator:
             if stdout.strip():
                 # data.generate_fake : matérialiser le stdout dans le destination pour le pipeline
                 if primitive == "data.generate_fake" and code == 0:
-                    dest = resolved_args.get("destination", "")
-                    if dest:
-                        Path(dest).parent.mkdir(parents=True, exist_ok=True)
-                        Path(dest).write_bytes(stdout.encode("utf-8"))
-                        print(f"[ORCHESTRATOR] Étape {step_num}: données générées matérialisées → {dest}")
+                    if sandbox_mode:
+                        print(f"[SANDBOX] (Step {step_num}): Données générées (non matérialisées)")
+                    else:
+                        dest = resolved_args.get("destination", "")
+                        if dest:
+                            Path(dest).parent.mkdir(parents=True, exist_ok=True)
+                            Path(dest).write_bytes(stdout.encode("utf-8"))
+                            print(f"[ORCHESTRATOR] Étape {step_num}: données générées matérialisées → {dest}")
                 print(f"[RUST STDOUT] (Step {step_num}):\n{stdout.strip()}")
             if stderr.strip():
                 print(f"[RUST STDERR] (Step {step_num}):\n{stderr.strip()}")

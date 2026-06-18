@@ -52,6 +52,10 @@
         "smtp_to": "a@b.com",
         "webhook_url": ""
       }
+    },
+    "test_promote": {
+      "name": "Test Promote",
+      "recipe_file": "history_recipes/test_promote.json"
     }
   }
 }

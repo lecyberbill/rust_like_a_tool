@@ -37,3 +37,6 @@ brain/workspace/
 brain/vaults/
 brain/users.db
 
+
+brain/history_recipes/versions/*.json
+brain/notif_config.json
