@@ -11,6 +11,14 @@ try {
 let AUTH_TOKEN = localStorage.getItem('auth_token') || '';
 let AUTH_MODE = 'login'; // 'login' | 'register'
 
+function getJwtPayload() {
+    if (!AUTH_TOKEN) return null;
+    try {
+        const body = AUTH_TOKEN.split('.')[1];
+        return JSON.parse(atob(body.replace(/-/g, '+').replace(/_/g, '/')));
+    } catch (e) { return null; }
+}
+
 function addLog(message, type = 'info') {
     const logsDiv = document.getElementById('logs');
     if (!logsDiv) return;
@@ -239,12 +247,9 @@ async function authSubmit() {
         }
         AUTH_TOKEN = data.token;
         localStorage.setItem('auth_token', AUTH_TOKEN);
-        localStorage.setItem('auth_role', data.role || '');
         document.getElementById('auth-modal').style.display = 'none';
         document.getElementById('logout-btn').style.display = 'inline-flex';
-        if (data.role === 'admin') {
-            document.getElementById('admin-btn').style.display = 'inline-flex';
-        }
+        document.getElementById('admin-btn').style.display = 'inline-flex';
         initWebSocket();
     } catch (e) {
         errDiv.textContent = 'Erreur de connexion au serveur.';
@@ -255,7 +260,6 @@ async function authSubmit() {
 function logout() {
     AUTH_TOKEN = '';
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_role');
     document.getElementById('auth-username').value = '';
     document.getElementById('auth-password').value = '';
     document.getElementById('logout-btn').style.display = 'none';
@@ -1734,10 +1738,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initPrimitivesCatalog();
     if (AUTH_TOKEN) {
         initWebSocket();
-        if (localStorage.getItem('auth_role') === 'admin') {
-            const adminBtn = document.getElementById('admin-btn');
-            if (adminBtn) adminBtn.style.display = 'inline-flex';
-        }
+        document.getElementById('admin-btn').style.display = 'inline-flex';
     } else {
         checkAuthStatus();
     }
