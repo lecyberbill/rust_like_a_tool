@@ -937,13 +937,19 @@ pub fn handle_generate_fake(args: &[String]) -> Result<(), MuscleError> {
                 }
             }
             other => {
-                return Err(MuscleError::InvalidArg(format!("Unknown argument '{}'", other)));
+                return Err(MuscleError::InvalidArg(format!(
+                    "Unknown argument '{}'",
+                    other
+                )));
             }
         }
     }
 
-    let columns = columns.ok_or_else(|| MuscleError::MissingArg("Missing required argument --columns".to_string()))?;
-    let count = count.ok_or_else(|| MuscleError::MissingArg("Missing required argument --count".to_string()))?;
+    let columns = columns.ok_or_else(|| {
+        MuscleError::MissingArg("Missing required argument --columns".to_string())
+    })?;
+    let count = count
+        .ok_or_else(|| MuscleError::MissingArg("Missing required argument --count".to_string()))?;
 
     run_fake_gen_helper(columns, count, destination.map(|x| x.as_str()), &format)
 }
@@ -979,9 +985,7 @@ fn run_fake_gen_helper(
         }
         c.output()
     }
-        .map_err(|e| {
-            MuscleError::IoError(format!("Failed to start Python fake_gen_helper: {}", e))
-        })?;
+    .map_err(|e| MuscleError::IoError(format!("Failed to start Python fake_gen_helper: {}", e)))?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
