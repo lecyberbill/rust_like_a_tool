@@ -730,6 +730,59 @@ Appuyez sur Entrée ou cliquez sur 'Soumettre' pour planifier."></textarea>
         </div>
     </div>
 
+    <!-- Modal Notification par Workspace -->
+    <div id="ws-notif-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.9); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="modal-content" style="width: min(500px, 90vw); text-align: left; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+                <h4 style="color: #c084fc; margin: 0; font-weight: 800;">🔔 Notification du flux</h4>
+                <button class="toggle-logs-btn" onclick="closeWorkspaceNotif()">✖</button>
+            </div>
+            <div id="ws-notif-workspace-name" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;"></div>
+            <div class="editor-checkbox-group" style="margin-bottom:16px;">
+                <input type="checkbox" id="ws-notif-enabled">
+                <label for="ws-notif-enabled">Activer les notifications pour ce flux</label>
+            </div>
+            <div class="settings-input-group" style="margin-bottom:10px;">
+                <label>Hôte SMTP</label>
+                <input type="text" id="ws-notif-smtp-host" class="editor-input" placeholder="smtp.example.com" style="width:100%;">
+            </div>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <div class="settings-input-group" style="flex:1;">
+                    <label>Port</label>
+                    <input type="text" id="ws-notif-smtp-port" class="editor-input" placeholder="587" style="width:100%;">
+                </div>
+                <div class="settings-input-group" style="flex:1;">
+                    <label>Utilisateur</label>
+                    <input type="text" id="ws-notif-smtp-user" class="editor-input" placeholder="user@example.com" style="width:100%;">
+                </div>
+            </div>
+            <div class="settings-input-group" style="margin-bottom:10px;">
+                <label>Mot de passe</label>
+                <input type="password" id="ws-notif-smtp-pass" class="editor-input" placeholder="••••••••" style="width:100%;">
+            </div>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <div class="settings-input-group" style="flex:1;">
+                    <label>Expéditeur (From)</label>
+                    <input type="text" id="ws-notif-smtp-from" class="editor-input" placeholder="alerts@example.com" style="width:100%;">
+                </div>
+                <div class="settings-input-group" style="flex:1;">
+                    <label>Destinataire (To)</label>
+                    <input type="text" id="ws-notif-smtp-to" class="editor-input" placeholder="admin@example.com" style="width:100%;">
+                </div>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <div class="settings-input-group">
+                    <label>URL Webhook</label>
+                    <input type="text" id="ws-notif-webhook-url" class="editor-input" placeholder="https://hooks.example.com/alert" style="width:100%;">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="toggle-logs-btn" onclick="testWorkspaceNotif()" style="border-color:var(--accent);color:var(--accent);">Tester</button>
+                <button class="toggle-logs-btn" onclick="saveWorkspaceNotif()" style="background:linear-gradient(135deg,var(--accent) 0%,rgba(0,240,255,0.6) 100%);color:#000;border:none;font-weight:800;">💾 Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Générateur de Données Factices -->
     <div id="fakegen-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(11, 15, 25, 0.85); backdrop-filter: blur(16px); z-index: 130; align-items: center; justify-content: center;">
         <div class="modal-content" style="width: min(700px, 92vw); max-height: 85vh; display: flex; flex-direction: column; padding: 24px;">

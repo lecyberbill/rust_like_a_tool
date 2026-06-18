@@ -445,6 +445,29 @@ async def handle_http_request(reader, writer):
                     resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
                     writer.write(resp.encode('utf-8'))
                     await writer.drain()
+                # ── Per-workspace notification config ────────────
+                elif clean_path.count("/") == 4 and clean_path.endswith("/notif-config") and method == "GET":
+                    ws_id = clean_path.split("/")[2]
+                    try:
+                        from notifications import load_workspace_config
+                        resp_body = json.dumps(load_workspace_config(ws_id))
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
+                elif clean_path.count("/") == 4 and clean_path.endswith("/notif-config") and method == "POST":
+                    ws_id = clean_path.split("/")[2]
+                    body_data = message.split("\r\n\r\n", 1)[1] if "\r\n\r\n" in message else "{}"
+                    try:
+                        from notifications import save_workspace_config
+                        data = json.loads(body_data)
+                        resp_body = json.dumps(save_workspace_config(ws_id, data))
+                    except Exception as e:
+                        resp_body = json.dumps({"error": str(e)})
+                    resp = f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {len(resp_body.encode('utf-8'))}\r\nConnection: close\r\n\r\n{resp_body}"
+                    writer.write(resp.encode('utf-8'))
+                    await writer.drain()
                 elif clean_path == "/metrics":
                     body = METRICS.render()
                     resp = (

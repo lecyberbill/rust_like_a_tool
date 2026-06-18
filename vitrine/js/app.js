@@ -1286,6 +1286,7 @@ function updateWorkspacesList(activeId, workspaces) {
             <td style="text-align: right; gap: 6px; display: flex; justify-content: flex-end; align-items: center; border-bottom: none; padding-top: 8px; padding-bottom: 8px;">
                 <button class="toggle-logs-btn" onclick="openWorkspace('${id}')" style="background: rgba(0,240,255,0.05); color: var(--accent); border-color: rgba(0,240,255,0.2);">🛠️ Ouvrir</button>
                 <button class="toggle-logs-btn" onclick="configureTrigger('${id}')" style="background: rgba(245,158,11,0.05); color: var(--running); border-color: rgba(245,158,11,0.2);">⚙️ Déclencheur</button>
+                <button class="toggle-logs-btn" onclick="openWorkspaceNotif('${id}')" style="background: rgba(192,132,252,0.05); color: #c084fc; border-color: rgba(192,132,252,0.2);">🔔</button>
                 <button class="toggle-logs-btn" onclick="renameWorkspace('${id}', '${w.name}')" style="background: rgba(255,255,255,0.02);">✏️</button>
                 <button class="toggle-logs-btn" onclick="deleteWorkspace('${id}')" style="background: rgba(239,68,68,0.05); color: var(--error); border-color: rgba(239,68,68,0.2);">🗑️</button>
             </td>
@@ -1581,6 +1582,91 @@ function addPrimitiveNode(primitiveName, label, defaultArgs) {
     
     renderNodes(steps);
     addLog(`Nœud '${newStep.ui.label}' ajouté manuellement.`, 'success');
+}
+
+// ── Per-Workspace Notifications ──────────────────────────────
+let _notifWsId = null;
+
+async function openWorkspaceNotif(wsId) {
+    _notifWsId = wsId;
+    const modal = document.getElementById('ws-notif-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    const workspaces = typeof localWorkspaces !== 'undefined' ? localWorkspaces : {};
+    const name = workspaces[wsId]?.name || wsId;
+    document.getElementById('ws-notif-workspace-name').textContent = 'Flux : ' + name;
+    try {
+        const r = await fetch(`/api/workspace/${wsId}/notif-config`);
+        const c = await r.json();
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        document.getElementById('ws-notif-enabled').checked = c.enabled === true || c.enabled === 'true';
+        set('ws-notif-smtp-host', c.smtp_host);
+        set('ws-notif-smtp-port', c.smtp_port);
+        set('ws-notif-smtp-user', c.smtp_user);
+        set('ws-notif-smtp-pass', c.smtp_pass);
+        set('ws-notif-smtp-from', c.smtp_from);
+        set('ws-notif-smtp-to', c.smtp_to);
+        set('ws-notif-webhook-url', c.webhook_url);
+    } catch (e) {
+        addLog('Erreur chargement notification du flux.', 'error');
+    }
+}
+
+function closeWorkspaceNotif() {
+    document.getElementById('ws-notif-modal').style.display = 'none';
+    _notifWsId = null;
+}
+
+async function saveWorkspaceNotif() {
+    if (!_notifWsId) return;
+    const config = {
+        enabled: document.getElementById('ws-notif-enabled').checked,
+        smtp_host: document.getElementById('ws-notif-smtp-host').value,
+        smtp_port: document.getElementById('ws-notif-smtp-port').value,
+        smtp_user: document.getElementById('ws-notif-smtp-user').value,
+        smtp_pass: document.getElementById('ws-notif-smtp-pass').value,
+        smtp_from: document.getElementById('ws-notif-smtp-from').value,
+        smtp_to: document.getElementById('ws-notif-smtp-to').value,
+        webhook_url: document.getElementById('ws-notif-webhook-url').value
+    };
+    try {
+        const r = await fetch(`/api/workspace/${_notifWsId}/notif-config`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        const data = await r.json();
+        if (data.ok) addLog('Notification du flux sauvegardée.', 'success');
+        else addLog('Erreur: ' + (data.error || 'inconnue'), 'error');
+    } catch (e) {
+        addLog('Erreur réseau: ' + e.message, 'error');
+    }
+    closeWorkspaceNotif();
+}
+
+async function testWorkspaceNotif() {
+    if (!_notifWsId) return;
+    const config = {
+        smtp_host: document.getElementById('ws-notif-smtp-host').value,
+        smtp_port: document.getElementById('ws-notif-smtp-port').value,
+        smtp_user: document.getElementById('ws-notif-smtp-user').value,
+        smtp_pass: document.getElementById('ws-notif-smtp-pass').value,
+        smtp_from: document.getElementById('ws-notif-smtp-from').value,
+        smtp_to: document.getElementById('ws-notif-smtp-to').value,
+        webhook_url: document.getElementById('ws-notif-webhook-url').value
+    };
+    try {
+        const r = await fetch('/api/notif/test', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        if (!r.ok) { showToast('Erreur HTTP ' + r.status, 'error'); return; }
+        const data = await r.json();
+        const msg = 'Email: ' + (data.email || 'N/A') + ' | Webhook: ' + (data.webhook || 'N/A');
+        addLog(msg, 'info');
+        showToast(msg, data.email === 'OK' || data.webhook === 'OK' ? 'success' : 'warning');
+    } catch (e) {
+        showToast('Erreur: ' + e.message, 'error');
+    }
 }
 
 // ── Fake Gen Editor ────────────────────────────────────────────
